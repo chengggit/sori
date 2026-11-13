@@ -1,9 +1,11 @@
 <script lang="ts">
-  import { onMount } from "svelte";
-  import { ExternalLink, Play, RefreshCw, Search } from "@lucide/svelte";
+  import { onMount, tick } from "svelte";
+  import { ExternalLink, Link, Play, RefreshCw, Search, X } from "@lucide/svelte";
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
   import * as Sidebar from "$lib/components/ui/sidebar";
+  import * as Sheet from "$lib/components/ui/sheet";
+  import { trackPlayback } from "$lib/features/dashboard/playback";
   import { parseYouTubeLink, searchYouTube, type YouTubeVideo } from "$lib/features/dashboard/youtube";
 
   const key = import.meta.env.VITE_YOUTUBE_API_KEY?.trim();
@@ -22,7 +24,11 @@
   let searchError = $state("");
   let loading = $state(false);
   let videos = $state<YouTubeVideo[]>([]);
-  let selected = $state<{ id: string; title: string }>();
+  type Playback = { id: string; title: string; seconds: number };
+  const historyKey = "sori-youtube-progress";
+  let selected = $state<Playback>();
+  let history = $state<Playback>();
+  let linkOpen = $state(false);
   let player = $state<HTMLElement>();
   let searchInput = $state<HTMLInputElement | null>(null);
   let request: AbortController | undefined;
@@ -30,6 +36,19 @@
   let tooltipTimer: ReturnType<typeof setTimeout> | undefined;
 
   onMount(() => {
+    try {
+      const saved = JSON.parse(localStorage.getItem(historyKey) ?? "null");
+      if (
+        saved &&
+        /^[\w-]{11}$/.test(saved.id) &&
+        typeof saved.title === "string" &&
+        Number.isFinite(saved.seconds) &&
+        saved.seconds > 0
+      )
+        history = saved;
+    } catch {
+      // Playback remains available if local storage is unavailable.
+    }
     if (key) void loadVideos();
     return () => request?.abort();
   });
@@ -67,9 +86,22 @@
     void loadVideos(discoveryTopics[topicIndex]);
   }
 
-  function openVideo(id: string, title: string) {
-    selected = { id, title };
+  async function openVideo(id: string, title: string) {
+    if (selected?.id !== id)
+      selected = { id, title, seconds: history?.id === id ? history.seconds : 0 };
+    await tick();
     player?.scrollIntoView({ block: "start" });
+  }
+
+  function saveProgress(video: Playback, seconds: number) {
+    if (seconds === 0 && history?.id !== video.id) return;
+    history = seconds > 0 ? { ...video, seconds } : undefined;
+    try {
+      if (history) localStorage.setItem(historyKey, JSON.stringify(history));
+      else localStorage.removeItem(historyKey);
+    } catch {
+      // Keep the current session's progress in memory.
+    }
   }
 
   function startTitleTooltip(id: string) {
@@ -93,7 +125,11 @@
   function openLink() {
     const id = parseYouTubeLink(link);
     linkError = id ? "" : "Enter a valid YouTube video link.";
-    if (id) openVideo(id, "YouTube video");
+    if (id) {
+      linkOpen = false;
+      link = "";
+      void openVideo(id, "YouTube video");
+    }
   }
 
   function handleShortcut(event: KeyboardEvent) {
@@ -137,58 +173,56 @@
 </header>
 
 <div class="mx-auto max-w-[1600px] px-4 pt-7 pb-10 sm:px-8 lg:pr-10">
-  <section
-    bind:this={player}
-    aria-labelledby="watch-heading"
-    class="rounded-[20px] border border-dashboard-chip bg-dashboard-hero p-5 sm:p-7"
-  >
-    <h2 id="watch-heading" class="text-lg font-semibold">Watch on YouTube</h2>
-    <form
-      class="mt-3 flex max-w-xl flex-wrap gap-2"
-      onsubmit={(event) => {
-        event.preventDefault();
-        openLink();
-      }}
+  {#if history && !selected}
+    {@const video = history}
+    <section
+      aria-labelledby="continue-heading"
+      class="mb-6 rounded-[20px] border border-dashboard-chip bg-dashboard-hero p-5 sm:p-7"
     >
-      <Input
-        bind:value={link}
-        aria-label="YouTube video link"
-        placeholder="Paste a YouTube video link"
-        class="min-w-44 flex-1 bg-card"
-      />
-      <Button type="submit"><Play /> Open video</Button>
-    </form>
-    {#if linkError}<p class="mt-2 text-sm text-destructive" role="alert">{linkError}</p>{/if}
-
-    {#if selected}
-      <div class="mt-5 max-w-4xl">
-        <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
-          <h3 class="font-medium">{selected.title}</h3>
-          <Button
-            href={`https://www.youtube.com/watch?v=${selected.id}`}
-            target="_blank"
-            rel="noopener"
-            variant="outline"
-            size="sm"
-          >
-            Open on YouTube <ExternalLink />
-          </Button>
-        </div>
-        {#key selected.id}
-          <iframe
-            class="aspect-video min-h-[200px] w-full rounded-xl bg-black"
-            title={selected.title}
-            src={`https://www.youtube.com/embed/${selected.id}?cc_lang_pref=ko`}
-            referrerpolicy="strict-origin-when-cross-origin"
-            allow="encrypted-media; picture-in-picture; fullscreen"
-            allowfullscreen
-          ></iframe>
-        {/key}
+      <h2 id="continue-heading" class="text-lg font-semibold">Continue watching</h2>
+      <div class="mt-3 flex flex-wrap items-center justify-between gap-3">
+        <p class="min-w-0 wrap-break-word">{video.title}</p>
+        <Button onclick={() => openVideo(video.id, video.title)}><Play /> Resume</Button>
       </div>
-    {/if}
-  </section>
+    </section>
+  {/if}
 
-  <section id="discover" aria-labelledby="discover-heading" class="mt-6">
+  {#if selected}
+    {@const video = selected}
+    <section bind:this={player} aria-label="YouTube player" class="mb-6 max-w-4xl">
+      <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <h3 class="font-medium">{selected.title}</h3>
+        <Button
+          href={`https://www.youtube.com/watch?v=${selected.id}`}
+          target="_blank"
+          rel="noopener"
+          variant="outline"
+          size="sm"
+        >
+          Open on YouTube <ExternalLink />
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Close player"
+          onclick={() => (selected = undefined)}><X /></Button
+        >
+      </div>
+      {#key selected.id}
+        <iframe
+          class="aspect-video min-h-[200px] w-full rounded-xl bg-black"
+          title={selected.title}
+          src={`https://www.youtube.com/embed/${video.id}?cc_lang_pref=ko&enablejsapi=1&start=${video.seconds}`}
+          use:trackPlayback={(seconds) => saveProgress(video, seconds)}
+          referrerpolicy="strict-origin-when-cross-origin"
+          allow="encrypted-media; picture-in-picture; fullscreen"
+          allowfullscreen
+        ></iframe>
+      {/key}
+    </section>
+  {/if}
+
+  <section id="discover" aria-labelledby="discover-heading">
     <div class="flex flex-wrap items-end justify-between gap-3">
       <div>
         <p class="mb-0.5 text-[11px] font-semibold tracking-[0.07em] text-muted-foreground uppercase">
@@ -198,12 +232,24 @@
           Korean videos on YouTube
         </h2>
       </div>
-      {#if key}
-        <Button variant="outline" size="sm" disabled={loading} onclick={refreshDiscover}>
-          <RefreshCw />
-          Refresh Discover
+      <div class="flex flex-wrap gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onclick={() => {
+            linkError = "";
+            linkOpen = true;
+          }}
+        >
+          <Link /> Paste YouTube link
         </Button>
-      {/if}
+        {#if key}
+          <Button variant="outline" size="sm" disabled={loading} onclick={refreshDiscover}>
+            <RefreshCw />
+            Refresh Discover
+          </Button>
+        {/if}
+      </div>
     </div>
 
     {#if !key}
@@ -269,6 +315,30 @@
     {/if}
   </section>
 </div>
+
+<Sheet.Root bind:open={linkOpen}>
+  <Sheet.Content>
+    <Sheet.Header>
+      <Sheet.Title>Open a YouTube video</Sheet.Title>
+      <Sheet.Description>Paste a video link to watch it in Sori.</Sheet.Description>
+    </Sheet.Header>
+    <form
+      class="space-y-3 px-4"
+      onsubmit={(event) => {
+        event.preventDefault();
+        openLink();
+      }}
+    >
+      <Input
+        bind:value={link}
+        aria-label="YouTube video link"
+        placeholder="Paste a YouTube video link"
+      />
+      {#if linkError}<p class="text-sm text-destructive" role="alert">{linkError}</p>{/if}
+      <Button type="submit"><Play /> Open video</Button>
+    </form>
+  </Sheet.Content>
+</Sheet.Root>
 
 <style>
   .video-title {
