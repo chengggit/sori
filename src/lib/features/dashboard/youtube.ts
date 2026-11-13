@@ -6,6 +6,35 @@ export type YouTubeVideo = {
 };
 
 const videoId = /^[\w-]{11}$/;
+
+export async function fetchYouTubeDuration(key: string, id: string, signal: AbortSignal) {
+  const params = new URLSearchParams({ key, id, part: "contentDetails" });
+  const response = await fetch(`https://www.googleapis.com/youtube/v3/videos?${params}`, { signal });
+  if (!response.ok) return;
+
+  const data: { items?: { contentDetails?: { duration?: string } }[] } = await response.json();
+  const duration = data.items?.[0]?.contentDetails?.duration;
+  const parts = duration?.match(/^P(?:(\d+)D)?T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$/);
+  if (!parts) return;
+  const [, days = "0", hours = "0", minutes = "0", seconds = "0"] = parts;
+  const total = Number(days) * 86400 + Number(hours) * 3600 + Number(minutes) * 60 + Number(seconds);
+  if (Number.isFinite(total) && total > 0) return total;
+}
+
+export async function fetchYouTubeMetadata(id: string, signal: AbortSignal) {
+  const params = new URLSearchParams({
+    url: `https://www.youtube.com/watch?v=${id}`,
+    format: "json",
+  });
+  const response = await fetch(`https://www.youtube.com/oembed?${params}`, { signal });
+  if (!response.ok) return;
+
+  const data: { title?: unknown; author_name?: unknown } = await response.json();
+  return {
+    title: typeof data.title === "string" ? data.title.trim() : "",
+    channel: typeof data.author_name === "string" ? data.author_name.trim() : "",
+  };
+}
 const searchCacheKey = "sori-youtube-search-cache";
 const cacheLifetime = 24 * 60 * 60 * 1000;
 type CachedSearch = { query: string; expiresAt: number; videos: YouTubeVideo[] };

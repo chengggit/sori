@@ -1,12 +1,25 @@
 <script lang="ts">
-  import { onMount, tick } from "svelte";
-  import { ExternalLink, Link, Play, RefreshCw, Search, X } from "@lucide/svelte";
+  import { onMount } from "svelte";
+  import { goto } from "$app/navigation";
+  import { resolve } from "$app/paths";
+  import { Link, Play, RefreshCw, Search } from "@lucide/svelte";
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
   import * as Sidebar from "$lib/components/ui/sidebar";
   import * as Sheet from "$lib/components/ui/sheet";
-  import { trackPlayback } from "$lib/features/dashboard/playback";
-  import { parseYouTubeLink, searchYouTube, type YouTubeVideo } from "$lib/features/dashboard/youtube";
+  import {
+    formatPlaybackTime,
+    readProgress,
+    saveProgress,
+    type Playback,
+  } from "$lib/features/dashboard/playback";
+  import {
+    fetchYouTubeDuration,
+    fetchYouTubeMetadata,
+    parseYouTubeLink,
+    searchYouTube,
+    type YouTubeVideo,
+  } from "$lib/features/dashboard/youtube";
 
   const key = import.meta.env.VITE_YOUTUBE_API_KEY?.trim();
   const discoveryTopics = [
@@ -24,33 +37,48 @@
   let searchError = $state("");
   let loading = $state(false);
   let videos = $state<YouTubeVideo[]>([]);
-  type Playback = { id: string; title: string; seconds: number };
-  const historyKey = "sori-youtube-progress";
-  let selected = $state<Playback>();
   let history = $state<Playback>();
   let linkOpen = $state(false);
-  let player = $state<HTMLElement>();
   let searchInput = $state<HTMLInputElement | null>(null);
   let request: AbortController | undefined;
   let tooltipVideoId = $state<string | null>(null);
   let tooltipTimer: ReturnType<typeof setTimeout> | undefined;
 
   onMount(() => {
-    try {
-      const saved = JSON.parse(localStorage.getItem(historyKey) ?? "null");
-      if (
-        saved &&
-        /^[\w-]{11}$/.test(saved.id) &&
-        typeof saved.title === "string" &&
-        Number.isFinite(saved.seconds) &&
-        saved.seconds > 0
-      )
-        history = saved;
-    } catch {
-      // Playback remains available if local storage is unavailable.
+    history = readProgress();
+    const durationRequest = new AbortController();
+    const video = history;
+    if (video && !video.channel) {
+      void fetchYouTubeMetadata(video.id, durationRequest.signal)
+        .then((details) => {
+          const saved = readProgress();
+          if (durationRequest.signal.aborted || !details?.channel || saved?.id !== video.id) return;
+          history = { ...saved, channel: details.channel };
+          saveProgress(history, history.seconds);
+        })
+        .catch(() => {});
+    }
+    if (
+      key &&
+      video &&
+      !(video.duration && Number.isFinite(video.duration) && video.duration >= video.seconds)
+    ) {
+      void fetchYouTubeDuration(key, video.id, durationRequest.signal)
+        .then((duration) => {
+          if (durationRequest.signal.aborted || !duration || duration < video.seconds) return;
+          const saved = readProgress();
+          if (saved?.id === video.id && saved.seconds === video.seconds) {
+            history = { ...saved, duration };
+            saveProgress(history, video.seconds);
+          }
+        })
+        .catch(() => {});
     }
     if (key) void loadVideos();
-    return () => request?.abort();
+    return () => {
+      durationRequest.abort();
+      request?.abort();
+    };
   });
 
   async function loadVideos(query = activeQuery) {
@@ -86,22 +114,11 @@
     void loadVideos(discoveryTopics[topicIndex]);
   }
 
-  async function openVideo(id: string, title: string) {
-    if (selected?.id !== id)
-      selected = { id, title, seconds: history?.id === id ? history.seconds : 0 };
-    await tick();
-    player?.scrollIntoView({ block: "start" });
-  }
-
-  function saveProgress(video: Playback, seconds: number) {
-    if (seconds === 0 && history?.id !== video.id) return;
-    history = seconds > 0 ? { ...video, seconds } : undefined;
-    try {
-      if (history) localStorage.setItem(historyKey, JSON.stringify(history));
-      else localStorage.removeItem(historyKey);
-    } catch {
-      // Keep the current session's progress in memory.
-    }
+  function watchUrl(id: string, title?: string, channel?: string) {
+    const params = new URLSearchParams({ v: id });
+    if (title) params.set("title", title);
+    if (channel) params.set("channel", channel);
+    return resolve("/watch") + "?" + params;
   }
 
   function startTitleTooltip(id: string) {
@@ -128,7 +145,7 @@
     if (id) {
       linkOpen = false;
       link = "";
-      void openVideo(id, "YouTube video");
+      void goto(watchUrl(id));
     }
   }
 
@@ -173,52 +190,54 @@
 </header>
 
 <div class="mx-auto max-w-[1600px] px-4 pt-7 pb-10 sm:px-8 lg:pr-10">
-  {#if history && !selected}
+  {#if history}
     {@const video = history}
+    {@const duration =
+      video.duration && Number.isFinite(video.duration) && video.duration >= video.seconds
+        ? video.duration
+        : undefined}
     <section
       aria-labelledby="continue-heading"
       class="mb-6 rounded-[20px] border border-dashboard-chip bg-dashboard-hero p-5 sm:p-7"
     >
-      <h2 id="continue-heading" class="text-lg font-semibold">Continue watching</h2>
-      <div class="mt-3 flex flex-wrap items-center justify-between gap-3">
-        <p class="min-w-0 wrap-break-word">{video.title}</p>
-        <Button onclick={() => openVideo(video.id, video.title)}><Play /> Resume</Button>
-      </div>
-    </section>
-  {/if}
-
-  {#if selected}
-    {@const video = selected}
-    <section bind:this={player} aria-label="YouTube player" class="mb-6 max-w-4xl">
-      <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <h3 class="font-medium">{selected.title}</h3>
+      <h2 id="continue-heading" class="text-xs font-semibold tracking-widest uppercase">
+        Continue watching
+      </h2>
+      <div
+        class="mt-4 flex flex-col gap-4 overflow-hidden rounded-xl bg-card/75 sm:flex-row sm:items-center sm:gap-5"
+      >
+        <img
+          src={`https://i.ytimg.com/vi/${video.id}/mqdefault.jpg`}
+          alt=""
+          class="aspect-video w-full shrink-0 rounded-xl bg-muted object-cover sm:ml-4 sm:w-52 xl:w-56"
+        />
+        <div class="min-w-0 flex-1 px-4 sm:px-0 sm:py-3">
+          <p class="clamped-title max-w-lg font-semibold wrap-break-word" title={video.title}>
+            {video.title}
+          </p>
+          {#if video.channel}
+            <p class="mt-1 text-sm text-muted-foreground">{video.channel}</p>
+          {/if}
+          {#if duration}
+            <progress
+              class="watch-progress mt-3 block h-2 w-full max-w-lg overflow-hidden rounded-full bg-dashboard-chip"
+              aria-label="Playback progress"
+              value={video.seconds}
+              max={duration}
+            ></progress>
+          {/if}
+          <p class="mt-1 text-sm text-muted-foreground">
+            {formatPlaybackTime(video.seconds)}{duration
+              ? ` / ${formatPlaybackTime(duration)}`
+              : " watched"}
+          </p>
+        </div>
         <Button
-          href={`https://www.youtube.com/watch?v=${selected.id}`}
-          target="_blank"
-          rel="noopener"
-          variant="outline"
-          size="sm"
-        >
-          Open on YouTube <ExternalLink />
-        </Button>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Close player"
-          onclick={() => (selected = undefined)}><X /></Button
+          href={watchUrl(video.id, video.title, video.channel)}
+          class="mx-4 mb-4 self-start rounded-xl px-5 sm:my-0 sm:mr-5 sm:ml-0 sm:self-center"
+          ><Play /> Resume</Button
         >
       </div>
-      {#key selected.id}
-        <iframe
-          class="aspect-video min-h-[200px] w-full rounded-xl bg-black"
-          title={selected.title}
-          src={`https://www.youtube.com/embed/${video.id}?cc_lang_pref=ko&enablejsapi=1&start=${video.seconds}`}
-          use:trackPlayback={(seconds) => saveProgress(video, seconds)}
-          referrerpolicy="strict-origin-when-cross-origin"
-          allow="encrypted-media; picture-in-picture; fullscreen"
-          allowfullscreen
-        ></iframe>
-      {/key}
     </section>
   {/if}
 
@@ -270,10 +289,9 @@
         class="mt-5 grid grid-cols-1 gap-x-5 gap-y-7 min-[480px]:grid-cols-2 min-[1080px]:grid-cols-3 min-[1280px]:grid-cols-4"
       >
         {#each videos as video (video.id)}
-          <button
-            type="button"
+          <a
             class="group min-w-0 rounded-xl text-left focus-visible:outline-2 focus-visible:outline-ring"
-            onclick={() => openVideo(video.id, video.title)}
+            href={watchUrl(video.id, video.title, video.channel)}
           >
             <span class="relative block aspect-video overflow-hidden rounded-xl bg-muted">
               <img
@@ -298,7 +316,7 @@
               onpointerenter={() => startTitleTooltip(video.id)}
               onpointerleave={() => stopTitleTooltip(video.id)}
             >
-              <span class="video-title block text-sm leading-5 font-semibold">{video.title}</span>
+              <span class="clamped-title min-h-10 text-sm leading-5 font-semibold">{video.title}</span>
               {#if tooltipVideoId === video.id}
                 <span
                   role="tooltip"
@@ -309,7 +327,7 @@
               {/if}
             </span>
             <span class="block text-xs text-muted-foreground">{video.channel}</span>
-          </button>
+          </a>
         {/each}
       </div>
     {/if}
@@ -341,8 +359,26 @@
 </Sheet.Root>
 
 <style>
-  .video-title {
-    min-height: 2.5rem;
+  .watch-progress {
+    appearance: none;
+  }
+
+  .watch-progress::-webkit-progress-bar {
+    background: var(--dashboard-chip);
+    border-radius: 999px;
+  }
+
+  .watch-progress::-webkit-progress-value {
+    background: var(--dashboard-accent);
+    border-radius: 999px;
+  }
+
+  .watch-progress::-moz-progress-bar {
+    background: var(--dashboard-accent);
+    border-radius: 999px;
+  }
+
+  .clamped-title {
     display: -webkit-box;
     overflow: hidden;
     -webkit-box-orient: vertical;
