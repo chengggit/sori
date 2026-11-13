@@ -1,0 +1,11 @@
+node_modules
+build
+.svelte-kit
+src-tauri/target
+static
+package-lock.json
+*.png
+*.webp
+*.svg
+*.ico
+*.icns
