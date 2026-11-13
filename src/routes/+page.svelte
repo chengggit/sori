@@ -41,6 +41,9 @@
   let linkOpen = $state(false);
   let searchInput = $state<HTMLInputElement | null>(null);
   let request: AbortController | undefined;
+  let nextPageToken = $state<string>();
+  let loadingMore = $state(false);
+  let discoverEnd = $state<HTMLDivElement | null>(null);
   let tooltipVideoId = $state<string | null>(null);
   let tooltipTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -75,9 +78,18 @@
         .catch(() => {});
     }
     if (key) void loadVideos();
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && key && nextPageToken && !loading && !loadingMore)
+          void loadMoreVideos();
+      },
+      { rootMargin: "500px" },
+    );
+    if (discoverEnd) observer.observe(discoverEnd);
     return () => {
       durationRequest.abort();
       request?.abort();
+      observer.disconnect();
     };
   });
 
@@ -90,10 +102,14 @@
     loading = true;
     searchError = "";
     videos = [];
+    nextPageToken = undefined;
 
     try {
       const results = await searchYouTube(key, query, current.signal);
-      if (!current.signal.aborted) videos = results;
+      if (!current.signal.aborted) {
+        videos = results.videos;
+        nextPageToken = results.nextPageToken;
+      }
     } catch (error) {
       if (!current.signal.aborted) {
         searchError =
@@ -105,6 +121,27 @@
       }
     } finally {
       if (request === current) loading = false;
+    }
+  }
+
+  async function loadMoreVideos() {
+    if (!key || !nextPageToken || loadingMore) return;
+    const current = new AbortController();
+    request = current;
+    loadingMore = true;
+    try {
+      const results = await searchYouTube(key, activeQuery, current.signal, nextPageToken);
+      if (!current.signal.aborted) {
+        videos = [
+          ...videos,
+          ...results.videos.filter((video) => !videos.some((item) => item.id === video.id)),
+        ];
+        nextPageToken = results.nextPageToken;
+      }
+    } catch {
+      // Keep the loaded rows if a later page cannot be fetched.
+    } finally {
+      if (request === current) loadingMore = false;
     }
   }
 
@@ -238,6 +275,11 @@
           ><Play /> Resume</Button
         >
       </div>
+      <div bind:this={discoverEnd} class="h-8" aria-hidden="true">
+        {#if loadingMore}<p class="py-4 text-center text-sm text-muted-foreground">
+            Loading more videos…
+          </p>{/if}
+      </div>
     </section>
   {/if}
 
@@ -369,12 +411,12 @@
   }
 
   .watch-progress::-webkit-progress-value {
-    background: var(--dashboard-accent);
+    background: var(--dashboard-progress);
     border-radius: 999px;
   }
 
   .watch-progress::-moz-progress-bar {
-    background: var(--dashboard-accent);
+    background: var(--dashboard-progress);
     border-radius: 999px;
   }
 

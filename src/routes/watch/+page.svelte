@@ -13,8 +13,7 @@
     const id = page.url.searchParams.get("v");
     if (!id || !/^[\w-]{11}$/.test(id)) return;
 
-    const progress = readProgress();
-    const saved = progress?.id === id ? progress : undefined;
+    const saved = readProgress(id);
     return {
       id,
       title: page.url.searchParams.get("title")?.trim() || saved?.title || "",
@@ -62,7 +61,7 @@
         class="block aspect-video min-h-[200px] w-full rounded-xl bg-black"
         {title}
         src={`https://www.youtube.com/embed/${current.id}?cc_lang_pref=ko&enablejsapi=1&start=${current.seconds}`}
-        use:trackPlayback={(seconds, duration) =>
+        use:trackPlayback={(seconds, duration, completed) =>
           saveProgress(
             {
               ...current,
@@ -72,6 +71,7 @@
               channel: current.channel || (metadata?.id === current.id ? metadata.channel : ""),
             },
             seconds,
+            completed,
           )}
         referrerpolicy="strict-origin-when-cross-origin"
         allow="encrypted-media; picture-in-picture; fullscreen"

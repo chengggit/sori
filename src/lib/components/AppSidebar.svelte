@@ -8,19 +8,19 @@
   const sidebar = Sidebar.useSidebar();
   const links = [
     { label: "Home", icon: House, href: resolve("/") },
-    { label: "Explore", icon: Compass, href: resolve("/#discover") },
+    { label: "Explore", icon: Compass, href: resolve("/explore") },
     { label: "My Library", icon: Library, href: resolve("/library") },
+    { label: "History", icon: History, href: resolve("/history") },
   ];
-  const pendingLinks = [
-    { label: "Vocabulary", icon: Bookmark },
-    { label: "History", icon: History },
-  ];
+  const pendingLinks = [{ label: "Vocabulary", icon: Bookmark }];
   let current = $derived(
-    page.url.pathname === resolve("/library")
-      ? "My Library"
-      : page.url.hash === "#discover"
-        ? "Explore"
-        : "Home",
+    page.url.pathname === resolve("/history")
+      ? "History"
+      : page.url.pathname === resolve("/library")
+        ? "My Library"
+        : page.url.pathname === resolve("/explore")
+          ? "Explore"
+          : "Home",
   );
 </script>
 

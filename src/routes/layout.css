@@ -137,18 +137,21 @@
   --sidebar: oklch(0.986 0.002 145);
   --sidebar-accent: oklch(0.919 0.022 125);
   --dashboard-accent: oklch(0.469 0.114 131);
+  --dashboard-progress: oklch(0.62 0.108 130);
   --dashboard-chip: oklch(0.916 0.022 125);
   --dashboard-hero: oklch(0.932 0.022 128);
 }
 
 .dark {
   --dashboard-accent: oklch(0.772 0.108 130);
+  --dashboard-progress: oklch(0.772 0.108 130);
   --dashboard-chip: oklch(0.305 0.027 132);
   --dashboard-hero: oklch(0.257 0.025 132);
 }
 
 @theme inline {
   --color-dashboard-accent: var(--dashboard-accent);
+  --color-dashboard-progress: var(--dashboard-progress);
   --color-dashboard-chip: var(--dashboard-chip);
   --color-dashboard-hero: var(--dashboard-hero);
 }

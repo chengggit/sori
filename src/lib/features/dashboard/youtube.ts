@@ -38,6 +38,7 @@ export async function fetchYouTubeMetadata(id: string, signal: AbortSignal) {
 const searchCacheKey = "sori-youtube-search-cache";
 const cacheLifetime = 24 * 60 * 60 * 1000;
 type CachedSearch = { query: string; expiresAt: number; videos: YouTubeVideo[] };
+export type YouTubeSearchPage = { videos: YouTubeVideo[]; nextPageToken?: string };
 
 function readSearchCache(): CachedSearch[] {
   try {
@@ -82,9 +83,10 @@ export async function searchYouTube(
   key: string,
   query: string,
   signal: AbortSignal,
-): Promise<YouTubeVideo[]> {
-  const cached = readSearchCache().find((entry) => entry.query === query);
-  if (cached) return cached.videos;
+  pageToken?: string,
+): Promise<YouTubeSearchPage> {
+  const cached = !pageToken && readSearchCache().find((entry) => entry.query === query);
+  if (cached) return { videos: cached.videos };
 
   const params = new URLSearchParams({
     part: "snippet",
@@ -95,6 +97,7 @@ export async function searchYouTube(
     maxResults: "12",
     key,
   });
+  if (pageToken) params.set("pageToken", pageToken);
   const response = await fetch(`https://www.googleapis.com/youtube/v3/search?${params}`, { signal });
 
   if (!response.ok) {
@@ -119,7 +122,7 @@ export async function searchYouTube(
     );
   }
 
-  const data: { items: SearchItem[] } = await response.json();
+  const data: { items: SearchItem[]; nextPageToken?: string } = await response.json();
   const videos = data.items.flatMap(({ id, snippet }) =>
     id.videoId && videoId.test(id.videoId)
       ? [
@@ -141,5 +144,5 @@ export async function searchYouTube(
       // Search still works when local storage is unavailable.
     }
   }
-  return videos;
+  return { videos, nextPageToken: data.nextPageToken };
 }
