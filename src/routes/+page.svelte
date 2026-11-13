@@ -246,7 +246,7 @@
         <img
           src={`https://i.ytimg.com/vi/${video.id}/mqdefault.jpg`}
           alt=""
-          class="aspect-video w-full shrink-0 rounded-xl bg-muted object-cover sm:ml-4 sm:w-52 xl:w-56"
+          class="aspect-video w-full shrink-0 rounded-xl bg-muted object-cover sm:w-52 xl:w-56"
         />
         <div class="min-w-0 flex-1 px-4 sm:px-0 sm:py-3">
           <p class="clamped-title max-w-lg font-semibold wrap-break-word" title={video.title}>
