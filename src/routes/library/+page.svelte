@@ -18,6 +18,10 @@
   let fileInput = $state<HTMLInputElement>();
   let busy = $state(false);
   let error = $state("");
+  let importOpen = $state(false);
+  let pastedTitle = $state("");
+  let pastedText = $state("");
+  let importError = $state("");
   let documentOpen = $state(false);
   let selected = $state<{ title: string; content: string }>();
   let visibleDocuments = $derived(
@@ -55,8 +59,30 @@
     event.currentTarget.value = "";
     if (!file) return;
 
+    importOpen = false;
     void runLibraryAction(async () => {
       await importDocument(file);
+      documents = await listDocuments();
+      query = "";
+    });
+  }
+
+  function importPastedText() {
+    if (!pastedText.trim()) return;
+
+    void runLibraryAction(async () => {
+      importError = "";
+      try {
+        const title = pastedTitle.trim() || "Pasted text";
+        await importDocument(new File([pastedText], title + ".txt"));
+      } catch (cause) {
+        importError = cause instanceof Error ? cause.message : String(cause);
+        return;
+      }
+
+      pastedTitle = "";
+      pastedText = "";
+      importOpen = false;
       documents = await listDocuments();
       query = "";
     });
@@ -108,7 +134,7 @@
         variant="secondary"
         size="sm"
         disabled={!desktop || busy}
-        onclick={() => fileInput?.click()}
+        onclick={() => (importOpen = true)}
       >
         <Plus />
         Import
@@ -164,14 +190,52 @@
         {#if !busy && !query.trim()}
           <p class="mt-1 text-sm text-muted-foreground">
             {desktop
-              ? "Import a text file to start reading."
-              : "Open Sori in the desktop app to import files."}
+              ? "Paste text or import a .txt file to start reading."
+              : "Open Sori in the desktop app to import text."}
           </p>
         {/if}
       </div>
     </section>
   {/if}
 </div>
+
+<Sheet.Root bind:open={importOpen}>
+  <Sheet.Content class="w-full overflow-y-auto sm:max-w-lg">
+    <Sheet.Header>
+      <Sheet.Title>Import text</Sheet.Title>
+      <Sheet.Description>Paste text or choose a .txt file to add to your library.</Sheet.Description>
+    </Sheet.Header>
+    <form
+      class="space-y-4 px-4 pb-4"
+      onsubmit={(event) => {
+        event.preventDefault();
+        importPastedText();
+      }}
+    >
+      <div class="space-y-1.5">
+        <label for="import-title" class="text-sm font-medium">Title (optional)</label>
+        <Input id="import-title" bind:value={pastedTitle} disabled={busy} placeholder="Pasted text" />
+      </div>
+      <div class="space-y-1.5">
+        <label for="import-text" class="text-sm font-medium">Text</label>
+        <textarea
+          id="import-text"
+          bind:value={pastedText}
+          disabled={busy}
+          placeholder="Paste your text here"
+          class="min-h-48 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-ring"
+        ></textarea>
+      </div>
+      {#if importError}<p class="text-sm text-destructive" role="alert">{importError}</p>{/if}
+      <div class="flex flex-wrap gap-2">
+        <Button type="submit" disabled={busy || !pastedText.trim()}>Import text</Button>
+        <Button type="button" variant="outline" disabled={busy} onclick={() => fileInput?.click()}>
+          Choose .txt file
+        </Button>
+      </div>
+    </form>
+  </Sheet.Content>
+</Sheet.Root>
 
 <Sheet.Root bind:open={documentOpen}>
   <Sheet.Content class="w-full overflow-y-auto sm:max-w-2xl">
