@@ -29,6 +29,8 @@
   });
 </script>
 
+<svelte:window oncontextmenu={(event) => event.preventDefault()} />
+
 <Sidebar.Provider style="--sidebar-width: 13rem;">
   <AppSidebar openSettings={() => (settingsOpen = true)} />
 
