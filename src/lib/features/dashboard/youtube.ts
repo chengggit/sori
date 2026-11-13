@@ -6,6 +6,18 @@ export type YouTubeVideo = {
 };
 
 const videoId = /^[\w-]{11}$/;
+const searchCacheKey = "sori-youtube-search-cache";
+const cacheLifetime = 24 * 60 * 60 * 1000;
+type CachedSearch = { query: string; expiresAt: number; videos: YouTubeVideo[] };
+
+function readSearchCache(): CachedSearch[] {
+  try {
+    const entries = JSON.parse(localStorage.getItem(searchCacheKey) ?? "[]") as CachedSearch[];
+    return entries.filter((entry) => entry.expiresAt > Date.now() && Array.isArray(entry.videos));
+  } catch {
+    return [];
+  }
+}
 
 export function parseYouTubeLink(input: string): string | null {
   try {
@@ -42,6 +54,9 @@ export async function searchYouTube(
   query: string,
   signal: AbortSignal,
 ): Promise<YouTubeVideo[]> {
+  const cached = readSearchCache().find((entry) => entry.query === query);
+  if (cached) return cached.videos;
+
   const params = new URLSearchParams({
     part: "snippet",
     type: "video",
@@ -54,15 +69,29 @@ export async function searchYouTube(
   const response = await fetch(`https://www.googleapis.com/youtube/v3/search?${params}`, { signal });
 
   if (!response.ok) {
+    const body = await response.json().catch(() => undefined);
+    const reason = body?.error?.errors?.[0]?.reason;
+    if (reason === "quotaExceeded" || reason === "dailyLimitExceeded") {
+      throw new Error(
+        "This project has reached its daily YouTube search quota. Try a cached topic or paste a video link.",
+      );
+    }
+    if (
+      response.status === 429 ||
+      reason === "rateLimitExceeded" ||
+      reason === "userRateLimitExceeded"
+    ) {
+      throw new Error("YouTube is limiting search requests. Wait a moment and try again.");
+    }
     throw new Error(
-      response.status === 403 || response.status === 429
-        ? "YouTube search is unavailable. Check the API key and project quota."
+      response.status === 403
+        ? "YouTube denied the search request. Check your API key and its restrictions."
         : "Could not load YouTube videos. Try again.",
     );
   }
 
   const data: { items: SearchItem[] } = await response.json();
-  return data.items.flatMap(({ id, snippet }) =>
+  const videos = data.items.flatMap(({ id, snippet }) =>
     id.videoId && videoId.test(id.videoId)
       ? [
           {
@@ -74,4 +103,14 @@ export async function searchYouTube(
         ]
       : [],
   );
+  if (!signal.aborted) {
+    try {
+      const entries = readSearchCache().filter((entry) => entry.query !== query);
+      entries.unshift({ query, videos, expiresAt: Date.now() + cacheLifetime });
+      localStorage.setItem(searchCacheKey, JSON.stringify(entries.slice(0, 30)));
+    } catch {
+      // Search still works when local storage is unavailable.
+    }
+  }
+  return videos;
 }
