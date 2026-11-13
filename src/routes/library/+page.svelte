@@ -200,7 +200,7 @@
 </div>
 
 <Sheet.Root bind:open={importOpen}>
-  <Sheet.Content class="w-full overflow-y-auto sm:max-w-lg">
+  <Sheet.Content>
     <Sheet.Header>
       <Sheet.Title>Import text</Sheet.Title>
       <Sheet.Description>Paste text or choose a .txt file to add to your library.</Sheet.Description>
@@ -238,7 +238,7 @@
 </Sheet.Root>
 
 <Sheet.Root bind:open={documentOpen}>
-  <Sheet.Content class="w-full overflow-y-auto sm:max-w-2xl">
+  <Sheet.Content class="max-w-2xl">
     {#if selected}
       <Sheet.Header class="pr-14">
         <Sheet.Title>{selected.title}</Sheet.Title>
