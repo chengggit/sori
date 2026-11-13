@@ -1,3 +1,16 @@
+### Desktop development
+
+After installing the JavaScript and Rust dependencies, run `npm run setup:kiwi`
+once before building or starting the desktop app. This requires Node.js 22+,
+`tar`, and internet access to download the pinned Kiwi 0.24.0 native library and
+base model. The script verifies upstream SHA-256 checksums and prepares resources
+for the host platform. Downloaded resources are ignored by Git and included in
+Tauri app bundles, so installed apps analyze Korean offline.
+
+Run setup on the machine/architecture that builds the desktop app. The script
+has assets for Linux x64/ARM64, macOS x64/ARM64, and Windows x64. Linux x64 has
+been integration-tested. Native packaging on other platforms still needs testing.
+
 ### Local reading
 
 In the desktop app, open **My Library** and choose **Import** to add a UTF-8
@@ -20,6 +33,31 @@ Document validation and persistence are independent of Tauri commands, which run
 database operations on blocking workers.
 
 Run backend tests with `cargo test --manifest-path src-tauri/Cargo.toml --locked`.
+
+### Korean tokenization backend
+
+The `tokenize_text` command analyzes passages up to 16 KiB of UTF-8 text using
+`kiwi-rs` 2026.10.17 and the bundled Kiwi model. Typed frontend calls live in
+`src/lib/features/nlp/tokenization.ts`. Each token includes its morpheme form,
+POS tag, original surface, word/sentence indices, and start/end offsets in UTF-16
+code units for JavaScript string slicing. Morphemes from contractions can share
+overlapping source spans. A verb stem such as `가` is an analyzed morpheme form.
+
+Kiwi loads on first use, verifies UTF-16 API support, and stays on a dedicated
+worker thread. Empty input returns an empty list, invalid input and resource
+errors return command errors,
+and a bounded request queue reports when analysis is busy. Reader word selection
+and vocabulary controls are the next phase.
+
+After setup, run the real offline model test with
+`cargo test --manifest-path src-tauri/Cargo.toml --locked nlp::tests::analyzes_korean_offline_with_utf16_offsets -- --ignored`.
+
+The native Kiwi 0.24.0 license (Apache-2.0) is in
+`src-tauri/third-party/Kiwi-LICENSE`. The Rust wrapper license (LGPL-2.1-or-later)
+is in `src-tauri/third-party/kiwi-rs-LICENSE`. Setup copies both license files into
+app resources, including when the library and model are already cached. Upstream sources
+are [Kiwi](https://github.com/bab2min/Kiwi/tree/v0.24.0) and
+[kiwi-rs](https://github.com/JAICHANGPARK/kiwi-rs).
 
 The vocabulary backend exposes `save_vocabulary`, `list_vocabulary`, and
 `remove_vocabulary`, with typed calls in

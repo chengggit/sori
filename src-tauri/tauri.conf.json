@@ -22,6 +22,7 @@
     }
   },
   "bundle": {
+    "resources": ["resources/kiwi/"],
     "active": true,
     "targets": "all",
     "icon": [

@@ -1,6 +1,8 @@
 mod db;
 mod documents;
 mod library;
+mod nlp;
+mod nlp_commands;
 mod progress;
 mod vocabulary;
 mod vocabulary_commands;
@@ -15,6 +17,10 @@ pub fn run() {
             let database = db::Database::initialize(app.path().app_data_dir()?)
                 .map_err(std::io::Error::other)?;
             app.manage(database);
+            let resources = app
+                .path()
+                .resolve("resources/kiwi", tauri::path::BaseDirectory::Resource)?;
+            app.manage(nlp::KoreanAnalyzer::start(resources).map_err(std::io::Error::other)?);
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -23,6 +29,7 @@ pub fn run() {
             library::read_document,
             library::read_reading_progress,
             library::save_reading_progress,
+            nlp_commands::tokenize_text,
             vocabulary_commands::save_vocabulary,
             vocabulary_commands::list_vocabulary,
             vocabulary_commands::remove_vocabulary

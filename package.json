@@ -4,6 +4,7 @@
   "description": "An open-source, local-first Korean language immersion app",
   "type": "module",
   "scripts": {
+    "setup:kiwi": "node scripts/setup-kiwi.mjs",
     "dev": "vite dev",
     "build": "vite build",
     "preview": "vite preview",
