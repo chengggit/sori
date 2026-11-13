@@ -68,9 +68,7 @@ mod tests {
 
     fn database() -> Connection {
         let database = Connection::open_in_memory().unwrap();
-        database
-            .execute_batch(include_str!("migrations/001_documents.sql"))
-            .unwrap();
+        database.execute_batch(include_str!("schema.sql")).unwrap();
         database
     }
 

@@ -7,6 +7,11 @@
   import * as Sidebar from "$lib/components/ui/sidebar";
   import { isTauri } from "@tauri-apps/api/core";
   import {
+    readReadingProgress,
+    saveReadingProgress,
+    trackReadingProgress,
+  } from "$lib/features/reader/progress";
+  import {
     importDocument,
     listDocuments,
     readDocument,
@@ -23,7 +28,22 @@
   let pastedText = $state("");
   let importError = $state("");
   let documentOpen = $state(false);
-  let selected = $state<{ title: string; content: string }>();
+  let selected = $state<{ id: number; title: string; content: string; position: number }>();
+  let reader = $state<HTMLElement | null>(null);
+  let progressError = $state("");
+  $effect(() => {
+    if (!documentOpen || !reader || !selected) return;
+    const document = selected;
+    return trackReadingProgress(
+      reader,
+      document.position,
+      (position) => saveReadingProgress(document.id, position),
+      (message) => {
+        if (selected?.id === document.id) progressError = message;
+        if (message) error = message;
+      },
+    );
+  });
   let visibleDocuments = $derived(
     documents.filter((item) =>
       item.title.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()),
@@ -90,7 +110,12 @@
 
   function openDocument(item: LibraryItem) {
     void runLibraryAction(async () => {
-      selected = { title: item.title, content: await readDocument(item.id) };
+      const [content, position] = await Promise.all([
+        readDocument(item.id),
+        readReadingProgress(item.id),
+      ]);
+      progressError = "";
+      selected = { id: item.id, title: item.title, content, position };
       documentOpen = true;
     });
   }
@@ -238,11 +263,19 @@
 </Sheet.Root>
 
 <Sheet.Root bind:open={documentOpen}>
-  <Sheet.Content class="max-w-2xl">
+  <Sheet.Content
+    class="max-w-2xl"
+    bind:ref={reader}
+    onOpenAutoFocus={(event) => {
+      event.preventDefault();
+      reader?.focus({ preventScroll: true });
+    }}
+  >
     {#if selected}
       <Sheet.Header class="pr-14">
         <Sheet.Title>{selected.title}</Sheet.Title>
         <Sheet.Description class="sr-only">Imported text document</Sheet.Description>
+        {#if progressError}<p class="text-sm text-destructive" role="alert">{progressError}</p>{/if}
       </Sheet.Header>
       <p lang="ko" class="px-6 pb-8 text-base leading-8 wrap-break-word whitespace-pre-wrap">
         {selected.content}

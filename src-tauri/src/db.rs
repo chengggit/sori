@@ -1,8 +1,6 @@
 use rusqlite::Connection;
 use std::{path::PathBuf, time::Duration};
 
-const SCHEMA_VERSION: i64 = 2;
-
 /// Each operation owns a connection; shared application state contains only its path.
 #[derive(Clone)]
 pub struct Database {
@@ -26,7 +24,7 @@ impl Database {
         let database = Self {
             path: directory.join("library.sqlite3"),
         };
-        migrate(&mut database.connect()?)?;
+        initialize_schema(&mut database.connect()?)?;
         Ok(database)
     }
 
@@ -42,33 +40,13 @@ impl Database {
     }
 }
 
-fn migrate(connection: &mut Connection) -> Result<(), String> {
-    // Lock before reading the version to serialize concurrent initializations.
+fn initialize_schema(connection: &mut Connection) -> Result<(), String> {
     let transaction = connection
         .transaction_with_behavior(rusqlite::TransactionBehavior::Immediate)
         .map_err(|error| error.to_string())?;
-    let version: i64 = transaction
-        .pragma_query_value(None, "user_version", |row| row.get(0))
+    transaction
+        .execute_batch(include_str!("schema.sql"))
         .map_err(|error| error.to_string())?;
-    if version > SCHEMA_VERSION {
-        return Err("This database was created by a newer version of Sori.".into());
-    }
-    if version < 1 {
-        transaction
-            .execute_batch(include_str!("migrations/001_documents.sql"))
-            .map_err(|error| error.to_string())?;
-        transaction
-            .pragma_update(None, "user_version", 1)
-            .map_err(|error| error.to_string())?;
-    }
-    if version < 2 {
-        transaction
-            .execute_batch(include_str!("migrations/002_vocabulary.sql"))
-            .map_err(|error| error.to_string())?;
-        transaction
-            .pragma_update(None, "user_version", 2)
-            .map_err(|error| error.to_string())?;
-    }
     transaction.commit().map_err(|error| error.to_string())
 }
 
@@ -77,14 +55,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn migrates_legacy_library_without_losing_documents() {
+    fn initializes_existing_document_library() {
         let mut connection = Connection::open_in_memory().unwrap();
         connection.execute_batch(
             "CREATE TABLE documents (id INTEGER PRIMARY KEY, title TEXT NOT NULL, content TEXT NOT NULL);
              INSERT INTO documents VALUES (7, '한국어', '안녕하세요');",
         ).unwrap();
-        migrate(&mut connection).unwrap();
-        migrate(&mut connection).unwrap();
+        initialize_schema(&mut connection).unwrap();
+        initialize_schema(&mut connection).unwrap();
         let document: (i64, String, String) = connection
             .query_row("SELECT id, title, content FROM documents", [], |row| {
                 Ok((row.get(0)?, row.get(1)?, row.get(2)?))
@@ -94,61 +72,61 @@ mod tests {
         let version: i64 = connection
             .pragma_query_value(None, "user_version", |row| row.get(0))
             .unwrap();
-        assert_eq!(version, SCHEMA_VERSION);
+        assert_eq!(version, 1);
     }
 
     #[test]
-    fn refuses_newer_schema_without_changing_it() {
-        let mut connection = Connection::open_in_memory().unwrap();
-        connection
-            .pragma_update(None, "user_version", SCHEMA_VERSION + 1)
+    fn keeps_development_databases_at_version_one() {
+        for previous_version in [0, 1, 2, 3] {
+            let mut connection = Connection::open_in_memory().unwrap();
+            connection
+                .execute_batch(include_str!("schema.sql"))
+                .unwrap();
+            connection
+                .pragma_update(None, "user_version", previous_version)
+                .unwrap();
+            crate::documents::import(&connection, "책.txt", "학교에 갔어요.".as_bytes()).unwrap();
+            let document = &crate::documents::list(&connection).unwrap()[0];
+            let saved = crate::vocabulary::save(
+                &connection,
+                crate::vocabulary::SaveVocabulary {
+                    word: "학교".into(),
+                    normalized_form: None,
+                    document_id: document.id,
+                    context: "학교에 갔어요.".into(),
+                },
+            )
             .unwrap();
-        assert!(
-            migrate(&mut connection)
-                .unwrap_err()
-                .contains("newer version")
-        );
-        let version: i64 = connection
-            .pragma_query_value(None, "user_version", |row| row.get(0))
-            .unwrap();
-        assert_eq!(version, SCHEMA_VERSION + 1);
+            crate::progress::save(&connection, document.id, 0.75).unwrap();
+            initialize_schema(&mut connection).unwrap();
+            initialize_schema(&mut connection).unwrap();
+            let version: i64 = connection
+                .pragma_query_value(None, "user_version", |row| row.get(0))
+                .unwrap();
+            assert_eq!(version, 1);
+            assert_eq!(
+                crate::vocabulary::list(&connection).unwrap()[0].id,
+                saved.id
+            );
+            assert_eq!(
+                crate::progress::read(&connection, document.id).unwrap(),
+                0.75
+            );
+            assert_eq!(saved.source_title, "책");
+            assert_eq!(
+                crate::documents::read(&connection, document.id).unwrap(),
+                "학교에 갔어요."
+            );
+        }
     }
 
     #[test]
-    fn upgrades_version_one_and_preserves_existing_documents() {
-        let mut connection = Connection::open_in_memory().unwrap();
-        connection
-            .execute_batch(include_str!("migrations/001_documents.sql"))
-            .unwrap();
-        connection.pragma_update(None, "user_version", 1).unwrap();
-        crate::documents::import(&connection, "책.txt", "학교에 갔어요.".as_bytes()).unwrap();
-        migrate(&mut connection).unwrap();
-        migrate(&mut connection).unwrap();
-        let document = &crate::documents::list(&connection).unwrap()[0];
-        let saved = crate::vocabulary::save(
-            &connection,
-            crate::vocabulary::SaveVocabulary {
-                word: "학교".into(),
-                normalized_form: None,
-                document_id: document.id,
-                context: "학교에 갔어요.".into(),
-            },
-        )
-        .unwrap();
-        assert_eq!(saved.source_title, "책");
-        assert_eq!(
-            crate::documents::read(&connection, document.id).unwrap(),
-            "학교에 갔어요."
-        );
-    }
-
-    #[test]
-    fn failed_migration_rolls_back_schema_and_version() {
+    fn failed_initialization_rolls_back_schema_and_version() {
         let mut connection = Connection::open_in_memory().unwrap();
         connection
             .execute("CREATE TABLE vocabulary (id INTEGER PRIMARY KEY)", [])
             .unwrap();
-        assert!(migrate(&mut connection).is_err());
+        assert!(initialize_schema(&mut connection).is_err());
         let version: i64 = connection
             .pragma_query_value(None, "user_version", |row| row.get(0))
             .unwrap();
@@ -171,6 +149,7 @@ mod tests {
             let connection = database.connect().unwrap();
             crate::documents::import(&connection, "한국어.txt", "안녕하세요".as_bytes()).unwrap();
             let document_id = crate::documents::list(&connection).unwrap()[0].id;
+            crate::progress::save(&connection, document_id, 0.6).unwrap();
             crate::vocabulary::save(
                 &connection,
                 crate::vocabulary::SaveVocabulary {
@@ -190,6 +169,10 @@ mod tests {
         let connection = reopened.connect().unwrap();
         let items = crate::documents::list(&connection).unwrap();
         assert_eq!(items.len(), 1);
+        assert_eq!(
+            crate::progress::read(&connection, items[0].id).unwrap(),
+            0.6
+        );
         assert_eq!(
             crate::documents::read(&connection, items[0].id).unwrap(),
             "안녕하세요"

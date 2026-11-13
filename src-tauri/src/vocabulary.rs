@@ -92,12 +92,7 @@ mod tests {
     fn database() -> Connection {
         let database = Connection::open_in_memory().unwrap();
         database.pragma_update(None, "foreign_keys", true).unwrap();
-        database
-            .execute_batch(include_str!("migrations/001_documents.sql"))
-            .unwrap();
-        database
-            .execute_batch(include_str!("migrations/002_vocabulary.sql"))
-            .unwrap();
+        database.execute_batch(include_str!("schema.sql")).unwrap();
         database.execute(
             "INSERT INTO documents (id, title, content) VALUES (1, '이야기', '학교에 갔어요. 학교가 커요.')", []
         ).unwrap();

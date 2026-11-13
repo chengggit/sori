@@ -1,6 +1,7 @@
 mod db;
 mod documents;
 mod library;
+mod progress;
 mod vocabulary;
 mod vocabulary_commands;
 
@@ -20,6 +21,8 @@ pub fn run() {
             library::list_documents,
             library::import_document,
             library::read_document,
+            library::read_reading_progress,
+            library::save_reading_progress,
             vocabulary_commands::save_vocabulary,
             vocabulary_commands::list_vocabulary,
             vocabulary_commands::remove_vocabulary
