@@ -26,6 +26,8 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             library::list_documents,
+            library::update_document,
+            library::delete_document,
             library::import_document,
             library::read_document,
             library::read_reading_progress,

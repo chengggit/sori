@@ -6,6 +6,25 @@ use crate::{
 use tauri::State;
 
 #[tauri::command]
+pub async fn update_document(
+    database: State<'_, Database>,
+    id: i64,
+    title: String,
+    content: String,
+) -> Result<(), String> {
+    database
+        .run(move |connection| documents::update(connection, id, &title, &content))
+        .await
+}
+
+#[tauri::command]
+pub async fn delete_document(database: State<'_, Database>, id: i64) -> Result<(), String> {
+    database
+        .run(move |connection| documents::remove(connection, id))
+        .await
+}
+
+#[tauri::command]
 pub async fn list_documents(database: State<'_, Database>) -> Result<Vec<LibraryItem>, String> {
     database.run(documents::list).await
 }

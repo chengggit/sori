@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { BookOpen, Library, Plus, Search, X } from "@lucide/svelte";
+  import { BookOpen, Library, Plus, Search, X, Pencil, Trash2, EllipsisVertical } from "@lucide/svelte";
+  import { DropdownMenu } from "bits-ui";
   import { onMount, tick } from "svelte";
   import { resolve } from "$app/paths";
   import { Button } from "$lib/components/ui/button";
@@ -7,7 +8,14 @@
   import * as Sheet from "$lib/components/ui/sheet";
   import * as Sidebar from "$lib/components/ui/sidebar";
   import { isTauri } from "@tauri-apps/api/core";
-  import { importDocument, listDocuments, type LibraryItem } from "$lib/features/library/documents";
+  import {
+    importDocument,
+    listDocuments,
+    readDocument,
+    updateDocument,
+    deleteDocument,
+    type LibraryItem,
+  } from "$lib/features/library/documents";
 
   let desktop = $state(false);
   let documents = $state<LibraryItem[]>([]);
@@ -18,6 +26,51 @@
   let pastedTitle = $state("");
   let pastedText = $state("");
   let importError = $state("");
+  let editing = $state<LibraryItem>();
+  let editTitle = $state("");
+  let editText = $state("");
+  let editError = $state("");
+  let deleting = $state<LibraryItem>();
+  let deleteError = $state("");
+
+  function editDocument(item: LibraryItem) {
+    void runLibraryAction(async () => {
+      editText = await readDocument(item.id);
+      editTitle = item.title;
+      editError = "";
+      editing = item;
+    });
+  }
+
+  async function saveEdit() {
+    if (!editing || busy) return;
+    busy = true;
+    editError = "";
+    try {
+      await updateDocument(editing.id, editTitle, editText);
+      documents = await listDocuments();
+      editing = undefined;
+    } catch (cause) {
+      editError = String(cause);
+    } finally {
+      busy = false;
+    }
+  }
+
+  async function confirmDelete() {
+    if (!deleting || busy) return;
+    busy = true;
+    deleteError = "";
+    try {
+      await deleteDocument(deleting.id);
+      documents = await listDocuments();
+      deleting = undefined;
+    } catch (cause) {
+      deleteError = String(cause);
+    } finally {
+      busy = false;
+    }
+  }
   let visibleDocuments = $derived(
     documents.filter((item) =>
       item.title.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()),
@@ -152,15 +205,55 @@
   {#if visibleDocuments.length}
     <ul class="grid gap-2">
       {#each visibleDocuments as item (item.id)}
-        <li>
+        <li class="flex items-center gap-2">
           <Button
             variant="outline"
-            class="h-auto w-full justify-start gap-3 p-4 text-left whitespace-normal"
+            class="h-auto min-w-0 flex-1 justify-start gap-3 p-4 text-left whitespace-normal"
             href={resolve("/read") + "?id=" + item.id}
           >
             <BookOpen />
             {item.title}
           </Button>
+          <DropdownMenu.Root>
+            <DropdownMenu.Trigger disabled={busy}>
+              {#snippet child({ props })}
+                <Button
+                  {...props}
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={`Actions for ${item.title}`}><EllipsisVertical /></Button
+                >
+              {/snippet}
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Portal>
+              <DropdownMenu.Content
+                align="end"
+                sideOffset={4}
+                onCloseAutoFocus={(event) => {
+                  if (deleting || editing) event.preventDefault();
+                }}
+                class="z-50 min-w-36 rounded-md border bg-popover p-1 text-popover-foreground shadow-md outline-none"
+              >
+                <DropdownMenu.Item
+                  disabled={busy}
+                  onSelect={() => editDocument(item)}
+                  class="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-none data-highlighted:bg-accent data-highlighted:text-accent-foreground data-disabled:opacity-50"
+                >
+                  <Pencil class="size-4" /> Edit
+                </DropdownMenu.Item>
+                <DropdownMenu.Item
+                  disabled={busy}
+                  onSelect={() => {
+                    deleting = item;
+                    deleteError = "";
+                  }}
+                  class="flex cursor-pointer items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-destructive outline-none data-highlighted:bg-destructive/10 data-disabled:opacity-50"
+                >
+                  <Trash2 class="size-4" /> Delete
+                </DropdownMenu.Item>
+              </DropdownMenu.Content>
+            </DropdownMenu.Portal>
+          </DropdownMenu.Root>
         </li>
       {/each}
     </ul>
@@ -220,5 +313,70 @@
         </Button>
       </div>
     </form>
+  </Sheet.Content>
+</Sheet.Root>
+
+<Sheet.Root
+  open={!!editing}
+  onOpenChange={(open) => {
+    if (!open && !busy) editing = undefined;
+  }}
+>
+  <Sheet.Content>
+    <Sheet.Header
+      ><Sheet.Title>Edit text</Sheet.Title><Sheet.Description
+        >Changing the text resets its reading position. Saved vocabulary keeps its original context.</Sheet.Description
+      ></Sheet.Header
+    >
+    <form
+      class="space-y-4 px-4 pb-4"
+      onsubmit={(event) => {
+        event.preventDefault();
+        void saveEdit();
+      }}
+    >
+      <div class="space-y-1.5">
+        <label for="edit-title" class="text-sm font-medium">Title</label><Input
+          id="edit-title"
+          bind:value={editTitle}
+          disabled={busy}
+        />
+      </div>
+      <div class="space-y-1.5">
+        <label for="edit-text" class="text-sm font-medium">Text</label><textarea
+          id="edit-text"
+          bind:value={editText}
+          disabled={busy}
+          class="min-h-64 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm focus-visible:outline-2 focus-visible:outline-ring"
+        ></textarea>
+      </div>
+      {#if editError}<p role="alert" class="text-sm text-destructive">{editError}</p>{/if}
+      <Button type="submit" disabled={busy || !editTitle.trim() || !editText.trim()}
+        >Save changes</Button
+      >
+    </form>
+  </Sheet.Content>
+</Sheet.Root>
+
+<Sheet.Root
+  open={!!deleting}
+  onOpenChange={(open) => {
+    if (!open && !busy) deleting = undefined;
+  }}
+>
+  <Sheet.Content>
+    <Sheet.Header
+      ><Sheet.Title>Delete “{deleting?.title}”?</Sheet.Title><Sheet.Description
+        >This removes the imported document and its reading progress. Saved vocabulary and its original
+        context are retained.</Sheet.Description
+      ></Sheet.Header
+    >
+    <div class="space-y-3 px-4 pb-4">
+      {#if deleteError}<p role="alert" class="text-sm text-destructive">{deleteError}</p>{/if}
+      <div class="flex gap-2">
+        <Button variant="outline" disabled={busy} onclick={() => (deleting = undefined)}>Cancel</Button
+        ><Button variant="destructive" disabled={busy} onclick={confirmDelete}>Delete document</Button>
+      </div>
+    </div>
   </Sheet.Content>
 </Sheet.Root>

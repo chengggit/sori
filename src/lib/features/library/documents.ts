@@ -2,6 +2,14 @@ import { invoke } from "@tauri-apps/api/core";
 
 export type LibraryItem = { id: number; title: string };
 
+export function updateDocument(id: number, title: string, content: string) {
+  return invoke<void>("update_document", { id, title, content });
+}
+
+export function deleteDocument(id: number) {
+  return invoke<void>("delete_document", { id });
+}
+
 export function listDocuments() {
   return invoke<LibraryItem[]>("list_documents");
 }

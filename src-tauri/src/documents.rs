@@ -62,6 +62,41 @@ pub fn read(database: &Connection, id: i64) -> Result<String, String> {
         .ok_or_else(|| "Document not found.".into())
 }
 
+pub fn update(database: &Connection, id: i64, title: &str, content: &str) -> Result<(), String> {
+    if title.trim().is_empty() {
+        return Err("Enter a title.".into());
+    }
+    if content.trim().is_empty() {
+        return Err("Enter some text.".into());
+    }
+    if content.len() > MAX_TEXT_BYTES {
+        return Err("Text must be no larger than 2 MiB.".into());
+    }
+    let transaction = database
+        .unchecked_transaction()
+        .map_err(|error| error.to_string())?;
+    let original = read(&transaction, id)?;
+    transaction
+        .execute(
+            "UPDATE documents SET title = ?2, content = ?3 WHERE id = ?1",
+            params![id, title.trim(), content],
+        )
+        .map_err(|error| error.to_string())?;
+    if original != content {
+        transaction
+            .execute("DELETE FROM reading_progress WHERE document_id = ?1", [id])
+            .map_err(|error| error.to_string())?;
+    }
+    transaction.commit().map_err(|error| error.to_string())
+}
+
+pub fn remove(database: &Connection, id: i64) -> Result<(), String> {
+    database
+        .execute("DELETE FROM documents WHERE id = ?1", [id])
+        .map_err(|error| error.to_string())?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -70,6 +105,40 @@ mod tests {
         let database = Connection::open_in_memory().unwrap();
         database.execute_batch(include_str!("schema.sql")).unwrap();
         database
+    }
+
+    #[test]
+    fn edits_reset_progress_only_when_content_changes_and_delete_preserves_vocabulary() {
+        let database = database();
+        database.pragma_update(None, "foreign_keys", true).unwrap();
+        import(&database, "책.txt", "한국어".as_bytes()).unwrap();
+        let id = list(&database).unwrap()[0].id;
+        crate::progress::save(&database, id, 0.5).unwrap();
+        let saved = crate::vocabulary::save(
+            &database,
+            crate::vocabulary::SaveVocabulary {
+                word: "한국어".into(),
+                normalized_form: None,
+                document_id: id,
+                context: "한국어".into(),
+            },
+        )
+        .unwrap();
+        update(&database, id, "새 제목", "한국어").unwrap();
+        assert_eq!(crate::progress::read(&database, id).unwrap(), 0.5);
+        assert!(update(&database, id, "", "다른 내용").is_err());
+        assert_eq!(read(&database, id).unwrap(), "한국어");
+        update(&database, id, "새 제목", "새로운 내용").unwrap();
+        assert_eq!(read(&database, id).unwrap(), "새로운 내용");
+        assert_eq!(list(&database).unwrap()[0].title, "새 제목");
+        assert_eq!(crate::progress::read(&database, id).unwrap(), 0.0);
+        remove(&database, id).unwrap();
+        assert!(list(&database).unwrap().is_empty());
+        let vocabulary = crate::vocabulary::list(&database).unwrap();
+        assert_eq!(vocabulary[0].id, saved.id);
+        assert_eq!(vocabulary[0].document_id, None);
+        assert_eq!(vocabulary[0].context, "한국어");
+        assert!(update(&database, id, "제목", "내용").is_err());
     }
 
     #[test]
