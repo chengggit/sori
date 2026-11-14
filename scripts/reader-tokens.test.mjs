@@ -1,7 +1,28 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readingPassages, tokenBlocks, partOfSpeechLabel } from "../src/lib/features/reader/tokens.ts";
-import { wordBreakdown } from "../src/lib/features/reader/breakdown.ts";
+import { wordBreakdown, wholeWordTerms } from "../src/lib/features/reader/breakdown.ts";
+
+test("whole-word lookup keeps compounds and restores inflected dictionary forms", () => {
+  assert.deepEqual(wholeWordTerms("친환경", [
+    { form: "친", tag: "XPN" }, { form: "환경", tag: "NNG" },
+  ]), ["친환경"]);
+  assert.deepEqual(wholeWordTerms("있었다", [
+    { form: "있", tag: "VA" }, { form: "었", tag: "EP" }, { form: "다", tag: "EF" },
+  ]), ["있었다", "있다"]);
+  assert.deepEqual(wholeWordTerms("공부했어요", [
+    { form: "공부", tag: "NNG" }, { form: "하", tag: "XSV" },
+    { form: "었", tag: "EP" }, { form: "어요", tag: "EF" },
+  ]), ["공부했어요", "공부하다"]);
+  assert.deepEqual(wholeWordTerms("친환경은", [
+    { form: "친", tag: "XPN" }, { form: "환경", tag: "NNG" }, { form: "은", tag: "JX" },
+  ]), ["친환경은", "친환경"]);
+  assert.deepEqual(wholeWordTerms("갔어요", [
+    { form: "가", tag: "VV-I" }, { form: "었", tag: "EP" }, { form: "어요", tag: "EF" },
+  ]), ["갔어요", "가다"]);
+  assert.deepEqual(wholeWordTerms("학교", []), ["학교"]);
+  assert.deepEqual(wholeWordTerms("다", [{ form: "다", tag: "EF" }]), ["다"]);
+});
 
 test("breakdown shows dictionary forms and POS-specific grammar explanations", () => {
   const parts = wordBreakdown([
@@ -16,6 +37,22 @@ test("breakdown shows dictionary forms and POS-specific grammar explanations", (
   assert.equal(wordBreakdown([{ form: "은", tag: "NNG" }])[0].explanation, null);
   assert.equal(wordBreakdown([{ form: "은", tag: "JX" }])[0].explanation, "Topic or contrast marker");
   assert.equal(wordBreakdown([{ form: "가", tag: "VV-I" }])[0].term, "가다");
+});
+
+test("derivational suffixes stay with their lexical base in 해결하기", () => {
+  const tokens = [
+    { form: "해결", tag: "NNG" },
+    { form: "하", tag: "XSV" },
+    { form: "기", tag: "ETN" },
+  ];
+  assert.deepEqual(wholeWordTerms("해결하기", tokens), ["해결하기", "해결하다"]);
+  const parts = wordBreakdown(tokens);
+  assert.deepEqual(parts.map((part) => part.term), ["해결하다", "-기"]);
+  assert.equal(parts[0].tag, "VV");
+  assert.match(parts[1].explanation, /noun/);
+  const standalone = wordBreakdown([{ form: "하", tag: "XSV" }])[0];
+  assert.equal(standalone.term, "-하");
+  assert.match(standalone.explanation, /Forms a verb/);
 });
 
 const token = (form, start, end) => ({ form, start, end });

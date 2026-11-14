@@ -7,6 +7,7 @@
   import TokenPassage from "./TokenPassage.svelte";
   import { readingPassages, type TokenBlock } from "./tokens";
   import WordBreakdown from "./WordBreakdown.svelte";
+  import WholeWordMeaning from "./WholeWordMeaning.svelte";
   import DictionaryLookup from "../dictionary/DictionaryLookup.svelte";
   import { dictionaryForm, type DictionaryDefinition } from "../dictionary/dictionary";
   import {
@@ -247,6 +248,14 @@
         {#if loading}
           <p role="status" class="text-sm text-muted-foreground">Analyzing…</p>
         {:else if analysis}
+          <WholeWordMeaning
+            word={analysis.word}
+            tokens={analysis.morphemes}
+            selected={saved?.definition ?? definition}
+            savedDefinition={saved?.definition}
+            locked={saving || !!saved}
+            onSelect={(value) => (definition = value)}
+          />
           <WordBreakdown
             tokens={analysis.morphemes}
             selected={saved?.definition ?? definition}

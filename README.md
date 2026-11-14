@@ -29,7 +29,12 @@ right-hand panel with its individual morphemes, readable word-type labels, POS
 tags and original context, then save or remove the vocabulary entry. The original
 word is saved by default, with an optional morpheme form to collect.
 
-The panel automatically shows English meanings beside the word breakdown using
+The panel first searches the complete selected word, then its reconstructed
+dictionary form if needed, and shows the matching English meanings above the
+breakdown. Prefixes and compound stems stay together during lookup. Select a
+meaning to save it with the original word and context.
+
+The panel also automatically shows English meanings beside the word breakdown using
 Wiktionary without an API key. Common endings and particles have short offline
 grammar explanations keyed by their analyzed form and POS. Other morphemes use
 dictionary definitions when available. Manual lookup is under **Search dictionary**. Verb
