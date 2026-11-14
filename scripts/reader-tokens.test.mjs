@@ -2,6 +2,20 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readingPassages, tokenBlocks, partOfSpeechLabel } from "../src/lib/features/reader/tokens.ts";
 import { wordBreakdown, wholeWordTerms } from "../src/lib/features/reader/breakdown.ts";
+import { embeddedLookupUrl } from "../src/lib/features/dictionary/embedded.ts";
+
+test("embedded lookup URLs preserve Korean text and encode query delimiters", () => {
+  const word = "해결 & #?";
+  const papago = new URL(embeddedLookupUrl("papago", ` ${word} `));
+  assert.equal(papago.origin, "https://papago.naver.com");
+  assert.equal(papago.searchParams.get("text"), word);
+  assert.equal(papago.searchParams.get("sl"), "ko");
+  assert.equal(papago.searchParams.get("tl"), "en");
+  const naver = new URL(embeddedLookupUrl("naver-ko", word));
+  assert.equal(naver.origin, "https://korean.dict.naver.com");
+  assert.equal(naver.pathname, "/koendict/");
+  assert.equal(decodeURIComponent(naver.hash.slice("#/search?query=".length)), word);
+});
 
 test("whole-word lookup keeps compounds and restores inflected dictionary forms", () => {
   assert.deepEqual(wholeWordTerms("친환경", [

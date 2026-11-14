@@ -1,12 +1,7 @@
 <script lang="ts">
   import { untrack } from "svelte";
-  import { openUrl } from "@tauri-apps/plugin-opener";
   import type { KoreanToken } from "../nlp/tokenization";
-  import {
-    dictionaryLicense,
-    lookupDictionary,
-    type DictionaryDefinition,
-  } from "../dictionary/dictionary";
+  import { lookupDictionary, type DictionaryDefinition } from "../dictionary/dictionary";
   import { wordBreakdown } from "./breakdown";
   import { partOfSpeechLabel } from "./tokens";
 
@@ -16,17 +11,18 @@
     savedDefinition,
     locked,
     onSelect,
+    onSources,
   }: {
     tokens: KoreanToken[];
     selected: DictionaryDefinition | null;
     savedDefinition?: DictionaryDefinition | null;
     locked: boolean;
     onSelect: (definition: DictionaryDefinition) => void;
+    onSources: (definitions: DictionaryDefinition[]) => void;
   } = $props();
   const parts = $derived(wordBreakdown(tokens));
   type Result = { definitions: DictionaryDefinition[]; error: string };
   let results = $state<Record<string, Result>>({});
-  let linkError = $state("");
 
   $effect(() => {
     const snapshot = savedDefinition;
@@ -40,10 +36,14 @@
     let disposed = false;
     results = snapshot ? { [snapshot.term]: { definitions: [snapshot], error: "" } } : {};
     untrack(() => {
+      if (snapshot) onSources([snapshot]);
       for (const term of terms) {
         void lookupDictionary(term).then(
           (definitions) => {
-            if (!disposed) results = { ...results, [term]: { definitions, error: "" } };
+            if (!disposed) {
+              results = { ...results, [term]: { definitions, error: "" } };
+              onSources(definitions);
+            }
           },
           (cause) => {
             if (!disposed) results = { ...results, [term]: { definitions: [], error: String(cause) } };
@@ -55,14 +55,6 @@
       disposed = true;
     };
   });
-
-  async function open(url: string) {
-    try {
-      await openUrl(url);
-    } catch (cause) {
-      linkError = String(cause);
-    }
-  }
 </script>
 
 <section aria-label="Word breakdown" class="mb-4">
@@ -99,23 +91,10 @@
               </li>
             {/each}
           </ul>
-          <button
-            type="button"
-            class="mt-1 text-xs text-muted-foreground underline"
-            onclick={() => open(result.definitions[0].sourceUrl)}>Wiktionary</button
-          >
         {:else}
           <p class="text-sm text-muted-foreground">No Korean definition found.</p>
         {/if}
       </li>
     {/each}
   </ul>
-  <p class="mt-2 text-xs text-muted-foreground">
-    Meanings from Wiktionary contributors. Formatting removed. <button
-      type="button"
-      class="underline"
-      onclick={() => open(dictionaryLicense)}>CC BY-SA 4.0</button
-    >
-  </p>
-  {#if linkError}<p role="alert" class="mt-2 text-sm text-destructive">{linkError}</p>{/if}
 </section>

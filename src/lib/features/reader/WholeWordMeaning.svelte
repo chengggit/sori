@@ -1,13 +1,8 @@
 <script lang="ts">
   import { untrack } from "svelte";
-  import { openUrl } from "@tauri-apps/plugin-opener";
   import { Button } from "$lib/components/ui/button";
   import type { KoreanToken } from "../nlp/tokenization";
-  import {
-    dictionaryLicense,
-    lookupDictionary,
-    type DictionaryDefinition,
-  } from "../dictionary/dictionary";
+  import { lookupDictionary, type DictionaryDefinition } from "../dictionary/dictionary";
   import { wholeWordTerms } from "./breakdown";
 
   let {
@@ -17,6 +12,7 @@
     savedDefinition,
     locked,
     onSelect,
+    onSources,
   }: {
     word: string;
     tokens: KoreanToken[];
@@ -24,6 +20,7 @@
     savedDefinition?: DictionaryDefinition | null;
     locked: boolean;
     onSelect: (definition: DictionaryDefinition) => void;
+    onSources: (definitions: DictionaryDefinition[]) => void;
   } = $props();
   const terms = $derived(wholeWordTerms(word, tokens));
   let definitions = $state<DictionaryDefinition[]>([]);
@@ -39,6 +36,7 @@
       if (snapshot && candidates.includes(snapshot.term)) {
         request += 1;
         definitions = [snapshot];
+        onSources([snapshot]);
         matchedTerm = snapshot.term;
         loading = false;
         error = "";
@@ -63,6 +61,7 @@
         if (current !== request) return;
         if (result.length) {
           definitions = result;
+          onSources(result);
           matchedTerm = term;
           break;
         }
@@ -71,14 +70,6 @@
       if (current === request) error = String(cause);
     } finally {
       if (current === request) loading = false;
-    }
-  }
-
-  async function open(url: string) {
-    try {
-      await openUrl(url);
-    } catch (cause) {
-      error = String(cause);
     }
   }
 </script>
@@ -108,16 +99,6 @@
         Dictionary form · <span lang="ko">{matchedTerm}</span>
       </p>
     {/if}
-    <p class="mt-2 text-xs text-muted-foreground">
-      <button type="button" class="underline" onclick={() => open(definitions[0].sourceUrl)}
-        >Wiktionary contributors</button
-      >
-      ·
-      <button type="button" class="underline" onclick={() => open(dictionaryLicense)}
-        >CC BY-SA 4.0</button
-      >
-      · Formatting removed
-    </p>
   {:else if !error}
     <p class="text-sm text-muted-foreground">No whole-word entry found. Try Search dictionary below.</p>
   {/if}

@@ -1,6 +1,8 @@
 <script lang="ts">
   import { onDestroy, tick } from "svelte";
   import { X } from "@lucide/svelte";
+  import { Tabs } from "bits-ui";
+  import { openUrl } from "@tauri-apps/plugin-opener";
   import { Button } from "$lib/components/ui/button";
   import { analyzeDocumentWord, type WordAnalysis } from "./analysis";
   import { saveReadingProgress, trackReadingProgress } from "./progress";
@@ -9,7 +11,14 @@
   import WordBreakdown from "./WordBreakdown.svelte";
   import WholeWordMeaning from "./WholeWordMeaning.svelte";
   import DictionaryLookup from "../dictionary/DictionaryLookup.svelte";
-  import { dictionaryForm, type DictionaryDefinition } from "../dictionary/dictionary";
+  import EmbeddedLookup from "../dictionary/EmbeddedLookup.svelte";
+  import { embeddedProviders } from "../dictionary/embedded";
+  import { embedSettings } from "../dictionary/embed-settings";
+  import {
+    dictionaryForm,
+    dictionaryLicense,
+    type DictionaryDefinition,
+  } from "../dictionary/dictionary";
   import {
     listVocabulary,
     saveVocabulary,
@@ -26,7 +35,7 @@
   } = $props();
   let scroller = $state<HTMLDivElement>();
   let readerWidth = $state(0);
-  let sidebarWidth = $state(420);
+  let sidebarWidth = $state(500);
   let resizing = $state(false);
   let dragStartX = 0;
   let dragStartWidth = 0;
@@ -41,6 +50,30 @@
   let normalized = $state("");
   let definition = $state<DictionaryDefinition | null>(null);
   let dictionaryOpen = $state(false);
+  let sources = $state<Record<string, string>>({});
+  let lookupView = $state("analysis");
+  const enabledProviders = $derived([
+    ...embeddedProviders.map((provider) => ({ ...provider, provider: provider.value, url: "" })),
+    ...$embedSettings.custom.map((item) => ({ value: item.id, label: new URL(item.url).hostname, provider: "custom" as const, url: item.url })),
+  ].filter((provider) => $embedSettings.enabled.includes(provider.value)));
+  $effect(() => {
+    if (lookupView !== "analysis" && !enabledProviders.some((provider) => provider.value === lookupView)) lookupView = "analysis";
+  });
+
+  function collectSources(definitions: DictionaryDefinition[]) {
+    sources = {
+      ...sources,
+      ...Object.fromEntries(definitions.map((item) => [item.term, item.sourceUrl])),
+    };
+  }
+
+  async function openSource(url: string) {
+    try {
+      await openUrl(url);
+    } catch (cause) {
+      error = String(cause);
+    }
+  }
   const dictionaryTerm = $derived.by(() => {
     if (!analysis) return "";
     const token = normalized
@@ -121,6 +154,7 @@
     normalized = "";
     definition = null;
     dictionaryOpen = false;
+    sources = {};
     error = "";
     loading = true;
     void analyzeSelection();
@@ -236,7 +270,7 @@
         onlostpointercapture={() => (resizing = false)}
         onkeydown={resizeWithKeyboard}
       ></div>
-      <div class="h-full overflow-y-auto px-4 pt-3 pb-6 sm:px-5">
+      <div class="flex h-full min-h-0 flex-col">
         <Button
           variant="ghost"
           size="icon-sm"
@@ -244,73 +278,140 @@
           class="absolute top-2 right-2 z-10"
           onclick={dismiss}><X /></Button
         >
-        <h2 lang="ko" class="mb-4 pr-9 text-xl font-semibold wrap-break-word">{selection.text}</h2>
-        {#if loading}
-          <p role="status" class="text-sm text-muted-foreground">Analyzing…</p>
-        {:else if analysis}
-          <WholeWordMeaning
-            word={analysis.word}
-            tokens={analysis.morphemes}
-            selected={saved?.definition ?? definition}
-            savedDefinition={saved?.definition}
-            locked={saving || !!saved}
-            onSelect={(value) => (definition = value)}
-          />
-          <WordBreakdown
-            tokens={analysis.morphemes}
-            selected={saved?.definition ?? definition}
-            savedDefinition={saved?.definition}
-            locked={saving || !!saved}
-            onSelect={(value) => (definition = value)}
-          />
-          {#if definition && !saved}
-            <p class="mb-3 text-xs text-muted-foreground">
-              Meaning selected for saving · {definition.term}
-            </p>
-          {/if}
-          <details bind:open={dictionaryOpen} class="my-4 border-y py-3">
-            <summary class="cursor-pointer text-sm font-medium"
-              >{saved?.definition ? "Saved meaning" : "Search dictionary"}</summary
-            >
-            {#if dictionaryOpen}
-              <DictionaryLookup
-                term={dictionaryTerm}
-                savedDefinition={saved?.definition}
-                locked={saving || !!saved}
-                onSelect={(value) => (definition = value)}
-              />
-            {/if}
-          </details>
-          <div class="flex flex-wrap items-end gap-3">
-            <label class="grid gap-1 text-xs text-muted-foreground">
-              Morpheme to collect (optional)
-              <select
-                bind:value={normalized}
-                disabled={saving || !!saved}
-                class="h-8 rounded-md border bg-background px-2 text-sm text-foreground"
+        <Tabs.Root
+          value={lookupView}
+          onValueChange={(value) => (lookupView = value)}
+          class="flex min-h-0 flex-1 flex-col"
+        >
+          <Tabs.List
+            aria-label="Lookup views"
+            class="flex shrink-0 gap-1 overflow-x-auto border-b bg-muted/50 px-3 pt-1 pr-10"
+          >
+            {#each [{ value: "analysis", label: "Analysis" }, ...enabledProviders] as tab}
+              <Tabs.Trigger
+                value={tab.value}
+                class="relative -mb-px min-w-0 flex-1 truncate rounded-t-lg border border-transparent px-3 py-2 text-sm text-muted-foreground hover:bg-accent focus-visible:z-10 focus-visible:outline-2 focus-visible:outline-ring data-[state=active]:border-border data-[state=active]:border-b-popover data-[state=active]:bg-popover data-[state=active]:font-medium data-[state=active]:text-foreground"
               >
-                <option value="">Original word</option>
-                {#each [...new Set(analysis.morphemes.map((token) => token.form))] as form}<option
-                    value={form}>{form}</option
-                  >{/each}
-              </select>
-            </label>
-            <Button
-              size="sm"
-              variant={saved ? "outline" : "default"}
-              disabled={saving}
-              onclick={toggleSaved}
-              >{saving ? "Saving…" : saved ? "Remove saved word" : "Save word"}</Button
+                {tab.label}
+              </Tabs.Trigger>
+            {/each}
+          </Tabs.List>
+          <h2 lang="ko" class="mt-3 mb-3 px-4 pr-12 text-xl font-semibold wrap-break-word sm:pl-5">
+            {selection.text}
+          </h2>
+          {#each enabledProviders as item}
+            <Tabs.Content
+              value={item.value}
+              class="flex min-h-0 flex-1 flex-col pt-3 data-[state=inactive]:hidden"
             >
-            {#if saved}<span role="status" class="text-sm text-muted-foreground">Saved</span>{/if}
-          </div>
-        {/if}
-        {#if error}
-          <p role="alert" class="mt-2 text-sm text-destructive">{error}</p>
-          {#if !analysis}<Button size="sm" variant="outline" class="mt-2" onclick={analyzeSelection}
-              >Retry analysis</Button
-            >{/if}
-        {/if}
+              {#if lookupView === item.value}
+                <EmbeddedLookup provider={item.provider} customUrl={item.url} label={item.label} word={selection.text} />
+              {/if}
+            </Tabs.Content>
+          {/each}
+          <Tabs.Content
+            value="analysis"
+            class="min-h-0 flex-1 overflow-y-auto px-4 pt-3 pb-6 data-[state=inactive]:hidden sm:px-5"
+          >
+            {#if lookupView === "analysis"}
+              {#if loading}
+                <p role="status" class="text-sm text-muted-foreground">Analyzing…</p>
+              {:else if analysis}
+                <WholeWordMeaning
+                  onSources={collectSources}
+                  word={analysis.word}
+                  tokens={analysis.morphemes}
+                  selected={saved?.definition ?? definition}
+                  savedDefinition={saved?.definition}
+                  locked={saving || !!saved}
+                  onSelect={(value) => (definition = value)}
+                />
+                <WordBreakdown
+                  onSources={collectSources}
+                  tokens={analysis.morphemes}
+                  selected={saved?.definition ?? definition}
+                  savedDefinition={saved?.definition}
+                  locked={saving || !!saved}
+                  onSelect={(value) => (definition = value)}
+                />
+                {#if definition && !saved}
+                  <p class="mb-3 text-xs text-muted-foreground">
+                    Meaning selected for saving · {definition.term}
+                  </p>
+                {/if}
+                <details bind:open={dictionaryOpen} class="my-4 border-y py-3">
+                  <summary class="cursor-pointer text-sm font-medium"
+                    >{saved?.definition ? "Saved meaning" : "Search dictionary"}</summary
+                  >
+                  {#if dictionaryOpen}
+                    <DictionaryLookup
+                      onSources={collectSources}
+                      term={dictionaryTerm}
+                      savedDefinition={saved?.definition}
+                      locked={saving || !!saved}
+                      onSelect={(value) => (definition = value)}
+                    />
+                  {/if}
+                </details>
+                <div class="flex flex-wrap items-end gap-3">
+                  <label class="grid gap-1 text-xs text-muted-foreground">
+                    Morpheme to collect (optional)
+                    <select
+                      bind:value={normalized}
+                      disabled={saving || !!saved}
+                      class="h-8 rounded-md border bg-background px-2 text-sm text-foreground"
+                    >
+                      <option value="">Original word</option>
+                      {#each [...new Set(analysis.morphemes.map((token) => token.form))] as form}<option
+                          value={form}>{form}</option
+                        >{/each}
+                    </select>
+                  </label>
+                  <Button
+                    size="sm"
+                    variant={saved ? "outline" : "default"}
+                    disabled={saving}
+                    onclick={toggleSaved}
+                    >{saving ? "Saving…" : saved ? "Remove saved word" : "Save word"}</Button
+                  >
+                  {#if saved}<span role="status" class="text-sm text-muted-foreground">Saved</span>{/if}
+                </div>
+                {#if Object.keys(sources).length}
+                  <details class="mt-5 text-xs text-muted-foreground">
+                    <summary class="cursor-pointer">Sources</summary>
+                    <p class="mt-2">Definitions by Wiktionary contributors. Formatting removed.</p>
+                    <button
+                      type="button"
+                      class="mt-1 underline"
+                      onclick={() => openSource(dictionaryLicense)}>CC BY-SA 4.0</button
+                    >
+                    <ul class="mt-2 space-y-1">
+                      {#each Object.entries(sources) as [term, url]}
+                        <li>
+                          <button
+                            type="button"
+                            lang="ko"
+                            class="underline"
+                            onclick={() => openSource(url)}>{term}</button
+                          >
+                        </li>
+                      {/each}
+                    </ul>
+                  </details>
+                {/if}
+              {/if}
+              {#if error}
+                <p role="alert" class="mt-2 text-sm text-destructive">{error}</p>
+                {#if !analysis}<Button
+                    size="sm"
+                    variant="outline"
+                    class="mt-2"
+                    onclick={analyzeSelection}>Retry analysis</Button
+                  >{/if}
+              {/if}
+            {/if}
+          </Tabs.Content>
+        </Tabs.Root>
       </div>
     </aside>
   {/if}

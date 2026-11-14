@@ -42,6 +42,11 @@ and adjective stems use the `다` form, and particles/endings use a leading hyph
 Select a meaning before saving a word to keep that definition and its source
 locally for offline reading. Existing vocabulary without meanings remains usable.
 The panel also links to the full Wiktionary entry and Naver in the system browser.
+The sidebar tabs offer **Analysis**, **Naver**, and **Papago**.
+The latter two load their full websites inside the resizable sidebar
+with the selected word prefilled. Users can edit the query or open the page in
+their browser. These views need internet access. Use Analysis to save vocabulary
+and selected Wiktionary definitions locally.
 Definitions are plain text attributed to Wiktionary contributors under CC BY-SA
 4.0. Lookup uses Wiktionary's experimental definition endpoint, so coverage and
 availability can vary. Saved meanings require no network request.
