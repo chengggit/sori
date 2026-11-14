@@ -170,6 +170,9 @@ mod tests {
     fn analyzes_korean_offline_with_utf16_offsets() {
         let resources = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("resources/kiwi");
         let analyzer = KoreanAnalyzer::start(resources).unwrap();
+        let example = analyzer.analyze("마음만큼은".into()).unwrap();
+        let forms: Vec<_> = example.iter().map(|token| token.form.as_str()).collect();
+        assert_eq!(forms, ["마음", "만큼", "은"]);
         for text in [
             "학교에 갔어요.",
             "😀 학교에 갔어요.\n한국어를 공부해요.",

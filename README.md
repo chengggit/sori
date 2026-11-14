@@ -14,12 +14,24 @@ been integration-tested. Native packaging on other platforms still needs testing
 ### Local reading
 
 In the desktop app, open **My Library** and choose **Import** to add a UTF-8
-`.txt` file up to 2 MiB. Select the imported document to read it. Sori stores a
+`.txt` file up to 2 MiB. Select the imported document to open its dedicated reader
+page. Use **Library** in the reader header to return to your documents. Sori stores a
 copy in its local SQLite database so the document stays available after restart.
 
 The reader saves your relative scroll position locally and restores it when you
 reopen a document. It saves while scrolling and when the reader closes. Restoring
 uses the current window size, so the exact line may shift after resizing.
+
+The reader analyzes passages as they approach the viewport and renders
+whole words as clickable boxes, with punctuation displayed as plain text.
+Click a whole word to open the
+right-hand panel with its individual morphemes, readable word-type labels, POS
+tags and original context, then save or remove the vocabulary entry. The original
+word is saved by default, with an optional morpheme form to collect. Dictionary
+meanings will be added in a later phase.
+
+Token rendering checks can be run with
+`node --experimental-strip-types --test scripts/reader-tokens.test.mjs`.
 
 The Rust backend initializes `library.sqlite3` in the application data directory
 at startup using `src-tauri/src/schema.sql` in a transaction. During pre-release
@@ -44,10 +56,9 @@ code units for JavaScript string slicing. Morphemes from contractions can share
 overlapping source spans. A verb stem such as `가` is an analyzed morpheme form.
 
 Kiwi loads on first use, verifies UTF-16 API support, and stays on a dedicated
-worker thread. Empty input returns an empty list, invalid input and resource
-errors return command errors,
-and a bounded request queue reports when analysis is busy. Reader word selection
-and vocabulary controls are the next phase.
+worker thread. Empty input returns an empty list. Invalid input and resource
+errors return command errors, and a bounded request queue reports when analysis
+is busy.
 
 After setup, run the real offline model test with
 `cargo test --manifest-path src-tauri/Cargo.toml --locked nlp::tests::analyzes_korean_offline_with_utf16_offsets -- --ignored`.
@@ -64,8 +75,8 @@ The vocabulary backend exposes `save_vocabulary`, `list_vocabulary`, and
 `src/lib/features/vocabulary/vocabulary.ts`. It stores the selected word, an
 optional normalized form, the document title and context, and a save timestamp.
 Repeated saves of the same word and context in one document return the original
-entry. Saved words survive source document deletion. Reader controls for saving
-and browsing vocabulary are planned in the interactive reader phase.
+entry. Saved words survive source document deletion. The reader supports saving
+and removing vocabulary in context. A separate vocabulary browser is planned.
 
 ### YouTube discovery
 

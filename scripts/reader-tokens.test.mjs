@@ -1,0 +1,75 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { readingPassages, tokenBlocks, partOfSpeechLabel } from "../src/lib/features/reader/tokens.ts";
+
+const token = (form, start, end) => ({ form, start, end });
+
+test("renders a whole spaced word while preserving its morphemes and source offsets", () => {
+  const text = "😀 마음만큼은\n";
+  const pieces = tokenBlocks(text, [token("마음", 3, 5), token("만큼", 5, 7), token("은", 7, 8)]);
+  assert.equal(pieces.map((piece) => piece.text).join(""), text);
+  assert.deepEqual(
+    pieces.filter((piece) => piece.morphemes.length).map((piece) => piece.text),
+    ["마음만큼은"],
+  );
+  assert.equal(pieces.find((piece) => piece.text === "마음만큼은").morphemes.length, 3);
+});
+
+test("overlapping contraction morphemes share one original spelling", () => {
+  const pieces = tokenBlocks("갔어요", [token("가", 0, 1), token("었", 0, 1), token("어요", 1, 3)]);
+  assert.equal(pieces.map((piece) => piece.text).join(""), "갔어요");
+  assert.equal(pieces.length, 1);
+  assert.equal(pieces[0].morphemes.length, 3);
+});
+
+test("spaces separate word boxes and word-type labels explain common Kiwi tags", () => {
+  const pieces = tokenBlocks("마음만큼은  커요.\n", [
+    token("마음", 0, 2),
+    token("만큼", 2, 4),
+    token("은", 4, 5),
+    token("크", 7, 9),
+  ]);
+  assert.deepEqual(
+    pieces.filter((piece) => piece.morphemes.length).map((piece) => piece.text),
+    ["마음만큼은", "커요"],
+  );
+  assert.equal(pieces.map((piece) => piece.text).join(""), "마음만큼은  커요.\n");
+  assert.equal(partOfSpeechLabel("NNG"), "Noun");
+  assert.equal(partOfSpeechLabel("VV-I"), "Verb");
+  assert.equal(partOfSpeechLabel("JX"), "Particle");
+  assert.equal(partOfSpeechLabel("EF"), "Ending");
+});
+
+test("punctuation and symbols stay outside clickable word boxes", () => {
+  const text = "“마음만큼은,” (커요!) 😀";
+  const pieces = tokenBlocks(text, [
+    token("마음", 1, 3),
+    token("만큼", 3, 5),
+    token("은", 5, 6),
+    token(",", 6, 7),
+    token("크", 10, 12),
+    token("!", 12, 13),
+  ]);
+  assert.equal(pieces.map((piece) => piece.text).join(""), text);
+  assert.deepEqual(
+    pieces.filter((piece) => piece.morphemes.length).map((piece) => piece.text),
+    ["마음만큼은", "커요"],
+  );
+  assert(
+    pieces
+      .filter((piece) => !/[\p{L}\p{N}]/u.test(piece.text))
+      .every((piece) => piece.morphemes.length === 0),
+  );
+});
+
+test("long passages fit the Kiwi limit and preserve valid Unicode and absolute offsets", () => {
+  for (const text of ["", "😀".repeat(3000), "한글 마음만큼은\n".repeat(20000), "a".repeat(16000)]) {
+    const passages = readingPassages(text);
+    assert.equal(passages.map((passage) => passage.text).join(""), text);
+    for (const passage of passages) {
+      assert.equal(text.slice(passage.start, passage.start + passage.text.length), passage.text);
+      assert(Buffer.byteLength(passage.text) <= 16 * 1024);
+      assert(passage.text.isWellFormed());
+    }
+  }
+});

@@ -16,7 +16,7 @@
   let current = $derived(
     page.url.pathname === resolve("/history")
       ? "History"
-      : page.url.pathname === resolve("/library")
+      : page.url.pathname === resolve("/library") || page.url.pathname === resolve("/read")
         ? "My Library"
         : page.url.pathname === resolve("/explore")
           ? "Explore"

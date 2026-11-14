@@ -1,22 +1,13 @@
 <script lang="ts">
   import { BookOpen, Library, Plus, Search, X } from "@lucide/svelte";
   import { onMount, tick } from "svelte";
+  import { resolve } from "$app/paths";
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
   import * as Sheet from "$lib/components/ui/sheet";
   import * as Sidebar from "$lib/components/ui/sidebar";
   import { isTauri } from "@tauri-apps/api/core";
-  import {
-    readReadingProgress,
-    saveReadingProgress,
-    trackReadingProgress,
-  } from "$lib/features/reader/progress";
-  import {
-    importDocument,
-    listDocuments,
-    readDocument,
-    type LibraryItem,
-  } from "$lib/features/library/documents";
+  import { importDocument, listDocuments, type LibraryItem } from "$lib/features/library/documents";
 
   let desktop = $state(false);
   let documents = $state<LibraryItem[]>([]);
@@ -27,23 +18,6 @@
   let pastedTitle = $state("");
   let pastedText = $state("");
   let importError = $state("");
-  let documentOpen = $state(false);
-  let selected = $state<{ id: number; title: string; content: string; position: number }>();
-  let reader = $state<HTMLElement | null>(null);
-  let progressError = $state("");
-  $effect(() => {
-    if (!documentOpen || !reader || !selected) return;
-    const document = selected;
-    return trackReadingProgress(
-      reader,
-      document.position,
-      (position) => saveReadingProgress(document.id, position),
-      (message) => {
-        if (selected?.id === document.id) progressError = message;
-        if (message) error = message;
-      },
-    );
-  });
   let visibleDocuments = $derived(
     documents.filter((item) =>
       item.title.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()),
@@ -105,18 +79,6 @@
       importOpen = false;
       documents = await listDocuments();
       query = "";
-    });
-  }
-
-  function openDocument(item: LibraryItem) {
-    void runLibraryAction(async () => {
-      const [content, position] = await Promise.all([
-        readDocument(item.id),
-        readReadingProgress(item.id),
-      ]);
-      progressError = "";
-      selected = { id: item.id, title: item.title, content, position };
-      documentOpen = true;
     });
   }
 
@@ -194,8 +156,7 @@
           <Button
             variant="outline"
             class="h-auto w-full justify-start gap-3 p-4 text-left whitespace-normal"
-            disabled={busy}
-            onclick={() => openDocument(item)}
+            href={resolve("/read") + "?id=" + item.id}
           >
             <BookOpen />
             {item.title}
@@ -259,27 +220,5 @@
         </Button>
       </div>
     </form>
-  </Sheet.Content>
-</Sheet.Root>
-
-<Sheet.Root bind:open={documentOpen}>
-  <Sheet.Content
-    class="max-w-2xl"
-    bind:ref={reader}
-    onOpenAutoFocus={(event) => {
-      event.preventDefault();
-      reader?.focus({ preventScroll: true });
-    }}
-  >
-    {#if selected}
-      <Sheet.Header class="pr-14">
-        <Sheet.Title>{selected.title}</Sheet.Title>
-        <Sheet.Description class="sr-only">Imported text document</Sheet.Description>
-        {#if progressError}<p class="text-sm text-destructive" role="alert">{progressError}</p>{/if}
-      </Sheet.Header>
-      <p lang="ko" class="px-6 pb-8 text-base leading-8 wrap-break-word whitespace-pre-wrap">
-        {selected.content}
-      </p>
-    {/if}
   </Sheet.Content>
 </Sheet.Root>

@@ -4,6 +4,7 @@ mod library;
 mod nlp;
 mod nlp_commands;
 mod progress;
+mod reader;
 mod vocabulary;
 mod vocabulary_commands;
 
@@ -30,6 +31,7 @@ pub fn run() {
             library::read_reading_progress,
             library::save_reading_progress,
             nlp_commands::tokenize_text,
+            nlp_commands::analyze_document_word,
             vocabulary_commands::save_vocabulary,
             vocabulary_commands::list_vocabulary,
             vocabulary_commands::remove_vocabulary
