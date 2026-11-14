@@ -27,8 +27,22 @@ whole words as clickable boxes, with punctuation displayed as plain text.
 Click a whole word to open the
 right-hand panel with its individual morphemes, readable word-type labels, POS
 tags and original context, then save or remove the vocabulary entry. The original
-word is saved by default, with an optional morpheme form to collect. Dictionary
-meanings will be added in a later phase.
+word is saved by default, with an optional morpheme form to collect.
+
+The panel automatically shows English meanings beside the word breakdown using
+Wiktionary without an API key. Common endings and particles have short offline
+grammar explanations keyed by their analyzed form and POS. Other morphemes use
+dictionary definitions when available. Manual lookup is under **Search dictionary**. Verb
+and adjective stems use the `다` form, and particles/endings use a leading hyphen.
+Select a meaning before saving a word to keep that definition and its source
+locally for offline reading. Existing vocabulary without meanings remains usable.
+The panel also links to the full Wiktionary entry and Naver in the system browser.
+Definitions are plain text attributed to Wiktionary contributors under CC BY-SA
+4.0. Lookup uses Wiktionary's experimental definition endpoint, so coverage and
+availability can vary. Saved meanings require no network request.
+
+Run the optional live dictionary check with
+`cargo test --manifest-path src-tauri/Cargo.toml dictionary::tests::live_korean_lookup -- --ignored`.
 
 Token rendering checks can be run with
 `node --experimental-strip-types --test scripts/reader-tokens.test.mjs`.

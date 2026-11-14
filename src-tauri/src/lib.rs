@@ -1,4 +1,5 @@
 mod db;
+mod dictionary;
 mod documents;
 mod library;
 mod nlp;
@@ -18,6 +19,7 @@ pub fn run() {
             let database = db::Database::initialize(app.path().app_data_dir()?)
                 .map_err(std::io::Error::other)?;
             app.manage(database);
+            app.manage(dictionary::Dictionary::new()?);
             let resources = app
                 .path()
                 .resolve("resources/kiwi", tauri::path::BaseDirectory::Resource)?;
@@ -34,6 +36,7 @@ pub fn run() {
             library::save_reading_progress,
             nlp_commands::tokenize_text,
             nlp_commands::analyze_document_word,
+            dictionary::lookup_dictionary,
             vocabulary_commands::save_vocabulary,
             vocabulary_commands::list_vocabulary,
             vocabulary_commands::remove_vocabulary

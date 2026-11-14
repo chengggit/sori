@@ -20,6 +20,11 @@ CREATE TABLE IF NOT EXISTS vocabulary (
 -- Retain saved words and context when the source document is removed.
 CREATE INDEX IF NOT EXISTS vocabulary_document_id ON vocabulary(document_id);
 
+CREATE TABLE IF NOT EXISTS vocabulary_meanings (
+    vocabulary_id INTEGER PRIMARY KEY REFERENCES vocabulary(id) ON DELETE CASCADE,
+    definition_json TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS reading_progress (
     document_id INTEGER PRIMARY KEY REFERENCES documents(id) ON DELETE CASCADE,
     position REAL NOT NULL CHECK (position >= 0 AND position <= 1),

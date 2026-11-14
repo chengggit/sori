@@ -94,6 +94,7 @@ mod tests {
                     normalized_form: None,
                     document_id: document.id,
                     context: "학교에 갔어요.".into(),
+                    definition: None,
                 },
             )
             .unwrap();
@@ -118,6 +119,23 @@ mod tests {
                 "학교에 갔어요."
             );
         }
+    }
+
+    #[test]
+    fn adds_meaning_storage_without_changing_existing_vocabulary() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        connection
+            .execute_batch(include_str!("schema.sql"))
+            .unwrap();
+        connection.execute_batch(
+            "DROP TABLE vocabulary_meanings;
+             INSERT INTO vocabulary (word, source_title, context) VALUES ('학교', '책', '학교에 가요.');",
+        ).unwrap();
+        initialize_schema(&mut connection).unwrap();
+        let entries = crate::vocabulary::list(&connection).unwrap();
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].word, "학교");
+        assert!(entries[0].definition.is_none());
     }
 
     #[test]
@@ -157,6 +175,7 @@ mod tests {
                     normalized_form: None,
                     document_id,
                     context: "안녕하세요".into(),
+                    definition: None,
                 },
             )
             .unwrap();

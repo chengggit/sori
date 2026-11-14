@@ -1,6 +1,22 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readingPassages, tokenBlocks, partOfSpeechLabel } from "../src/lib/features/reader/tokens.ts";
+import { wordBreakdown } from "../src/lib/features/reader/breakdown.ts";
+
+test("breakdown shows dictionary forms and POS-specific grammar explanations", () => {
+  const parts = wordBreakdown([
+    { form: "있", tag: "VA" },
+    { form: "었", tag: "EP" },
+    { form: "다", tag: "EF" },
+  ]);
+  assert.deepEqual(parts.map((part) => part.term), ["있다", "-었", "-다"]);
+  assert.match(parts[1].explanation, /Past tense/);
+  assert.match(parts[2].explanation, /Plain-style/);
+  assert.equal(parts[0].explanation, null);
+  assert.equal(wordBreakdown([{ form: "은", tag: "NNG" }])[0].explanation, null);
+  assert.equal(wordBreakdown([{ form: "은", tag: "JX" }])[0].explanation, "Topic or contrast marker");
+  assert.equal(wordBreakdown([{ form: "가", tag: "VV-I" }])[0].term, "가다");
+});
 
 const token = (form, start, end) => ({ form, start, end });
 

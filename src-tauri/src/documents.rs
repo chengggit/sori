@@ -121,6 +121,7 @@ mod tests {
                 normalized_form: None,
                 document_id: id,
                 context: "한국어".into(),
+                definition: None,
             },
         )
         .unwrap();
