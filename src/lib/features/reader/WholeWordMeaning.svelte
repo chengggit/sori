@@ -27,6 +27,7 @@
   let matchedTerm = $state("");
   let loading = $state(false);
   let error = $state("");
+  let expanded = $state(false);
   let request = 0;
 
   $effect(() => {
@@ -36,6 +37,7 @@
       if (snapshot && candidates.includes(snapshot.term)) {
         request += 1;
         definitions = [snapshot];
+        expanded = false;
         onSources([snapshot]);
         matchedTerm = snapshot.term;
         loading = false;
@@ -52,6 +54,7 @@
   async function search(candidates: string[]) {
     const current = ++request;
     definitions = [];
+    expanded = false;
     matchedTerm = "";
     error = "";
     loading = true;
@@ -79,7 +82,7 @@
     <p role="status" class="text-sm text-muted-foreground">Looking up word meaning…</p>
   {:else if definitions.length}
     <ul class="space-y-2">
-      {#each definitions as definition}
+      {#each (expanded ? definitions : definitions.slice(0, 3)) as definition}
         <li>
           <button
             type="button"
@@ -94,6 +97,14 @@
         </li>
       {/each}
     </ul>
+    {#if definitions.length > 3}
+      <button
+        type="button"
+        class="mt-2 px-2 text-xs font-medium text-muted-foreground underline hover:text-foreground"
+        onclick={() => (expanded = !expanded)}
+      >{expanded ? "Show fewer meanings" : `See ${definitions.length - 3} more meanings`}</button
+      >
+    {/if}
     {#if matchedTerm !== word}
       <p class="mt-2 text-xs text-muted-foreground">
         Dictionary form · <span lang="ko">{matchedTerm}</span>

@@ -23,6 +23,7 @@
   const parts = $derived(wordBreakdown(tokens));
   type Result = { definitions: DictionaryDefinition[]; error: string };
   let results = $state<Record<string, Result>>({});
+  let expanded = $state<Record<string, boolean>>({});
 
   $effect(() => {
     const snapshot = savedDefinition;
@@ -35,6 +36,7 @@
     ];
     let disposed = false;
     results = snapshot ? { [snapshot.term]: { definitions: [snapshot], error: "" } } : {};
+    expanded = {};
     untrack(() => {
       if (snapshot) onSources([snapshot]);
       for (const term of terms) {
@@ -75,7 +77,7 @@
           <p role="alert" class="text-sm text-muted-foreground">{result.error}</p>
         {:else if result.definitions.length}
           <ul class="space-y-2">
-            {#each result.definitions as definition}
+            {#each (expanded[part.term] ? result.definitions : result.definitions.slice(0, 3)) as definition}
               <li>
                 <button
                   type="button"
@@ -91,6 +93,14 @@
               </li>
             {/each}
           </ul>
+          {#if result.definitions.length > 3}
+            <button
+              type="button"
+              class="mt-2 px-2 text-xs font-medium text-muted-foreground underline hover:text-foreground"
+              onclick={() => (expanded = { ...expanded, [part.term]: !expanded[part.term] })}
+            >{expanded[part.term] ? "Show fewer meanings" : `See ${result.definitions.length - 3} more meanings`}</button
+            >
+          {/if}
         {:else}
           <p class="text-sm text-muted-foreground">No Korean definition found.</p>
         {/if}
