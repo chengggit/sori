@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Captions, ExternalLink } from "@lucide/svelte";
+  import { Captions, ExternalLink, X } from "@lucide/svelte";
   import { untrack } from "svelte";
   import { isTauri } from "@tauri-apps/api/core";
   import { Button } from "$lib/components/ui/button";
@@ -41,6 +41,7 @@
     untrack(() => (source.kind === "local" && source.video.mpvAvailable ? "mpv" : "webview")),
   );
   let playerStart = $state<number>();
+  let fullscreen = $state(false);
   let controls: PlaybackControls | undefined;
   const events: PlaybackEvents = {
     onTime: (position) => {
@@ -89,6 +90,15 @@
   const activeSecondary = $derived(
     localMode === "mpv" ? activeSubtitleCues(secondaryCues, seconds) : [],
   );
+  const fullscreenLookup = $derived(
+    fullscreen && selection && active.includes(selection.cue) ? selection : undefined,
+  );
+
+  function dismissLookup() {
+    if (!fullscreenLookup) return false;
+    selection = undefined;
+    return true;
+  }
 
   function switchPlayer(mode: typeof localMode) {
     playerStart = seconds || start;
@@ -256,7 +266,7 @@
   {#if source.kind === "local" && localMode === "remux"}
     <RemuxPlayer id={source.video.id} {title} start={playerStart ?? start} {events} />
   {:else if source.kind === "local" && localMode === "mpv"}
-    <MpvPlayer path={source.video.path} {title} start={playerStart ?? start} {events} {captions} {subtitleMenu} />
+    <MpvPlayer path={source.video.path} {title} start={playerStart ?? start} {events} {captions} {subtitleMenu} bind:fullscreen {dismissLookup} />
   {:else if source.kind === "local"}
     <LocalPlayer
       path={source.video.path}
@@ -270,14 +280,52 @@
   {/if}
   {#if localMode !== "mpv"}
     <div class="pointer-events-none absolute inset-x-2 bottom-16">
-      {@render captions(undefined)}
+      {@render captions(subtitleRoot)}
     </div>
   {/if}
 </div>
 
-{#snippet captions(beforeLookup: (() => void) | undefined)}
+{#snippet captions(root: HTMLElement | undefined)}
   {#if active.length || (track !== secondaryTrack && activeSecondary.length)}
-    <div class="pointer-events-none mx-auto grid w-fit max-w-full gap-1 rounded-md bg-black/80 px-3 py-1 text-center wrap-anywhere whitespace-pre-wrap text-white">
+    <div class="pointer-events-none relative mx-auto grid w-fit max-w-full gap-1 rounded-md bg-black/80 px-3 py-1 text-center wrap-anywhere whitespace-pre-wrap text-white">
+      {#if fullscreenLookup}
+        {@const token = fullscreenLookup.token}
+        {#key fullscreenLookup}
+          <section
+            aria-label="Subtitle definition"
+            class="pointer-events-auto absolute bottom-full left-1/2 z-10 mb-2 max-h-[45dvh] w-72 max-w-[calc(100dvw-2rem)] -translate-x-1/2 overflow-y-auto overscroll-contain rounded-xl border bg-popover p-3 text-left whitespace-normal text-popover-foreground shadow-lg"
+          >
+            <div class="mb-1 flex items-start justify-between gap-2">
+              <h2 class="text-base font-semibold wrap-anywhere" lang="ko">{token.text}</h2>
+              <Button variant="ghost" size="icon-xs" aria-label="Close definition" onclick={dismissLookup}>
+                <X />
+              </Button>
+            </div>
+            <WholeWordMeaning
+              compact
+              word={token.text}
+              tokens={token.morphemes}
+              selected={null}
+              savedDefinition={saved?.definition}
+              locked
+              onSelect={() => {}}
+              onSources={collectSources}
+            />
+            {#if token.morphemes.length > 1}
+              <WordBreakdown
+                compact
+                tokens={token.morphemes}
+                selected={null}
+                savedWord={saved?.normalizedForm ?? saved?.word}
+                savedDefinition={saved?.definition}
+                locked
+                onSelect={() => {}}
+                onSources={collectSources}
+              />
+            {/if}
+          </section>
+        {/key}
+      {/if}
       {#each active as cue (cue)}
         <div
           class={[
@@ -290,12 +338,9 @@
             <TokenPassage
               text={cue.text}
               start={0}
-              root={subtitleRoot}
+              {root}
               selectedStart={selection?.cue === cue ? selection.token.start : undefined}
-              onToken={(token) => {
-                beforeLookup?.();
-                void selectWord(cue, token);
-              }}
+              onToken={(token) => selectWord(cue, token)}
             />
           {:else}
             {cue.text}
@@ -431,7 +476,7 @@
   {/if}
 </section>
 
-{#if selection}
+{#if selection && !fullscreen}
   {#key selection}
     <section aria-label="Subtitle word analysis" class="mt-4 rounded-xl border bg-card p-4 sm:p-5">
       <div class="mb-3 flex items-center justify-between gap-2">

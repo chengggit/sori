@@ -13,6 +13,7 @@
     locked,
     onSelect,
     onSources,
+    compact = false,
   }: {
     tokens: KoreanToken[];
     selected: DictionaryDefinition | null;
@@ -21,6 +22,7 @@
     locked: boolean;
     onSelect: (definition: DictionaryDefinition) => void;
     onSources: (definitions: DictionaryDefinition[]) => void;
+    compact?: boolean;
   } = $props();
   const parts = $derived(wordBreakdown(tokens));
   type Result = { definitions: DictionaryDefinition[]; error: string };
@@ -64,6 +66,22 @@
   });
 </script>
 
+{#if compact}
+  <section aria-label="Word breakdown" class="mt-2 space-y-1 border-t pt-2 text-xs wrap-anywhere">
+    <h3 class="font-medium text-muted-foreground">Word breakdown</h3>
+    <ul class="space-y-1">
+      {#each parts as part}
+        {@const result = results[part.term]}
+        <li>
+          <span class="font-medium" lang="ko">{part.term}</span>
+          <span class="text-muted-foreground">
+            · {part.explanation ?? result?.definitions[0]?.text ?? (result ? "No definition found." : "Looking up…")}
+          </span>
+        </li>
+      {/each}
+    </ul>
+  </section>
+{:else}
 <section aria-label="Word breakdown" class="mb-4">
   <h3 class="mb-3 text-sm font-medium">Word breakdown</h3>
   <ul class="divide-y">
@@ -114,3 +132,4 @@
     {/each}
   </ul>
 </section>
+{/if}

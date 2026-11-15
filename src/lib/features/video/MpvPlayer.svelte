@@ -14,24 +14,28 @@
     events,
     captions,
     subtitleMenu,
+    fullscreen = $bindable(false),
+    dismissLookup,
   }: {
     path: string;
     title: string;
     start: number;
     events: PlaybackEvents;
-    captions: Snippet<[(() => void) | undefined]>;
+    captions: Snippet<[HTMLElement | undefined]>;
     subtitleMenu: Snippet;
+    fullscreen?: boolean;
+    dismissLookup: () => boolean;
   } = $props();
 
   let element: HTMLVideoElement;
   let overlay: HTMLDivElement;
+  let playerRoot = $state<HTMLDivElement>();
   let player = $state.raw<VideoController>();
   let seconds = $state(0);
   let duration = $state(0);
   let playing = $state(false);
   let scrubPosition = $state<number | null>(null);
   let error = $state("");
-  let fullscreen = $state(false);
   let fullscreenBusy = $state(false);
   let controlsVisible = $state(true);
   let subtitlesOpen = $state(false);
@@ -94,6 +98,7 @@
 
   function play() {
     if (!player) return;
+    if (fullscreen) dismissLookup();
     void player.play().catch(reportError);
   }
 
@@ -117,7 +122,7 @@
     }
     if (event.key === "Escape" && fullscreen) {
       event.preventDefault();
-      void toggleFullscreen();
+      if (!dismissLookup()) void toggleFullscreen();
       return;
     }
     if (!player || (event.key !== "ArrowLeft" && event.key !== "ArrowRight")) return;
@@ -223,6 +228,7 @@
   class={["relative mx-auto w-full", fullscreen ? "max-w-[calc(100dvh*16/9)]" : "max-w-[calc(50dvh*16/9)]"]}
   role="region"
   aria-label="Video player"
+  bind:this={playerRoot}
   onpointermove={showControls}
   onpointerdown={showControls}
 >
@@ -249,7 +255,7 @@
     {#if error}
       <p class="absolute inset-x-2 top-1/2 -translate-y-1/2 rounded-md bg-black/80 px-3 py-2 text-center text-sm text-white" role="alert">{error}</p>
     {/if}
-    {@render captions(fullscreen ? () => void toggleFullscreen() : undefined)}
+    {@render captions(playerRoot)}
     <div
       class="controls pointer-events-auto rounded-lg bg-black/70 px-3 py-1 text-white transition-opacity duration-200 motion-reduce:transition-none"
       data-hidden={playing && !controlsVisible && scrubPosition === null && !subtitlesOpen}

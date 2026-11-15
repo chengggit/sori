@@ -13,6 +13,7 @@
     locked,
     onSelect,
     onSources,
+    compact = false,
   }: {
     word: string;
     tokens: KoreanToken[];
@@ -21,6 +22,7 @@
     locked: boolean;
     onSelect: (definition: DictionaryDefinition) => void;
     onSources: (definitions: DictionaryDefinition[]) => void;
+    compact?: boolean;
   } = $props();
   const terms = $derived(wholeWordTerms(word, tokens));
   let definitions = $state<DictionaryDefinition[]>([]);
@@ -64,6 +66,31 @@
   }
 </script>
 
+{#if compact}
+  <div aria-label="Dictionary lookup" class="space-y-1 text-sm wrap-anywhere">
+    {#if loading}
+      <p role="status" class="text-muted-foreground">Looking up meaning…</p>
+    {:else if definitions.length}
+      {#each expanded ? definitions : definitions.slice(0, 1) as definition}
+        <p>{definition.text}</p>
+      {/each}
+      {#if definitions.length > 1}
+        <button
+          type="button"
+          class="text-xs text-muted-foreground underline hover:text-foreground"
+          aria-expanded={expanded}
+          onclick={() => (expanded = !expanded)}
+        >{expanded ? "Show fewer definitions" : "Show more definitions"}</button>
+      {/if}
+    {:else if savedDefinition}
+      <p>{savedDefinition.text}</p>
+    {:else if error}
+      <button type="button" class="text-xs underline" onclick={() => search(terms)}>Retry lookup</button>
+    {:else}
+      <p class="text-muted-foreground">No definition found.</p>
+    {/if}
+  </div>
+{:else}
 {#if savedDefinition}
   <section aria-label="Saved meaning" class="mb-4">
     <h3 class="mb-1 text-xs font-medium text-muted-foreground">Saved meaning</h3>
@@ -119,3 +146,4 @@
     >
   {/if}
 </section>
+{/if}
