@@ -50,6 +50,7 @@
   let definition = $state<DictionaryDefinition | null>(null);
   let sources = $state<Record<string, string>>({});
   let lookupView = $state("analysis");
+  let visitedLookupViews = $state(new Set<string>());
   const enabledProviders = $derived([
     ...embeddedProviders.map((provider) => ({ ...provider, provider: provider.value, url: "" })),
     ...$embedSettings.custom.map((item) => ({ value: item.id, label: new URL(item.url).hostname, provider: "custom" as const, url: item.url })),
@@ -57,6 +58,11 @@
   $effect(() => {
     if (lookupView !== "analysis" && !enabledProviders.some((provider) => provider.value === lookupView)) lookupView = "analysis";
   });
+
+  function selectLookupView(value: string) {
+    lookupView = value;
+    visitedLookupViews = new Set([...visitedLookupViews, value]);
+  }
 
   function collectSources(definitions: DictionaryDefinition[]) {
     sources = {
@@ -270,7 +276,7 @@
         >
         <Tabs.Root
           value={lookupView}
-          onValueChange={(value) => (lookupView = value)}
+          onValueChange={selectLookupView}
           class="flex min-h-0 flex-1 flex-col"
         >
           <Tabs.List
@@ -294,7 +300,7 @@
               value={item.value}
               class="flex min-h-0 flex-1 flex-col pt-3 data-[state=inactive]:hidden"
             >
-              {#if lookupView === item.value}
+              {#if visitedLookupViews.has(item.value)}
                 <EmbeddedLookup provider={item.provider} customUrl={item.url} label={item.label} word={selection.text} />
               {/if}
             </Tabs.Content>
