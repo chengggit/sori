@@ -9,6 +9,7 @@
   import TokenPassage from "./TokenPassage.svelte";
   import { readingPassages, type TokenBlock } from "./tokens";
   import WordBreakdown from "./WordBreakdown.svelte";
+  import { wordBreakdown } from "./breakdown";
   import WholeWordMeaning from "./WholeWordMeaning.svelte";
   import EmbeddedLookup from "../dictionary/EmbeddedLookup.svelte";
   import { embeddedProviders } from "../dictionary/embedded";
@@ -315,14 +316,16 @@
                   locked={saving || !!saved}
                   onSelect={(value) => (definition = value)}
                 />
-                <WordBreakdown
-                  onSources={collectSources}
-                  tokens={analysis.morphemes}
-                  selected={saved?.definition ?? definition}
-                  savedDefinition={saved?.definition}
-                  locked={saving || !!saved}
-                  onSelect={(value) => (definition = value)}
-                />
+                {#if wordBreakdown(analysis.morphemes).length > 1}
+                  <WordBreakdown
+                    onSources={collectSources}
+                    tokens={analysis.morphemes}
+                    selected={saved?.definition ?? definition}
+                    savedDefinition={saved?.definition}
+                    locked={saving || !!saved}
+                    onSelect={(value) => (definition = value)}
+                  />
+                {/if}
                 {#if definition && !saved}
                   <p class="mb-3 text-xs text-muted-foreground">
                     Meaning selected for saving · {definition.term}

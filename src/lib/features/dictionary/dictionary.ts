@@ -6,6 +6,7 @@ export type DictionaryDefinition = {
   partOfSpeech: string;
   text: string;
   sourceUrl: string;
+  hanja?: string | null;
 };
 
 export const dictionaryLicense = "https://creativecommons.org/licenses/by-sa/4.0/";

@@ -92,6 +92,7 @@
             onclick={() => onSelect(definition)}
             class="w-full rounded-md py-1 text-left text-base leading-relaxed hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring aria-pressed:bg-accent disabled:cursor-default"
           >
+            {#if definition.hanja}<span lang="ko" class="mr-2 text-base font-serif tracking-wide text-muted-foreground">{definition.hanja}</span>{/if}
             {definition.text}
           </button>
         </li>
@@ -111,7 +112,7 @@
       </p>
     {/if}
   {:else if !error}
-    <p class="text-sm text-muted-foreground">No whole-word entry found. Try Search dictionary below.</p>
+    <p class="text-sm text-muted-foreground">No whole-word entry found.</p>
   {/if}
   {#if error}
     <p role="alert" class="text-sm text-destructive">{error}</p>

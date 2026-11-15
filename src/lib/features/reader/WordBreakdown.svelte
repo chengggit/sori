@@ -88,6 +88,7 @@
                   onclick={() => onSelect(definition)}
                   class="w-full rounded-md px-2 py-1 text-left text-sm hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring aria-pressed:bg-accent disabled:cursor-default"
                 >
+                  {#if definition.hanja}<span lang="ko" class="mr-2 text-base font-serif tracking-wide text-muted-foreground">{definition.hanja}</span>{/if}
                   {definition.text}
                 </button>
               </li>

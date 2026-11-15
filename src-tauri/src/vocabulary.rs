@@ -185,10 +185,11 @@ mod tests {
         let database = database();
         let mut input = selection();
         let definition = Definition {
-            term: "가다".into(),
-            part_of_speech: "Verb".into(),
-            text: "to go".into(),
-            source_url: crate::dictionary::source_url("가다"),
+            term: "학교".into(),
+            part_of_speech: "Noun".into(),
+            text: "school".into(),
+            source_url: crate::dictionary::source_url("학교"),
+            hanja: Some("學校".into()),
         };
         input.definition = Some(definition.clone());
         let saved = save(&database, input).unwrap();
