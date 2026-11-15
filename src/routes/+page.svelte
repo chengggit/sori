@@ -201,29 +201,31 @@
 
 <svelte:window onkeydown={handleShortcut} />
 
-<header class="flex h-14 items-center gap-3 border-b px-4 sm:px-8">
-  <Sidebar.Trigger class="md:hidden" />
-  {#if key}
-    <form
-      class="ml-11 flex w-full max-w-[504px] items-center gap-2 sm:ml-[52px]"
-      onsubmit={(event) => {
-        event.preventDefault();
-        void loadVideos(search.trim() || discoveryTopics[topicIndex]);
-      }}
-    >
-      <Input
-        bind:ref={searchInput}
-        bind:value={search}
-        aria-label="Search YouTube"
-        placeholder="Search YouTube for Korean videos"
-        class="h-[38px] rounded-xl bg-card"
-      />
-      <Button type="submit" size="icon" variant="outline" aria-label="Search YouTube"><Search /></Button
+<header class="h-14 border-b">
+  <div class="mx-auto flex h-full max-w-[1600px] items-center gap-3 px-4 sm:px-8 lg:pr-10">
+    <Sidebar.Trigger class="md:hidden" />
+    {#if key}
+      <form
+        class="flex w-full max-w-[504px] items-center gap-2"
+        onsubmit={(event) => {
+          event.preventDefault();
+          void loadVideos(search.trim() || discoveryTopics[topicIndex]);
+        }}
       >
-    </form>
-  {:else}
-    <h1 class="font-semibold">Home</h1>
-  {/if}
+        <Input
+          bind:ref={searchInput}
+          bind:value={search}
+          aria-label="Search YouTube"
+          placeholder="Search YouTube for Korean videos"
+          class="h-[38px] rounded-xl bg-card"
+        />
+        <Button type="submit" size="icon" variant="outline" aria-label="Search YouTube"><Search /></Button
+        >
+      </form>
+    {:else}
+      <h1 class="font-semibold">Home</h1>
+    {/if}
+  </div>
 </header>
 
 <div class="mx-auto max-w-[1600px] px-4 pt-7 pb-10 sm:px-8 lg:pr-10">
