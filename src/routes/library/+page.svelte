@@ -151,7 +151,7 @@
   <meta name="description" content="Your Korean reading and watching library." />
 </svelte:head>
 
-<header class="border-b bg-sidebar">
+<header class="border-b">
   <div class="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6 lg:px-8">
     <div class="flex items-center gap-2">
       <Sidebar.Trigger class="md:hidden" />

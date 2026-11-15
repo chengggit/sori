@@ -39,6 +39,7 @@ pub fn run() {
             dictionary::lookup_dictionary,
             vocabulary_commands::save_vocabulary,
             vocabulary_commands::list_vocabulary,
+            vocabulary_commands::edit_vocabulary,
             vocabulary_commands::remove_vocabulary
         ])
         .run(tauri::generate_context!())

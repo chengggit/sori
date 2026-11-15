@@ -100,7 +100,9 @@ The vocabulary backend exposes `save_vocabulary`, `list_vocabulary`, and
 optional normalized form, the document title and context, and a save timestamp.
 Repeated saves of the same word and context in one document return the original
 entry. Saved words survive source document deletion. The reader supports saving
-and removing vocabulary in context. A separate vocabulary browser is planned.
+and removing vocabulary in context. Open **Vocabulary** in the sidebar to browse
+saved words newest first, search by the word you entered, and edit or remove
+entries from their three-dot menus. Saved meanings are available offline.
 
 ### YouTube discovery
 

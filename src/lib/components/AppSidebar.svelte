@@ -11,16 +11,12 @@
     { label: "Explore", icon: Compass, href: resolve("/explore") },
     { label: "My Library", icon: Library, href: resolve("/library") },
     { label: "History", icon: History, href: resolve("/history") },
+    { label: "Vocabulary", icon: Bookmark, href: resolve("/vocabulary") },
   ];
-  const pendingLinks = [{ label: "Vocabulary", icon: Bookmark }];
   let current = $derived(
-    page.url.pathname === resolve("/history")
-      ? "History"
-      : page.url.pathname === resolve("/library") || page.url.pathname === resolve("/read")
-        ? "My Library"
-        : page.url.pathname === resolve("/explore")
-          ? "Explore"
-          : "Home",
+    page.url.pathname === resolve("/read")
+      ? "My Library"
+      : (links.find(({ href }) => href === page.url.pathname)?.label ?? "Home"),
   );
 </script>
 
@@ -61,18 +57,6 @@
                     <span class="group-data-[collapsible=icon]:hidden">{label}</span>
                   </a>
                 {/snippet}
-              </Sidebar.MenuButton>
-            </Sidebar.MenuItem>
-          {/each}
-          {#each pendingLinks as { label, icon: Icon } (label)}
-            <Sidebar.MenuItem>
-              <Sidebar.MenuButton
-                disabled
-                aria-label={label + " (coming later)"}
-                class="h-[34px] rounded-xl px-3 text-[13px] disabled:opacity-75"
-              >
-                <Icon />
-                <span class="group-data-[collapsible=icon]:hidden">{label}</span>
               </Sidebar.MenuButton>
             </Sidebar.MenuItem>
           {/each}

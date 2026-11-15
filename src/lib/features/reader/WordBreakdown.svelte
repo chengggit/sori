@@ -9,6 +9,7 @@
     tokens,
     selected,
     savedDefinition,
+    savedWord,
     locked,
     onSelect,
     onSources,
@@ -16,6 +17,7 @@
     tokens: KoreanToken[];
     selected: DictionaryDefinition | null;
     savedDefinition?: DictionaryDefinition | null;
+    savedWord?: string;
     locked: boolean;
     onSelect: (definition: DictionaryDefinition) => void;
     onSources: (definitions: DictionaryDefinition[]) => void;
@@ -27,18 +29,21 @@
 
   $effect(() => {
     const snapshot = savedDefinition;
+    const snapshotPart = parts.find((part) => !part.explanation && part.term === savedWord)
+      ?? parts.find((part) => !part.explanation && part.term === snapshot?.term);
+    const snapshotTerm = snapshot && snapshotPart?.term;
     const terms = [
       ...new Set(
         parts
-          .filter((part) => !part.explanation && part.term !== snapshot?.term)
+          .filter((part) => !part.explanation && part.term !== snapshotTerm)
           .map((part) => part.term),
       ),
     ];
     let disposed = false;
-    results = snapshot ? { [snapshot.term]: { definitions: [snapshot], error: "" } } : {};
+    results = snapshot && snapshotTerm ? { [snapshotTerm]: { definitions: [snapshot], error: "" } } : {};
     expanded = {};
     untrack(() => {
-      if (snapshot) onSources([snapshot]);
+      if (snapshot && snapshotTerm) onSources([snapshot]);
       for (const term of terms) {
         void lookupDictionary(term).then(
           (definitions) => {
@@ -103,7 +108,7 @@
             >
           {/if}
         {:else}
-          <p class="text-sm text-muted-foreground">No Korean definition found.</p>
+          <p class="text-sm text-muted-foreground">No definition found.</p>
         {/if}
       </li>
     {/each}

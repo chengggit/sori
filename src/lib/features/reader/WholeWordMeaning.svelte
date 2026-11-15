@@ -32,20 +32,7 @@
 
   $effect(() => {
     const candidates = terms;
-    const snapshot = savedDefinition;
-    untrack(() => {
-      if (snapshot && candidates.includes(snapshot.term)) {
-        request += 1;
-        definitions = [snapshot];
-        expanded = false;
-        onSources([snapshot]);
-        matchedTerm = snapshot.term;
-        loading = false;
-        error = "";
-      } else {
-        void search(candidates);
-      }
-    });
+    untrack(() => void search(candidates));
     return () => {
       request += 1;
     };
@@ -77,7 +64,18 @@
   }
 </script>
 
-<section aria-label="Whole-word meaning" class="mb-5 border-b pb-4">
+{#if savedDefinition}
+  <section aria-label="Saved meaning" class="mb-4">
+    <h3 class="mb-1 text-xs font-medium text-muted-foreground">Saved meaning</h3>
+    <p class="text-base leading-relaxed wrap-anywhere whitespace-pre-wrap">
+      {#if savedDefinition.hanja}<span lang="ko" class="mr-2 text-base font-serif tracking-wide text-muted-foreground">{savedDefinition.hanja}</span>{/if}
+      {savedDefinition.text}
+    </p>
+  </section>
+{/if}
+
+<section aria-label="Dictionary lookup" class="mb-5 border-b pb-4">
+  <h3 class="mb-1 text-xs font-medium text-muted-foreground">Dictionary lookup</h3>
   {#if loading}
     <p role="status" class="text-sm text-muted-foreground">Looking up word meaning…</p>
   {:else if definitions.length}
@@ -112,7 +110,7 @@
       </p>
     {/if}
   {:else if !error}
-    <p class="text-sm text-muted-foreground">No whole-word entry found.</p>
+    <p class="text-sm text-muted-foreground">No definition found.</p>
   {/if}
   {#if error}
     <p role="alert" class="text-sm text-destructive">{error}</p>

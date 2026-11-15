@@ -1,6 +1,6 @@
 use crate::{
     db::Database,
-    vocabulary::{self, SaveVocabulary, VocabularyEntry},
+    vocabulary::{self, EditVocabulary, SaveVocabulary, VocabularyEntry},
 };
 use tauri::State;
 
@@ -25,5 +25,16 @@ pub async fn list_vocabulary(
 pub async fn remove_vocabulary(database: State<'_, Database>, id: i64) -> Result<(), String> {
     database
         .run(move |connection| vocabulary::remove(connection, id))
+        .await
+}
+
+#[tauri::command]
+pub async fn edit_vocabulary(
+    database: State<'_, Database>,
+    id: i64,
+    input: EditVocabulary,
+) -> Result<VocabularyEntry, String> {
+    database
+        .run(move |connection| vocabulary::edit(connection, id, input))
         .await
 }

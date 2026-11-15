@@ -372,7 +372,7 @@
                   word={analysis.word}
                   tokens={analysis.morphemes}
                   selected={saved?.definition ?? definition}
-                  savedDefinition={saved?.definition?.custom ? null : saved?.definition}
+                  savedDefinition={saved?.definition}
                   locked={saving || !!saved || savePanelOpen}
                   onSelect={(value) => (definition = value)}
                 />
@@ -381,7 +381,8 @@
                     onSources={collectSources}
                     tokens={analysis.morphemes}
                     selected={saved?.definition ?? definition}
-                    savedDefinition={saved?.definition?.custom ? null : saved?.definition}
+                    savedDefinition={saved?.definition}
+                    savedWord={saved?.normalizedForm ?? saved?.word}
                     locked={saving || !!saved || savePanelOpen}
                     onSelect={(value) => (definition = value)}
                   />

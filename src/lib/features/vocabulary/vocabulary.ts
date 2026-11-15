@@ -34,3 +34,10 @@ export function listVocabulary() {
 export function removeVocabulary(id: number) {
   return invoke<void>("remove_vocabulary", { id });
 }
+
+export function editVocabulary(
+  id: number,
+  input: { normalizedForm: string; meaning: string; note: string; tags: string[] },
+) {
+  return invoke<VocabularyEntry>("edit_vocabulary", { id, input });
+}

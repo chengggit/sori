@@ -1,5 +1,5 @@
 use crate::dictionary::Definition;
-use rusqlite::{Connection, OptionalExtension, Row, params};
+use rusqlite::{Connection, OptionalExtension, Row, TransactionBehavior, params};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize)]
@@ -11,6 +11,15 @@ pub struct SaveVocabulary {
     pub context: String,
     pub definition: Option<Definition>,
     #[serde(default)]
+    pub tags: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EditVocabulary {
+    pub normalized_form: String,
+    pub meaning: String,
+    pub note: String,
     pub tags: Vec<String>,
 }
 
@@ -69,31 +78,11 @@ pub fn save(database: &Connection, input: SaveVocabulary) -> Result<VocabularyEn
         return Err("Include the original context for this word.".into());
     }
     let normalized_form = input.normalized_form.as_deref().map(str::trim);
-    if input.tags.len() > 20
-        || input.tags.iter().any(|tag| {
-            tag.trim().is_empty() || tag.chars().count() > 50 || tag.chars().any(char::is_control)
-        })
-    {
-        return Err("Use up to 20 tags, each containing 1–50 characters.".into());
-    }
     if normalized_form == Some("") {
         return Err("The normalized form must contain text when provided.".into());
     }
-
-    if let Some(definition) = &input.definition
-        && (definition.text.trim().is_empty()
-            || definition.text.len() > 32_768
-            || definition.term.trim().is_empty()
-            || definition.term.chars().count() > 100
-            || (definition.source_url != crate::dictionary::source_url(&definition.term)
-                && !(definition.custom && definition.source_url.is_empty()))
-            || definition
-                .note
-                .as_ref()
-                .is_some_and(|note| note.len() > 16_000))
-    {
-        return Err("Invalid saved meaning.".into());
-    }
+    validate_tags(&input.tags)?;
+    validate_definition(input.definition.as_ref())?;
     let transaction = database
         .unchecked_transaction()
         .map_err(|error| error.to_string())?;
@@ -117,22 +106,133 @@ pub fn save(database: &Connection, input: SaveVocabulary) -> Result<VocabularyEn
             params![id, serde_json::to_string(&definition).map_err(|error| error.to_string())?],
         ).map_err(|error| error.to_string())?;
     }
-    for tag in input.tags {
+    insert_tags(&transaction, id, &input.tags)?;
+    let saved = read_entry(&transaction, id)?;
+    transaction.commit().map_err(|error| error.to_string())?;
+    Ok(saved)
+}
+
+pub fn edit(
+    database: &Connection,
+    id: i64,
+    input: EditVocabulary,
+) -> Result<VocabularyEntry, String> {
+    validate_tags(&input.tags)?;
+    let meaning = input.meaning.trim();
+    let note = input.note.trim();
+    if meaning.is_empty() && !note.is_empty() {
+        return Err("Enter a meaning to save a note.".into());
+    }
+
+    let transaction =
+        rusqlite::Transaction::new_unchecked(database, TransactionBehavior::Immediate)
+            .map_err(|error| error.to_string())?;
+    let current = read_entry(&transaction, id)?;
+    let normalized = input.normalized_form.trim();
+    let normalized_form =
+        (!normalized.is_empty() && normalized != current.word).then_some(normalized);
+    let definition = if meaning.is_empty() {
+        None
+    } else {
+        let mut definition = current.definition.unwrap_or_else(|| Definition {
+            term: normalized_form.unwrap_or(&current.word).to_string(),
+            part_of_speech: String::new(),
+            text: String::new(),
+            source_url: String::new(),
+            hanja: None,
+            custom: true,
+            note: None,
+        });
+        definition.custom |= definition.text != meaning;
+        definition.text = meaning.to_string();
+        definition.note = (!note.is_empty()).then(|| note.to_string());
+        Some(definition)
+    };
+    validate_definition(definition.as_ref())?;
+
+    transaction
+        .execute(
+            "UPDATE vocabulary SET normalized_form = ?1 WHERE id = ?2",
+            params![normalized_form, id],
+        )
+        .map_err(|error| error.to_string())?;
+    if let Some(definition) = definition {
         transaction
+            .execute(
+                "INSERT INTO vocabulary_meanings (vocabulary_id, definition_json) VALUES (?1, ?2)
+             ON CONFLICT (vocabulary_id) DO UPDATE SET definition_json = excluded.definition_json",
+                params![
+                    id,
+                    serde_json::to_string(&definition).map_err(|error| error.to_string())?
+                ],
+            )
+            .map_err(|error| error.to_string())?;
+    } else {
+        transaction
+            .execute(
+                "DELETE FROM vocabulary_meanings WHERE vocabulary_id = ?1",
+                [id],
+            )
+            .map_err(|error| error.to_string())?;
+    }
+    transaction
+        .execute("DELETE FROM vocabulary_tags WHERE vocabulary_id = ?1", [id])
+        .map_err(|error| error.to_string())?;
+    insert_tags(&transaction, id, &input.tags)?;
+    let updated = read_entry(&transaction, id)?;
+    transaction.commit().map_err(|error| error.to_string())?;
+    Ok(updated)
+}
+
+fn validate_tags(tags: &[String]) -> Result<(), String> {
+    if tags.len() > 20
+        || tags.iter().any(|tag| {
+            tag.trim().is_empty() || tag.chars().count() > 50 || tag.chars().any(char::is_control)
+        })
+    {
+        return Err("Use up to 20 tags, each containing 1–50 characters.".into());
+    }
+    Ok(())
+}
+
+fn validate_definition(definition: Option<&Definition>) -> Result<(), String> {
+    if let Some(definition) = definition
+        && (definition.text.trim().is_empty()
+            || definition.text.len() > 32_768
+            || definition.term.trim().is_empty()
+            || definition.term.chars().count() > 100
+            || (definition.source_url != crate::dictionary::source_url(&definition.term)
+                && !(definition.custom && definition.source_url.is_empty()))
+            || definition
+                .note
+                .as_ref()
+                .is_some_and(|note| note.len() > 16_000))
+    {
+        return Err("Invalid saved meaning.".into());
+    }
+    Ok(())
+}
+
+fn insert_tags(database: &Connection, id: i64, tags: &[String]) -> Result<(), String> {
+    for tag in tags {
+        database
             .execute(
                 "INSERT OR IGNORE INTO vocabulary_tags (vocabulary_id, tag) VALUES (?1, ?2)",
                 params![id, tag.trim()],
             )
             .map_err(|error| error.to_string())?;
     }
-    let saved = transaction.query_row(
+    Ok(())
+}
+
+fn read_entry(database: &Connection, id: i64) -> Result<VocabularyEntry, String> {
+    database.query_row(
         "SELECT v.id, word, normalized_form, document_id, source_title, context, created_at, definition_json,
          (SELECT json_group_array(tag) FROM vocabulary_tags WHERE vocabulary_id = v.id)
          FROM vocabulary v LEFT JOIN vocabulary_meanings m ON m.vocabulary_id = v.id WHERE v.id = ?1",
         [id], entry,
-    ).map_err(|error| error.to_string())?;
-    transaction.commit().map_err(|error| error.to_string())?;
-    Ok(saved)
+    ).optional().map_err(|error| error.to_string())?
+        .ok_or_else(|| "Saved word not found.".into())
 }
 
 pub fn list(database: &Connection) -> Result<Vec<VocabularyEntry>, String> {
@@ -289,6 +389,67 @@ mod tests {
             })
             .unwrap();
         assert_eq!(remaining, 0);
+    }
+
+    #[test]
+    fn edits_detached_entry_and_preserves_source_and_attribution() {
+        let database = database();
+        let mut input = selection();
+        let source_url = crate::dictionary::source_url("가다");
+        input.definition = Some(Definition {
+            term: "가다".into(),
+            part_of_speech: "Verb".into(),
+            text: "to go".into(),
+            source_url: source_url.clone(),
+            hanja: None,
+            custom: false,
+            note: None,
+        });
+        input.tags = vec!["old".into()];
+        let saved = save(&database, input).unwrap();
+        database.execute("DELETE FROM documents", []).unwrap();
+
+        let updated = edit(
+            &database,
+            saved.id,
+            EditVocabulary {
+                normalized_form: " 가다 ".into(),
+                meaning: "went".into(),
+                note: "Past tense".into(),
+                tags: vec!["verbs".into()],
+            },
+        )
+        .unwrap();
+        assert_eq!(updated.id, saved.id);
+        assert_eq!(updated.created_at, saved.created_at);
+        assert_eq!(updated.word, saved.word);
+        assert_eq!(updated.context, saved.context);
+        assert_eq!(updated.source_title, saved.source_title);
+        assert_eq!(updated.document_id, None);
+
+        let stored = list(&database).unwrap().pop().unwrap();
+        assert_eq!(stored.normalized_form.as_deref(), Some("가다"));
+        assert_eq!(stored.tags, vec!["verbs"]);
+        let definition = stored.definition.unwrap();
+        assert_eq!(definition.text, "went");
+        assert_eq!(definition.note.as_deref(), Some("Past tense"));
+        assert_eq!(definition.source_url, source_url);
+        assert!(definition.custom);
+
+        let cleared = edit(
+            &database,
+            saved.id,
+            EditVocabulary {
+                normalized_form: String::new(),
+                meaning: String::new(),
+                note: String::new(),
+                tags: vec![],
+            },
+        )
+        .unwrap();
+        assert!(cleared.normalized_form.is_none());
+        assert!(cleared.definition.is_none());
+        assert!(cleared.tags.is_empty());
     }
 
     #[test]
