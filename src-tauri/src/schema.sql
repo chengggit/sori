@@ -37,4 +37,22 @@ CREATE TABLE IF NOT EXISTS reading_progress (
     updated_at INTEGER NOT NULL DEFAULT (unixepoch())
 );
 
+CREATE TABLE IF NOT EXISTS videos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    path TEXT NOT NULL UNIQUE,
+    title TEXT NOT NULL,
+    seconds REAL NOT NULL DEFAULT 0,
+    sidecar TEXT
+);
+
+CREATE TABLE IF NOT EXISTS video_vocabulary (
+    vocabulary_id INTEGER PRIMARY KEY REFERENCES vocabulary(id) ON DELETE CASCADE,
+    video_id INTEGER REFERENCES videos(id) ON DELETE CASCADE,
+    youtube_id TEXT,
+    CHECK ((video_id IS NULL) <> (youtube_id IS NULL))
+);
+
+CREATE INDEX IF NOT EXISTS video_vocabulary_video_id ON video_vocabulary(video_id);
+CREATE INDEX IF NOT EXISTS video_vocabulary_youtube_id ON video_vocabulary(youtube_id);
+
 PRAGMA user_version = 1;

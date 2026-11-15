@@ -104,6 +104,29 @@ and removing vocabulary in context. Open **Vocabulary** in the sidebar to browse
 saved words newest first, search by the word you entered, and edit or remove
 entries from their three-dot menus. Saved meanings are available offline.
 
+### Watching local videos
+
+Open **My Library → Import → Choose video** and select a local video. Sori
+references the original file and saves your playback position. The desktop
+webview handles video playback, so codec support depends on the system. On
+Linux, Sori streams local videos over loopback HTTP.
+
+Install FFmpeg and make both `ffmpeg` and `ffprobe` available on the app’s PATH
+for embedded subtitle tracks. Sori converts embedded text tracks such as SRT,
+ASS, SSA, WebVTT, and MP4 timed text into interactive cues. Select a track in
+**Subtitles**, or attach a UTF-8 SRT or WebVTT file. Local video attachments are
+stored in the library. Image-based tracks require a text subtitle file for word
+lookup.
+
+Click a subtitle word to pause, see its analysis, and save it to Vocabulary.
+You can also attach a subtitle file while watching YouTube. The attachment lasts
+for that viewing session, and the embed’s CC button provides YouTube captions.
+
+The Linux Watch screen has **Try MP4 streaming (experimental)**.
+It uses FFmpeg to stream compatible audio and video tracks without creating a
+second video file. Seeking restarts the stream near a keyframe. Sori reads
+subtitles directly from the original file.
+
 ### YouTube discovery
 
 Sori can open a YouTube video link from Home without an API key. For automatic

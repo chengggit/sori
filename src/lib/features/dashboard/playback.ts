@@ -1,12 +1,22 @@
+import type { PlaybackEvents } from "../video/playback";
+
 type Player = {
   getCurrentTime(): number;
   getDuration(): number;
   destroy(): void;
+  playVideo(): void;
+  pauseVideo(): void;
+  seekTo(seconds: number, allowSeekAhead: boolean): void;
 };
 
 type PlayerConstructor = new (
   frame: HTMLIFrameElement,
-  options: { events: { onStateChange(event: { data: number; target: Player }): void } },
+  options: {
+    events: {
+      onReady(event: { target: Player }): void;
+      onStateChange(event: { data: number; target: Player }): void;
+    };
+  },
 ) => Player;
 
 let api: Promise<PlayerConstructor> | undefined;
@@ -36,10 +46,7 @@ function loadPlayer() {
   return api;
 }
 
-export function trackPlayback(
-  frame: HTMLIFrameElement,
-  save: (seconds: number, duration?: number, completed?: boolean) => void,
-) {
+export function trackPlayback(frame: HTMLIFrameElement, events: PlaybackEvents) {
   let player: Player | undefined;
   let timer: ReturnType<typeof setInterval> | undefined;
   let disposed = false;
@@ -47,7 +54,8 @@ export function trackPlayback(
 
   function record(target: Player, completed = false) {
     const duration = target.getDuration();
-    save(
+    events.onTime(target.getCurrentTime());
+    events.onSave(
       Math.floor(target.getCurrentTime()),
       Number.isFinite(duration) && duration > 0 ? duration : undefined,
       completed,
@@ -59,12 +67,26 @@ export function trackPlayback(
       if (disposed) return;
       player = new Player(frame, {
         events: {
+          onReady({ target }) {
+            if (disposed) return;
+            events.onControls({
+              play: () => target.playVideo(),
+              pause: () => target.pauseVideo(),
+              seek: (seconds) => target.seekTo(seconds, true),
+            });
+          },
           onStateChange({ data, target }) {
             if (disposed) return;
             clearInterval(timer);
             playing = data === 1;
             if (playing || data === 2) record(target);
-            if (playing) timer = setInterval(() => record(target), 2000);
+            if (playing) {
+              let ticks = 0;
+              timer = setInterval(() => {
+                if (++ticks % 8 === 0) record(target);
+                else events.onTime(target.getCurrentTime());
+              }, 250);
+            }
             if (data === 0) record(target, true);
           },
         },
@@ -79,6 +101,7 @@ export function trackPlayback(
       disposed = true;
       clearInterval(timer);
       if (playing && player) record(player);
+      events.onControls(undefined);
       player?.destroy();
     },
   };

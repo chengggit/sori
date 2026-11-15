@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { BookOpen, Library, Plus, Search, X, Pencil, Trash2, EllipsisVertical } from "@lucide/svelte";
+  import { BookOpen, Film, Library, Plus, Search, X, Pencil, Trash2, EllipsisVertical } from "@lucide/svelte";
   import { DropdownMenu } from "bits-ui";
   import { onMount, tick } from "svelte";
   import { resolve } from "$app/paths";
@@ -8,6 +8,7 @@
   import * as Sheet from "$lib/components/ui/sheet";
   import * as Sidebar from "$lib/components/ui/sidebar";
   import { isTauri } from "@tauri-apps/api/core";
+  import { importVideo, listVideos, removeVideo, type LocalVideo } from "$lib/features/video/local";
   import {
     importDocument,
     listDocuments,
@@ -19,6 +20,9 @@
 
   let desktop = $state(false);
   let documents = $state<LibraryItem[]>([]);
+  let videos = $state<LocalVideo[]>([]);
+  let videoToRemove = $state<LocalVideo>();
+  let videoRemoveError = $state("");
   let fileInput = $state<HTMLInputElement>();
   let busy = $state(false);
   let error = $state("");
@@ -76,6 +80,10 @@
       item.title.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()),
     ),
   );
+  let visibleVideos = $derived(
+    videos.filter((item) => item.title.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())),
+  );
+  let itemCount = $derived(documents.length + videos.length);
 
   let searchOpen = $state(false);
   let query = $state("");
@@ -84,7 +92,7 @@
     desktop = isTauri();
     if (desktop)
       void runLibraryAction(async () => {
-        documents = await listDocuments();
+        [documents, videos] = await Promise.all([listDocuments(), listVideos()]);
       });
   });
 
@@ -96,6 +104,32 @@
       await action();
     } catch (cause) {
       error = cause instanceof Error ? cause.message : String(cause);
+    } finally {
+      busy = false;
+    }
+  }
+
+  function chooseVideo() {
+    void runLibraryAction(async () => {
+      const id = await importVideo();
+      if (id === null) return;
+      videos = await listVideos();
+      query = "";
+      importOpen = false;
+    });
+  }
+
+  async function confirmRemoveVideo() {
+    if (!videoToRemove || busy) return;
+    const { id } = videoToRemove;
+    busy = true;
+    videoRemoveError = "";
+    try {
+      await removeVideo(id);
+      videos = videos.filter((video) => video.id !== id);
+      videoToRemove = undefined;
+    } catch (cause) {
+      videoRemoveError = String(cause);
     } finally {
       busy = false;
     }
@@ -157,7 +191,7 @@
       <Sidebar.Trigger class="md:hidden" />
       <h1 class="text-base font-semibold">My Library</h1>
       <span class="text-sm text-muted-foreground"
-        >{documents.length} {documents.length === 1 ? "item" : "items"}</span
+        >{itemCount} {itemCount === 1 ? "item" : "items"}</span
       >
     </div>
     <div class="flex items-center gap-1.5">
@@ -257,20 +291,43 @@
         </li>
       {/each}
     </ul>
-  {:else}
+  {/if}
+
+  {#if visibleVideos.length}
+    <ul class="grid gap-2" class:mt-2={visibleDocuments.length > 0} aria-label="Videos">
+      {#each visibleVideos as item (item.id)}
+        <li class="flex items-center gap-2">
+          <Button variant="outline" class="h-auto min-w-0 flex-1 justify-start gap-3 p-4 text-left whitespace-normal"
+            href={resolve("/watch") + "?local=" + item.id}>
+            <Film />
+            {item.title}
+          </Button>
+          <Button variant="ghost" size="icon-sm" disabled={busy} aria-label={`Remove ${item.title} from library`}
+            onclick={() => {
+              videoRemoveError = "";
+              videoToRemove = item;
+            }}>
+            <Trash2 />
+          </Button>
+        </li>
+      {/each}
+    </ul>
+  {/if}
+
+  {#if !visibleDocuments.length && !visibleVideos.length}
     <section
       class="grid min-h-72 place-items-center rounded-xl border border-dashed bg-card px-5 py-12 text-center"
     >
       <div>
         <Library class="mx-auto mb-4 size-6 text-muted-foreground" />
         <h2 class="font-medium">
-          {busy ? "Loading library…" : query.trim() ? "No matching documents" : "Your library is empty"}
+          {busy ? "Loading library…" : query.trim() ? "No matching items" : "Your library is empty"}
         </h2>
         {#if !busy && !query.trim()}
           <p class="mt-1 text-sm text-muted-foreground">
             {desktop
-              ? "Paste text or import a .txt file to start reading."
-              : "Open Sori in the desktop app to import text."}
+              ? "Import text or video to get started."
+              : "Open Sori in the desktop app to import media."}
           </p>
         {/if}
       </div>
@@ -281,8 +338,8 @@
 <Sheet.Root bind:open={importOpen}>
   <Sheet.Content>
     <Sheet.Header>
-      <Sheet.Title>Import text</Sheet.Title>
-      <Sheet.Description>Paste text or choose a .txt file to add to your library.</Sheet.Description>
+      <Sheet.Title>Import media</Sheet.Title>
+      <Sheet.Description>Paste text, choose a .txt file, or add a video from your device.</Sheet.Description>
     </Sheet.Header>
     <form
       class="space-y-4 px-4 pb-4"
@@ -311,8 +368,30 @@
         <Button type="button" variant="outline" disabled={busy} onclick={() => fileInput?.click()}>
           Choose .txt file
         </Button>
+        <Button type="button" variant="outline" disabled={busy} onclick={chooseVideo}>
+          <Film /> Choose video
+        </Button>
       </div>
+      {#if error}<p class="text-sm text-destructive" role="alert">{error}</p>{/if}
     </form>
+  </Sheet.Content>
+</Sheet.Root>
+
+<Sheet.Root open={!!videoToRemove} onOpenChange={(open) => {
+  if (!open && !busy) videoToRemove = undefined;
+}}>
+  <Sheet.Content showCloseButton={!busy}>
+    <Sheet.Header>
+      <Sheet.Title>Remove “{videoToRemove?.title}”?</Sheet.Title>
+      <Sheet.Description>The original file and any saved words stay on your device.</Sheet.Description>
+    </Sheet.Header>
+    <div class="space-y-3 px-4 pb-4">
+      {#if videoRemoveError}<p class="text-sm text-destructive" role="alert">{videoRemoveError}</p>{/if}
+      <div class="flex gap-2">
+        <Button variant="outline" disabled={busy} onclick={() => (videoToRemove = undefined)}>Cancel</Button>
+        <Button variant="destructive" disabled={busy} onclick={confirmRemoveVideo}>Remove video</Button>
+      </div>
+    </div>
   </Sheet.Content>
 </Sheet.Root>
 

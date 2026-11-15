@@ -1,8 +1,32 @@
 use crate::{
     db::Database,
-    vocabulary::{self, EditVocabulary, SaveVocabulary, VocabularyEntry},
+    vocabulary::{
+        self, EditVocabulary, SaveVideoVocabulary, SaveVocabulary, VideoSource, VocabularyEntry,
+    },
 };
 use tauri::State;
+
+#[tauri::command]
+pub async fn find_video_vocabulary(
+    database: State<'_, Database>,
+    source: VideoSource,
+    word: String,
+    context: String,
+) -> Result<Option<VocabularyEntry>, String> {
+    database
+        .run(move |connection| vocabulary::find_video_entry(connection, source, &word, &context))
+        .await
+}
+
+#[tauri::command]
+pub async fn save_video_vocabulary(
+    database: State<'_, Database>,
+    input: SaveVideoVocabulary,
+) -> Result<VocabularyEntry, String> {
+    database
+        .run(move |connection| vocabulary::save_video(connection, input))
+        .await
+}
 
 #[tauri::command]
 pub async fn save_vocabulary(

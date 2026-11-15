@@ -15,6 +15,24 @@ pub struct SaveVocabulary {
 }
 
 #[derive(Debug, Deserialize)]
+#[serde(tag = "kind", rename_all = "camelCase")]
+pub enum VideoSource {
+    Local { id: i64 },
+    Youtube { id: String, title: String },
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SaveVideoVocabulary {
+    pub source: VideoSource,
+    pub word: String,
+    pub normalized_form: Option<String>,
+    pub context: String,
+    pub definition: Definition,
+    pub tags: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EditVocabulary {
     pub normalized_form: String,
@@ -110,6 +128,114 @@ pub fn save(database: &Connection, input: SaveVocabulary) -> Result<VocabularyEn
     let saved = read_entry(&transaction, id)?;
     transaction.commit().map_err(|error| error.to_string())?;
     Ok(saved)
+}
+
+pub fn save_video(
+    database: &Connection,
+    input: SaveVideoVocabulary,
+) -> Result<VocabularyEntry, String> {
+    let word = input.word.trim();
+    let context = input.context.trim();
+    if word.is_empty() || context.is_empty() || context.len() > 16_384 {
+        return Err("Enter a word and select a subtitle cue up to 16 KiB.".into());
+    }
+    validate_tags(&input.tags)?;
+    validate_definition(Some(&input.definition))?;
+    let normalized_form = input
+        .normalized_form
+        .as_deref()
+        .map(str::trim)
+        .filter(|form| !form.is_empty() && *form != word);
+    let transaction =
+        rusqlite::Transaction::new_unchecked(database, TransactionBehavior::Immediate)
+            .map_err(|error| error.to_string())?;
+    let (video_id, youtube_id, title) = match input.source {
+        VideoSource::Local { id } => {
+            let title: String = transaction
+                .query_row("SELECT title FROM videos WHERE id = ?1", [id], |row| {
+                    row.get(0)
+                })
+                .optional()
+                .map_err(|error| error.to_string())?
+                .ok_or("Video not found.")?;
+            (Some(id), None, title)
+        }
+        VideoSource::Youtube { id, title } => {
+            if id.len() != 11
+                || !id
+                    .bytes()
+                    .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'-' | b'_'))
+            {
+                return Err("Invalid YouTube video ID.".into());
+            }
+            (None, Some(id), title.trim().chars().take(500).collect())
+        }
+    };
+    let existing =
+        find_video_entry_id(&transaction, video_id, youtube_id.as_deref(), word, context)?;
+    let id = if let Some(id) = existing {
+        id
+    } else {
+        let id = transaction
+            .query_row(
+                "INSERT INTO vocabulary (word, normalized_form, source_title, context)
+             VALUES (?1, ?2, ?3, ?4) RETURNING id",
+                params![word, normalized_form, title, context],
+                |row| row.get::<_, i64>(0),
+            )
+            .map_err(|error| error.to_string())?;
+        transaction.execute(
+            "INSERT INTO video_vocabulary (vocabulary_id, video_id, youtube_id) VALUES (?1, ?2, ?3)",
+            params![id, video_id, youtube_id],
+        ).map_err(|error| error.to_string())?;
+        transaction
+            .execute(
+                "INSERT INTO vocabulary_meanings (vocabulary_id, definition_json) VALUES (?1, ?2)",
+                params![
+                    id,
+                    serde_json::to_string(&input.definition).map_err(|error| error.to_string())?
+                ],
+            )
+            .map_err(|error| error.to_string())?;
+        insert_tags(&transaction, id, &input.tags)?;
+        id
+    };
+    let saved = read_entry(&transaction, id)?;
+    transaction.commit().map_err(|error| error.to_string())?;
+    Ok(saved)
+}
+
+pub fn find_video_entry(
+    database: &Connection,
+    source: VideoSource,
+    word: &str,
+    context: &str,
+) -> Result<Option<VocabularyEntry>, String> {
+    let (video_id, youtube_id) = match &source {
+        VideoSource::Local { id } => (Some(*id), None),
+        VideoSource::Youtube { id, .. } => (None, Some(id.as_str())),
+    };
+    find_video_entry_id(database, video_id, youtube_id, word.trim(), context.trim())?
+        .map(|id| read_entry(database, id))
+        .transpose()
+}
+
+fn find_video_entry_id(
+    database: &Connection,
+    video_id: Option<i64>,
+    youtube_id: Option<&str>,
+    word: &str,
+    context: &str,
+) -> Result<Option<i64>, String> {
+    database
+        .query_row(
+            "SELECT v.id FROM vocabulary v JOIN video_vocabulary link ON link.vocabulary_id = v.id
+         WHERE link.video_id IS ?1 AND link.youtube_id IS ?2 AND v.word = ?3 AND v.context = ?4",
+            params![video_id, youtube_id, word, context],
+            |row| row.get(0),
+        )
+        .optional()
+        .map_err(|error| error.to_string())
 }
 
 pub fn edit(
@@ -298,6 +424,61 @@ mod tests {
         let listed = list(&database).unwrap();
         assert_eq!(listed.len(), 1);
         assert_eq!(listed[0].id, saved.id);
+    }
+
+    #[test]
+    fn video_words_are_scoped_to_the_source_and_survive_library_removal() {
+        let database = database();
+        database
+            .execute(
+                "INSERT INTO videos (id, path, title) VALUES (1, 'a.mkv', '한국어')",
+                [],
+            )
+            .unwrap();
+        let input = || SaveVideoVocabulary {
+            source: VideoSource::Local { id: 1 },
+            word: "도입했다".into(),
+            normalized_form: Some("도입하다".into()),
+            context: "기술을 도입했다.".into(),
+            definition: Definition {
+                term: "도입하다".into(),
+                text: "To introduce".into(),
+                part_of_speech: String::new(),
+                source_url: String::new(),
+                custom: true,
+                hanja: None,
+                note: None,
+            },
+            tags: vec!["verb".into()],
+        };
+        let saved = save_video(&database, input()).unwrap();
+        assert_eq!(save_video(&database, input()).unwrap().id, saved.id);
+        let found = find_video_entry(
+            &database,
+            VideoSource::Local { id: 1 },
+            "도입했다",
+            "기술을 도입했다.",
+        )
+        .unwrap()
+        .unwrap();
+        assert_eq!(found.normalized_form.as_deref(), Some("도입하다"));
+        let unrelated = find_video_entry(
+            &database,
+            VideoSource::Youtube {
+                id: "aBcDeFgHiJ0".into(),
+                title: String::new(),
+            },
+            "도입했다",
+            "기술을 도입했다.",
+        )
+        .unwrap();
+        assert!(unrelated.is_none());
+        database
+            .execute("DELETE FROM videos WHERE id = 1", [])
+            .unwrap();
+        let entries = list(&database).unwrap();
+        assert_eq!(entries[0].id, saved.id);
+        assert_eq!(entries[0].definition.as_ref().unwrap().text, "To introduce");
     }
 
     #[test]

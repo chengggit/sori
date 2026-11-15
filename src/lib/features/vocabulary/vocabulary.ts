@@ -1,6 +1,24 @@
 import { invoke } from "@tauri-apps/api/core";
 import type { DictionaryDefinition } from "../dictionary/dictionary";
 
+export type VideoVocabularySource =
+  { kind: "local"; id: number } | { kind: "youtube"; id: string; title: string };
+
+export function saveVideoVocabulary(input: {
+  source: VideoVocabularySource;
+  word: string;
+  normalizedForm?: string;
+  context: string;
+  definition: DictionaryDefinition;
+  tags: string[];
+}) {
+  return invoke<VocabularyEntry>("save_video_vocabulary", { input });
+}
+
+export function findVideoVocabulary(source: VideoVocabularySource, word: string, context: string) {
+  return invoke<VocabularyEntry | null>("find_video_vocabulary", { source, word, context });
+}
+
 export type SaveVocabulary = {
   word: string;
   normalizedForm?: string | null;

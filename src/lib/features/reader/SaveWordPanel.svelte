@@ -5,7 +5,7 @@
   import type { DictionaryDefinition } from "../dictionary/dictionary";
   import type { VocabularyEntry } from "../vocabulary/vocabulary";
 
-  let { word, definition, saved, saving, error, onSave, onRemove, onClose }: {
+  let { word, definition, saved, saving, error, onSave, onRemove, onClose, inline = false }: {
     word: string;
     definition: DictionaryDefinition | null;
     saved?: VocabularyEntry;
@@ -14,6 +14,7 @@
     onSave: (draft: { word: string; meaning: string; note: string; tags: string[] }) => void;
     onRemove: () => void;
     onClose: () => void;
+    inline?: boolean;
   } = $props();
 
   // Drafts belong to this opening of the panel and survive tab switches.
@@ -38,7 +39,9 @@
   }
 }} />
 
-<section aria-label={saved ? "Saved word" : "Save word"} class="absolute inset-x-0 bottom-0 z-20 max-h-[80%] overflow-y-auto rounded-t-xl border-t bg-popover p-4 shadow-xl sm:p-5">
+<section aria-label={saved ? "Saved word" : "Save word"} class={inline
+  ? "rounded-xl border bg-popover p-4 sm:p-5"
+  : "absolute inset-x-0 bottom-0 z-20 max-h-[80%] overflow-y-auto rounded-t-xl border-t bg-popover p-4 shadow-xl sm:p-5"}>
   <div class="mb-4 flex items-center justify-between gap-2">
     <h3 class="font-semibold">{saved ? "Saved word" : "Save word"}</h3>
     <Button variant="ghost" size="icon-sm" aria-label="Close save panel" disabled={saving} onclick={onClose}><X /></Button>
