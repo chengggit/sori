@@ -201,7 +201,7 @@
 
 <svelte:window onkeydown={handleShortcut} />
 
-<header class="flex min-h-[70px] items-center gap-3 border-b px-4 sm:px-8">
+<header class="flex h-14 items-center gap-3 border-b px-4 sm:px-8">
   <Sidebar.Trigger class="md:hidden" />
   {#if key}
     <form
