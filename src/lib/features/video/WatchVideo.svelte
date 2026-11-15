@@ -415,11 +415,8 @@
       />
     </label>
   </div>
-  {#if loading || importing}
+  {#if importing || (localMode !== "mpv" && loading)}
     <p class="mt-2 text-sm text-muted-foreground" role="status">Loading subtitles…</p>
-  {/if}
-  {#if localMode === "mpv" && secondaryLoading}
-    <p class="mt-2 text-sm text-muted-foreground" role="status">Loading secondary subtitles…</p>
   {/if}
   {#if localMode === "mpv" && secondaryError}
     <p class="mt-2 text-sm text-destructive" role="alert">{secondaryError}</p>

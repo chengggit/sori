@@ -245,11 +245,15 @@
       events.onSave(seconds, duration, true);
     }}
   ></video>
-  <div class="pointer-events-none absolute inset-x-2 bottom-2 grid gap-2" bind:this={overlay}>
+  <div class="pointer-events-none absolute inset-2 flex flex-col justify-end gap-2" bind:this={overlay}>
+    {#if error}
+      <p class="absolute inset-x-2 top-1/2 -translate-y-1/2 rounded-md bg-black/80 px-3 py-2 text-center text-sm text-white" role="alert">{error}</p>
+    {/if}
     {@render captions(fullscreen ? () => void toggleFullscreen() : undefined)}
     <div
-      class="controls pointer-events-auto rounded-lg bg-linear-to-t from-black/95 to-black/55 px-3 py-1 text-white transition-opacity duration-200 motion-reduce:transition-none"
+      class="controls pointer-events-auto rounded-lg bg-black/70 px-3 py-1 text-white transition-opacity duration-200 motion-reduce:transition-none"
       data-hidden={playing && !controlsVisible && scrubPosition === null && !subtitlesOpen}
+      class:invisible={!player}
     >
       <input
         type="range"
@@ -327,11 +331,6 @@
       </div>
     </div>
   </div>
-  {#if error}
-    <p class="mt-2 text-sm text-destructive" role="alert">{error}</p>
-  {:else if !player}
-    <p class="mt-2 text-sm text-muted-foreground" role="status">Opening mpv…</p>
-  {/if}
 </div>
 </div>
 
