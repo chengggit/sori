@@ -276,14 +276,12 @@
 </div>
 
 {#snippet captions(beforeLookup: (() => void) | undefined)}
-  {#if active.length || activeSecondary.length}
-    <div
-      class="pointer-events-none grid justify-items-center gap-1"
-    >
+  {#if active.length || (track !== secondaryTrack && activeSecondary.length)}
+    <div class="pointer-events-none mx-auto grid w-fit max-w-full gap-1 rounded-md bg-black/80 px-3 py-1 text-center wrap-anywhere whitespace-pre-wrap text-white">
       {#each active as cue (cue)}
         <div
           class={[
-            "pointer-events-auto max-w-full rounded-md bg-black/80 px-3 py-1 text-center text-base wrap-anywhere whitespace-pre-wrap text-white sm:text-xl",
+            "pointer-events-auto text-base sm:text-xl",
             localMode === "mpv" && "[&_[aria-pressed=true]]:text-amber-200 [&_[role=button]:hover]:text-amber-200",
           ]}
           lang="ko"
@@ -306,7 +304,7 @@
       {/each}
       {#if track !== secondaryTrack}
         {#each activeSecondary as cue (cue)}
-          <p class="max-w-full rounded-md bg-black/80 px-3 py-1 text-center text-sm wrap-anywhere whitespace-pre-wrap text-white" lang={secondaryLanguage}>
+          <p class="text-sm sm:text-base" lang={secondaryLanguage}>
             {cue.text}
           </p>
         {/each}
