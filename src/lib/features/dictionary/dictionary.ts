@@ -7,6 +7,8 @@ export type DictionaryDefinition = {
   text: string;
   sourceUrl: string;
   hanja?: string | null;
+  custom?: boolean;
+  note?: string | null;
 };
 
 export const dictionaryLicense = "https://creativecommons.org/licenses/by-sa/4.0/";

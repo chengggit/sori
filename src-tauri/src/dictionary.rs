@@ -13,6 +13,10 @@ pub struct Definition {
     pub source_url: String,
     #[serde(default)]
     pub hanja: Option<String>,
+    #[serde(default)]
+    pub custom: bool,
+    #[serde(default)]
+    pub note: Option<String>,
 }
 
 pub struct Dictionary {
@@ -253,6 +257,8 @@ fn parse_definitions(term: &str, body: &[u8]) -> Result<Vec<Definition>, String>
                     text,
                     source_url: source_url(term),
                     hanja: None,
+                    custom: false,
+                    note: None,
                 });
             }
         }

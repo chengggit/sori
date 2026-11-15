@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onDestroy, tick } from "svelte";
-  import { X } from "@lucide/svelte";
+  import { Bookmark, X } from "@lucide/svelte";
   import { Tabs } from "bits-ui";
   import { openUrl } from "@tauri-apps/plugin-opener";
   import { Button } from "$lib/components/ui/button";
@@ -11,6 +11,7 @@
   import WordBreakdown from "./WordBreakdown.svelte";
   import { wordBreakdown } from "./breakdown";
   import WholeWordMeaning from "./WholeWordMeaning.svelte";
+  import SaveWordPanel from "./SaveWordPanel.svelte";
   import EmbeddedLookup from "../dictionary/EmbeddedLookup.svelte";
   import { embeddedProviders } from "../dictionary/embedded";
   import { embedSettings } from "../dictionary/embed-settings";
@@ -46,8 +47,23 @@
   const passages = $derived(readingPassages(document.content));
   let analysis = $state<WordAnalysis>();
   let saved = $state<VocabularyEntry>();
-  let normalized = $state("");
   let definition = $state<DictionaryDefinition | null>(null);
+  let suggestedMeaning = $state<DictionaryDefinition | null>(null);
+  let savePanelOpen = $state(false);
+  let draftSource = $state<DictionaryDefinition | null>(null);
+  let saveTrigger: HTMLButtonElement | undefined;
+
+  function openSavePanel(event: MouseEvent) {
+    saveTrigger = event.currentTarget as HTMLButtonElement;
+    draftSource = saved?.definition ?? definition ?? suggestedMeaning;
+    error = "";
+    savePanelOpen = true;
+  }
+
+  function closeSavePanel() {
+    savePanelOpen = false;
+    saveTrigger?.focus();
+  }
   let sources = $state<Record<string, string>>({});
   let lookupView = $state("analysis");
   let visitedLookupViews = $state(new Set<string>());
@@ -67,7 +83,7 @@
   function collectSources(definitions: DictionaryDefinition[]) {
     sources = {
       ...sources,
-      ...Object.fromEntries(definitions.map((item) => [item.term, item.sourceUrl])),
+      ...Object.fromEntries(definitions.filter((item) => item.sourceUrl).map((item) => [item.term, item.sourceUrl])),
     };
   }
 
@@ -148,8 +164,10 @@
     request += 1;
     analysis = undefined;
     saved = undefined;
-    normalized = "";
     definition = null;
+    suggestedMeaning = null;
+    savePanelOpen = false;
+    draftSource = null;
     sources = {};
     error = "";
     loading = true;
@@ -174,7 +192,7 @@
           item.word === result.word &&
           item.context === result.context,
       );
-      normalized = saved?.normalizedForm ?? "";
+      if (saved?.definition) collectSources([saved.definition]);
     } catch (cause) {
       if (current === request) error = String(cause);
     } finally {
@@ -182,25 +200,55 @@
     }
   }
 
-  async function toggleSaved() {
+  async function saveWord(draft: { word: string; meaning: string; note: string; tags: string[] }) {
     if (!analysis || saving) return;
     const current = request;
-    const entry = saved;
     saving = true;
     error = "";
     try {
-      if (entry) {
-        await removeVocabulary(entry.id);
-        if (current === request) saved = undefined;
-      } else {
-        const result = await saveVocabulary({
-          documentId: document.id,
-          word: analysis.word,
-          context: analysis.context,
-          normalizedForm: normalized || null,
-          definition,
-        });
-        if (current === request) saved = result;
+      if (!draft.word || !draft.meaning) {
+        error = "Enter a word and meaning before saving.";
+        return;
+      }
+      const meaning = {
+        term: draftSource?.term ?? draft.word,
+        partOfSpeech: draftSource?.partOfSpeech ?? "",
+        sourceUrl: draftSource?.sourceUrl ?? "",
+        hanja: draftSource?.hanja ?? null,
+        text: draft.meaning,
+        custom: draftSource?.custom || !draftSource || draft.meaning !== draftSource.text,
+        note: draft.note || null,
+      };
+      const result = await saveVocabulary({
+        documentId: document.id,
+        word: analysis.word,
+        context: analysis.context,
+        normalizedForm: draft.word === analysis.word ? null : draft.word,
+        definition: meaning,
+        tags: draft.tags,
+      });
+      if (current === request) {
+        saved = result;
+        definition = meaning;
+        closeSavePanel();
+      }
+    } catch (cause) {
+      if (current === request) error = String(cause);
+    } finally {
+      saving = false;
+    }
+  }
+
+  async function removeSavedWord() {
+    if (!saved || saving) return;
+    const current = request;
+    saving = true;
+    error = "";
+    try {
+      await removeVocabulary(saved.id);
+      if (current === request) {
+        saved = undefined;
+        closeSavePanel();
       }
     } catch (cause) {
       if (current === request) error = String(cause);
@@ -292,9 +340,12 @@
               </Tabs.Trigger>
             {/each}
           </Tabs.List>
-          <h2 lang="ko" class="mt-3 mb-3 px-4 pr-12 text-xl font-semibold wrap-break-word sm:pl-5">
-            {selection.text}
-          </h2>
+          <div class="my-3 flex shrink-0 items-center gap-2 px-4 sm:px-5">
+            <h2 lang="ko" class="min-w-0 text-xl font-semibold wrap-break-word">{selection.text}</h2>
+            <button type="button" aria-label={saved ? "View saved word" : "Save this word"} title={saved ? "View saved word" : "Save word"} aria-expanded={savePanelOpen} disabled={!analysis || saving} class="shrink-0 rounded-md p-1.5 hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring disabled:opacity-50" onclick={openSavePanel}>
+              <Bookmark class="size-5" fill={saved ? "currentColor" : "none"} />
+            </button>
+          </div>
           {#each enabledProviders as item}
             <Tabs.Content
               value={item.value}
@@ -314,12 +365,15 @@
                 <p role="status" class="text-sm text-muted-foreground">Analyzing…</p>
               {:else if analysis}
                 <WholeWordMeaning
-                  onSources={collectSources}
+                  onSources={(definitions) => {
+                    collectSources(definitions);
+                    suggestedMeaning = definitions[0] ?? null;
+                  }}
                   word={analysis.word}
                   tokens={analysis.morphemes}
                   selected={saved?.definition ?? definition}
-                  savedDefinition={saved?.definition}
-                  locked={saving || !!saved}
+                  savedDefinition={saved?.definition?.custom ? null : saved?.definition}
+                  locked={saving || !!saved || savePanelOpen}
                   onSelect={(value) => (definition = value)}
                 />
                 {#if wordBreakdown(analysis.morphemes).length > 1}
@@ -327,64 +381,13 @@
                     onSources={collectSources}
                     tokens={analysis.morphemes}
                     selected={saved?.definition ?? definition}
-                    savedDefinition={saved?.definition}
-                    locked={saving || !!saved}
+                    savedDefinition={saved?.definition?.custom ? null : saved?.definition}
+                    locked={saving || !!saved || savePanelOpen}
                     onSelect={(value) => (definition = value)}
                   />
                 {/if}
-                {#if definition && !saved}
-                  <p class="mb-3 text-xs text-muted-foreground">
-                    Meaning selected for saving · {definition.term}
-                  </p>
-                {/if}
-                <div class="flex flex-wrap items-end gap-3">
-                  <label class="grid gap-1 text-xs text-muted-foreground">
-                    Morpheme to collect (optional)
-                    <select
-                      bind:value={normalized}
-                      disabled={saving || !!saved}
-                      class="h-8 rounded-md border bg-background px-2 text-sm text-foreground"
-                    >
-                      <option value="">Original word</option>
-                      {#each [...new Set(analysis.morphemes.map((token) => token.form))] as form}<option
-                          value={form}>{form}</option
-                        >{/each}
-                    </select>
-                  </label>
-                  <Button
-                    size="sm"
-                    variant={saved ? "outline" : "default"}
-                    disabled={saving}
-                    onclick={toggleSaved}
-                    >{saving ? "Saving…" : saved ? "Remove saved word" : "Save word"}</Button
-                  >
-                  {#if saved}<span role="status" class="text-sm text-muted-foreground">Saved</span>{/if}
-                </div>
-                {#if Object.keys(sources).length}
-                  <details class="mt-5 text-xs text-muted-foreground">
-                    <summary class="cursor-pointer">Sources</summary>
-                    <p class="mt-2">Definitions by Wiktionary contributors. Formatting removed.</p>
-                    <button
-                      type="button"
-                      class="mt-1 underline"
-                      onclick={() => openSource(dictionaryLicense)}>CC BY-SA 4.0</button
-                    >
-                    <ul class="mt-2 space-y-1">
-                      {#each Object.entries(sources) as [term, url]}
-                        <li>
-                          <button
-                            type="button"
-                            lang="ko"
-                            class="underline"
-                            onclick={() => openSource(url)}>{term}</button
-                          >
-                        </li>
-                      {/each}
-                    </ul>
-                  </details>
-                {/if}
               {/if}
-              {#if error}
+              {#if error && !savePanelOpen}
                 <p role="alert" class="mt-2 text-sm text-destructive">{error}</p>
                 {#if !analysis}<Button
                     size="sm"
@@ -395,8 +398,36 @@
               {/if}
             {/if}
           </Tabs.Content>
+          {#if lookupView === "analysis" && Object.keys(sources).length}
+            <footer class="max-h-[30%] shrink-0 overflow-y-auto border-t px-4 py-3 sm:px-5">
+              <details class="text-xs text-muted-foreground">
+                <summary class="cursor-pointer">Sources</summary>
+                <p class="mt-2">Definitions by Wiktionary contributors. Formatting removed.</p>
+                <button
+                  type="button"
+                  class="mt-1 underline"
+                  onclick={() => openSource(dictionaryLicense)}>CC BY-SA 4.0</button
+                >
+                <ul class="mt-2 space-y-1">
+                  {#each Object.entries(sources) as [term, url]}
+                    <li>
+                      <button
+                        type="button"
+                        lang="ko"
+                        class="underline"
+                        onclick={() => openSource(url)}>{term}</button
+                      >
+                    </li>
+                  {/each}
+                </ul>
+              </details>
+            </footer>
+          {/if}
         </Tabs.Root>
       </div>
+      {#if savePanelOpen && analysis}
+        <SaveWordPanel word={analysis.word} definition={draftSource} {saved} {saving} {error} onSave={saveWord} onRemove={removeSavedWord} onClose={closeSavePanel} />
+      {/if}
     </aside>
   {/if}
 </div>

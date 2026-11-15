@@ -7,6 +7,7 @@ export type SaveVocabulary = {
   documentId: number;
   context: string;
   definition?: DictionaryDefinition | null;
+  tags?: string[];
 };
 
 export type VocabularyEntry = {
@@ -19,6 +20,7 @@ export type VocabularyEntry = {
   /** Unix time in seconds. */
   createdAt: number;
   definition: DictionaryDefinition | null;
+  tags: string[];
 };
 
 export function saveVocabulary(input: SaveVocabulary) {

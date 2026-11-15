@@ -91,6 +91,7 @@ mod tests {
                 &connection,
                 crate::vocabulary::SaveVocabulary {
                     word: "학교".into(),
+                    tags: vec![],
                     normalized_form: None,
                     document_id: document.id,
                     context: "학교에 갔어요.".into(),
@@ -172,6 +173,7 @@ mod tests {
                 &connection,
                 crate::vocabulary::SaveVocabulary {
                     word: "안녕하세요".into(),
+                    tags: vec![],
                     normalized_form: None,
                     document_id,
                     context: "안녕하세요".into(),

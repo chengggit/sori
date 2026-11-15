@@ -118,6 +118,7 @@ mod tests {
             &database,
             crate::vocabulary::SaveVocabulary {
                 word: "한국어".into(),
+                tags: vec![],
                 normalized_form: None,
                 document_id: id,
                 context: "한국어".into(),

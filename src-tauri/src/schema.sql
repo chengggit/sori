@@ -25,6 +25,12 @@ CREATE TABLE IF NOT EXISTS vocabulary_meanings (
     definition_json TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS vocabulary_tags (
+    vocabulary_id INTEGER NOT NULL REFERENCES vocabulary(id) ON DELETE CASCADE,
+    tag TEXT NOT NULL,
+    PRIMARY KEY (vocabulary_id, tag)
+);
+
 CREATE TABLE IF NOT EXISTS reading_progress (
     document_id INTEGER PRIMARY KEY REFERENCES documents(id) ON DELETE CASCADE,
     position REAL NOT NULL CHECK (position >= 0 AND position <= 1),
