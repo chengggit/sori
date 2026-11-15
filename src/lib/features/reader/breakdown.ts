@@ -14,7 +14,9 @@ export function wholeWordTerms(word: string, tokens: KoreanToken[]) {
   let lemma = lexical.map((token) => token.form).join("");
   const lastTag = lexical.at(-1)?.tag.split("-")[0] ?? "";
   if (["VV", "VA", "VX", "VCP", "VCN", "XSV", "XSA"].includes(lastTag)) lemma += "다";
-  return [...new Set([word.trim(), lemma].filter((term) => term && [...term].length <= 100))];
+  const derivation = lexical.findIndex((token) => ["XSV", "XSA"].includes(token.tag.split("-")[0]) && token.form === "되");
+  const base = derivation >= 0 ? lexical.slice(0, derivation).map((token) => token.form).join("") : "";
+  return [...new Set([word.trim(), lemma, base].filter((term) => term && [...term].length <= 100))];
 }
 
 // These describe common functions, keyed by both form and Kiwi POS to avoid
@@ -59,7 +61,7 @@ export function wordBreakdown(tokens: KoreanToken[]) {
   for (const token of tokens) {
     const tag = token.tag.split("-")[0];
     const previous = parts.at(-1);
-    if (["XSV", "XSA"].includes(tag) && previous && /^(NNG|NNP|XR)$/.test(previous.tag)) {
+    if (["XSV", "XSA"].includes(tag) && token.form === "하" && previous && /^(NNG|NNP|XR)$/.test(previous.tag)) {
       previous.form += token.form;
       previous.term = `${previous.form}다`;
       previous.tag = tag === "XSV" ? "VV" : "VA";

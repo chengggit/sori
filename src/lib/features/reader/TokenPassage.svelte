@@ -54,13 +54,20 @@
 </script>
 
 <span bind:this={element}
-  >{#if blocks}{#each blocks as block (block.start)}{#if block.morphemes.length}<button
-          type="button"
-          class="cursor-pointer rounded-sm border-b border-border/60 bg-muted/30 px-0.5 text-inherit hover:bg-accent focus-visible:outline-2 focus-visible:outline-ring aria-pressed:bg-accent aria-pressed:text-accent-foreground"
+        >{#if blocks}{#each blocks as block (block.start)}{#if block.morphemes.length}<span
+          role="button"
+          tabindex="0"
+          class="cursor-pointer text-inherit hover:text-primary hover:underline hover:decoration-dotted hover:underline-offset-4 focus-visible:rounded-sm focus-visible:outline-2 focus-visible:outline-ring aria-pressed:text-primary"
           aria-label={`Analyze ${block.text}`}
           aria-pressed={selectedStart === start + block.start}
           onclick={() => onToken({ ...block, start: start + block.start, end: start + block.end })}
-          >{block.text}</button
+          onkeydown={(event) => {
+            if (event.key === "Enter" || event.key === " ") {
+              event.preventDefault();
+              onToken({ ...block, start: start + block.start, end: start + block.end });
+            }
+          }}
+          >{block.text}</span
         >{:else}{block.text}{/if}{/each}{:else}{text}{/if}{#if error}<span
       class="text-sm text-destructive"
       role="alert"

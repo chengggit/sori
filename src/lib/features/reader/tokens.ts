@@ -25,16 +25,25 @@ export function readingPassages(text: string) {
 
 /** Keep whole written words clickable and render punctuation and whitespace as plain text. */
 export function tokenBlocks(text: string, tokens: KoreanToken[]): TokenBlock[] {
-  return [...text.matchAll(/[\p{L}\p{M}\p{N}]+|[^\p{L}\p{M}\p{N}]+/gu)].map((match) => {
+  return [...text.matchAll(/[\p{N}]+(?:,[\p{N}]+)*(?:[\p{L}\p{M}]+)?|[\p{L}\p{M}]+|[^\p{L}\p{M}\p{N}]+/gu)].map((match) => {
     const start = match.index;
     const end = start + match[0].length;
+    const morphemes = tokens.filter((token) => token.start < end && token.end > start);
+    const numeric = /^[\p{N}][\p{N},]*[\p{L}\p{M}]*$/u.test(match[0]);
+    const korean = /[\uac00-\ud7a3]/u.test(match[0]);
     return {
       text: match[0],
       start,
       end,
-      morphemes: /[\p{L}\p{N}]/u.test(match[0])
-        ? tokens.filter((token) => token.start < end && token.end > start)
-        : [],
+      morphemes: !korean
+        ? []
+        : numeric && !/[\p{L}\p{M}]/u.test(match[0])
+        ? []
+        : numeric && morphemes.every((token) => token.tag?.split("-")[0] === "SN")
+          ? []
+          : /[\p{L}\p{N}]/u.test(match[0])
+            ? morphemes
+            : [],
     };
   });
 }

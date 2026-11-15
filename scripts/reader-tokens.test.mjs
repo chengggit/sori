@@ -69,6 +69,18 @@ test("derivational suffixes stay with their lexical base in 해결하기", () =>
   assert.match(standalone.explanation, /Forms a verb/);
 });
 
+test("keeps 되 as a suffix and looks up the preceding noun", () => {
+  const tokens = [
+    { form: "완충", tag: "NNG" },
+    { form: "되", tag: "XSV" },
+    { form: "는", tag: "JX" },
+  ];
+  assert.deepEqual(wholeWordTerms("완충되는", tokens), ["완충되는", "완충되다", "완충"]);
+  const parts = wordBreakdown(tokens);
+  assert.deepEqual(parts.map((part) => part.term), ["완충", "-되", "-는"]);
+  assert.match(parts[1].explanation, /become|acted on/);
+});
+
 const token = (form, start, end) => ({ form, start, end });
 
 test("renders a whole spaced word while preserving its morphemes and source offsets", () => {
@@ -127,6 +139,25 @@ test("punctuation and symbols stay outside clickable word boxes", () => {
       .filter((piece) => !/[\p{L}\p{N}]/u.test(piece.text))
       .every((piece) => piece.morphemes.length === 0),
   );
+});
+
+test("numbers stay plain while comma-grouped counters remain one clickable unit", () => {
+  const pieces = tokenBlocks("80% 3,000회", [
+    token("80", 0, 2),
+    token("3,000", 4, 9),
+    token("회", 9, 10),
+  ]);
+  assert.deepEqual(pieces.map((piece) => piece.text), ["80", "% ", "3,000회"]);
+  assert.equal(pieces[0].morphemes.length, 0);
+  assert.equal(pieces[2].morphemes.length, 2);
+});
+
+test("Latin-only words stay plain text", () => {
+  const pieces = tokenBlocks("hello world", [
+    token("hello", 0, 5),
+    token("world", 6, 11),
+  ]);
+  assert.equal(pieces.filter((piece) => piece.morphemes.length).length, 0);
 });
 
 test("long passages fit the Kiwi limit and preserve valid Unicode and absolute offsets", () => {
