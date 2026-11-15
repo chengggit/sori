@@ -5,9 +5,34 @@ import { sveltekit } from "@sveltejs/kit/vite";
 import process from "node:process";
 const host = process.env.TAURI_DEV_HOST;
 
+// video-tauri 0.3.0 sends CSS pixels to GTK. Convert via device pixels so
+// WebKit zoom and the window's display scale are both accounted for.
+/** @returns {import("vite").Plugin} */
+function nativeVideoZoom() {
+  const entry = "/node_modules/@get-air/video-tauri/dist-js/index.js";
+  const original = "const scale = android ? (window.devicePixelRatio || 1) : 1;";
+  return {
+    name: "sori-native-video-zoom",
+    enforce: "pre",
+    transform(code, id) {
+      if (!id.split("?", 1)[0].endsWith(entry)) return;
+      if (!code.includes(original)) {
+        this.error("Review Sori's WebKit zoom correction after updating @get-air/video-tauri.");
+      }
+      return code.replace(
+        original,
+        `const gtkScale = Number(this.element.dataset.gtkScale);
+        const scale = android ? (window.devicePixelRatio || 1)
+          : gtkScale > 0 ? (window.devicePixelRatio || 1) / gtkScale : 1;`,
+      );
+    },
+  };
+}
+
 // https://vite.dev/config/
 export default defineConfig(() => ({
-  plugins: [tailwindcss(), sveltekit()],
+  plugins: [nativeVideoZoom(), tailwindcss(), sveltekit()],
+  optimizeDeps: { exclude: ["@get-air/video-tauri"] },
 
   // Vite options tailored for Tauri development and only applied in `tauri dev` or `tauri build`
   //

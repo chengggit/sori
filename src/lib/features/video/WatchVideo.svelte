@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Captions, ExternalLink } from "@lucide/svelte";
+  import { untrack } from "svelte";
   import { isTauri } from "@tauri-apps/api/core";
   import { Button } from "$lib/components/ui/button";
   import { dictionaryLicense, type DictionaryDefinition } from "../dictionary/dictionary";
@@ -16,6 +17,7 @@
   import TokenPassage from "../reader/TokenPassage.svelte";
   import type { TokenBlock } from "../reader/tokens";
   import LocalPlayer from "./LocalPlayer.svelte";
+  import MpvPlayer from "./MpvPlayer.svelte";
   import RemuxPlayer from "./RemuxPlayer.svelte";
   import YouTubePlayer from "./YouTubePlayer.svelte";
   import { readVideoSubtitles, saveVideoSidecar, type LocalVideoDetails } from "./local";
@@ -35,7 +37,9 @@
   } = $props();
 
   let seconds = $state(0);
-  let localMode = $state<"webview" | "remux">("webview");
+  let localMode = $state<"webview" | "remux" | "mpv">(
+    untrack(() => (source.kind === "local" && source.video.mpvAvailable ? "mpv" : "webview")),
+  );
   let playerStart = $state<number>();
   let controls: PlaybackControls | undefined;
   const events: PlaybackEvents = {
@@ -54,6 +58,11 @@
   let loading = $state(false);
   let importing = $state(false);
   let trackRequest = 0;
+  let secondaryTrack = $state("off");
+  let secondaryCues = $state<SubtitleCue[]>([]);
+  let secondaryError = $state("");
+  let secondaryLoading = $state(false);
+  let secondaryRequest = 0;
   let subtitleRoot = $state<HTMLDivElement>();
   let selection = $state<{ cue: SubtitleCue; token: TokenBlock }>();
   let suggested = $state<DictionaryDefinition | null>(null);
@@ -66,6 +75,9 @@
   let checkingSaved = $state(false);
 
   const tracks = $derived(source.kind === "local" ? source.video.tracks : []);
+  const secondaryLanguage = $derived(
+    tracks.find((item) => String(item.index) === secondaryTrack)?.language ?? undefined,
+  );
   const vocabularySource: VideoVocabularySource = $derived(
     source.kind === "local"
       ? { kind: "local", id: source.video.id }
@@ -74,6 +86,14 @@
   const active = $derived(
     activeSubtitleCues(track === "sidecar" ? sidecar : track === "off" ? [] : embedded, seconds),
   );
+  const activeSecondary = $derived(
+    localMode === "mpv" ? activeSubtitleCues(secondaryCues, seconds) : [],
+  );
+
+  function switchPlayer(mode: typeof localMode) {
+    playerStart = seconds || start;
+    localMode = mode;
+  }
 
   $effect(() => {
     if (source.kind !== "local") return;
@@ -81,9 +101,11 @@
     const storedCues = storedSidecar ? parseSubtitles(storedSidecar) : [];
     sidecar = storedCues;
     const available = tracks.filter((item) => item.text);
-    const preferred =
-      available.find((item) => /^(ko|kor)(-|$)/i.test(item.language ?? "")) ?? available[0];
-    void selectTrack(storedCues.length ? "sidecar" : preferred ? String(preferred.index) : "off");
+    const korean = available.find((item) => /^(ko|kor)(-|$)/i.test(item.language ?? ""));
+    const english = available.find((item) => /^(en|eng)(-|$)/i.test(item.language ?? ""));
+    const primary = korean ?? (source.video.mpvAvailable ? undefined : available[0]);
+    void selectTrack(storedCues.length ? "sidecar" : primary ? String(primary.index) : "off");
+    if (source.video.mpvAvailable && english) void selectSecondaryTrack(String(english.index));
   });
 
   async function selectTrack(value: string) {
@@ -104,6 +126,26 @@
       if (request === trackRequest) trackError = String(cause);
     } finally {
       if (request === trackRequest) loading = false;
+    }
+  }
+
+  async function selectSecondaryTrack(value: string) {
+    const request = ++secondaryRequest;
+    secondaryTrack = value;
+    secondaryCues = [];
+    secondaryError = "";
+    secondaryLoading = false;
+    if (value === "off" || source.kind !== "local") return;
+    secondaryLoading = true;
+    try {
+      const result = await readVideoSubtitles(source.video.id, Number(value));
+      if (request !== secondaryRequest) return;
+      secondaryCues = parseSubtitles(result);
+      if (!secondaryCues.length) secondaryError = "This track contains no readable subtitle cues.";
+    } catch (cause) {
+      if (request === secondaryRequest) secondaryError = String(cause);
+    } finally {
+      if (request === secondaryRequest) secondaryLoading = false;
     }
   }
 
@@ -209,9 +251,12 @@
   }
 </script>
 
-<div class="relative" bind:this={subtitleRoot}>
+<div class={localMode === "mpv" ? "flex h-[calc(100dvh-6.5rem)] flex-col" : "contents"}>
+<div class="relative shrink-0" bind:this={subtitleRoot}>
   {#if source.kind === "local" && localMode === "remux"}
     <RemuxPlayer id={source.video.id} {title} start={playerStart ?? start} {events} />
+  {:else if source.kind === "local" && localMode === "mpv"}
+    <MpvPlayer path={source.video.path} {title} start={playerStart ?? start} {events} {captions} {subtitleMenu} />
   {:else if source.kind === "local"}
     <LocalPlayer
       path={source.video.path}
@@ -223,13 +268,24 @@
   {:else}
     <YouTubePlayer id={source.id} {title} {start} {events} />
   {/if}
-  {#if active.length}
+  {#if localMode !== "mpv"}
+    <div class="pointer-events-none absolute inset-x-2 bottom-16">
+      {@render captions(undefined)}
+    </div>
+  {/if}
+</div>
+
+{#snippet captions(beforeLookup: (() => void) | undefined)}
+  {#if active.length || activeSecondary.length}
     <div
-      class="pointer-events-none absolute inset-x-2 bottom-16 grid justify-items-center gap-1"
+      class="pointer-events-none grid justify-items-center gap-1"
     >
       {#each active as cue (cue)}
         <div
-          class="pointer-events-auto max-w-full rounded-md bg-black/80 px-3 py-1 text-center text-base wrap-anywhere whitespace-pre-wrap text-white sm:text-xl"
+          class={[
+            "pointer-events-auto max-w-full rounded-md bg-black/80 px-3 py-1 text-center text-base wrap-anywhere whitespace-pre-wrap text-white sm:text-xl",
+            localMode === "mpv" && "[&_[aria-pressed=true]]:text-amber-200 [&_[role=button]:hover]:text-amber-200",
+          ]}
           lang="ko"
         >
           {#if isTauri()}
@@ -238,29 +294,95 @@
               start={0}
               root={subtitleRoot}
               selectedStart={selection?.cue === cue ? selection.token.start : undefined}
-              onToken={(token) => selectWord(cue, token)}
+              onToken={(token) => {
+                beforeLookup?.();
+                void selectWord(cue, token);
+              }}
             />
           {:else}
             {cue.text}
           {/if}
         </div>
       {/each}
+      {#if track !== secondaryTrack}
+        {#each activeSecondary as cue (cue)}
+          <p class="max-w-full rounded-md bg-black/80 px-3 py-1 text-center text-sm wrap-anywhere whitespace-pre-wrap text-white" lang={secondaryLanguage}>
+            {cue.text}
+          </p>
+        {/each}
+      {/if}
     </div>
   {/if}
-</div>
+{/snippet}
 
+{#snippet subtitleOptions(excluded: string)}
+  <option value="off">Off</option>
+  {#each tracks as item (item.index)}
+    <option value={String(item.index)} disabled={!item.text || String(item.index) === excluded}>
+      {item.title || item.language || `Track ${item.index}`}{item.title && item.language
+        ? ` (${item.language})`
+        : ""}{item.text ? "" : " — image subtitles"}
+    </option>
+  {/each}
+{/snippet}
+
+{#snippet primarySubtitleSelect()}
+  <select
+    class="min-w-0 rounded-md border bg-background px-2 py-1 text-foreground"
+    value={track}
+    onchange={(event) => selectTrack(event.currentTarget.value)}
+    disabled={importing}
+  >
+    {@render subtitleOptions(localMode === "mpv" ? secondaryTrack : "off")}
+    {#if sidecar.length}<option value="sidecar">Attached subtitles</option>{/if}
+  </select>
+{/snippet}
+
+{#snippet subtitleMenu()}
+  <label class="grid gap-1 text-sm font-medium">
+    Primary subtitle
+    {@render primarySubtitleSelect()}
+  </label>
+  <label class="grid gap-1 text-sm font-medium">
+    Secondary subtitle
+    <select
+      class="min-w-0 rounded-md border bg-background px-2 py-1 text-foreground"
+      value={secondaryTrack}
+      onchange={(event) => selectSecondaryTrack(event.currentTarget.value)}
+    >
+      {@render subtitleOptions(track)}
+    </select>
+  </label>
+  {#if loading || secondaryLoading}
+    <p class="text-xs text-muted-foreground" role="status">Loading subtitles…</p>
+  {/if}
+  {#if trackError || secondaryError || (source.kind === "local" && source.video.probeError)}
+    <p class="text-xs text-destructive" role="alert">
+      {trackError || secondaryError || (source.kind === "local" ? source.video.probeError : "")}
+    </p>
+  {/if}
+{/snippet}
+
+<!-- GTK and WebKit paint separately. Scroll the details while keeping the native surface in place. -->
+<div class={localMode === "mpv" ? "min-h-0 flex-1 overflow-y-auto overscroll-contain" : "contents"}>
 <div class="mt-4 flex flex-wrap items-start justify-between gap-3">
   <h1 class="min-w-0 flex-1 text-xl leading-snug font-semibold wrap-break-word">{title}</h1>
-  {#if source.kind === "local" && source.video.playbackUrl}
+  {#if source.kind === "local" && source.video.playbackUrl && localMode !== "mpv"}
     <Button
       variant="outline"
       size="sm"
-      onclick={() => {
-        playerStart = seconds || start;
-        localMode = localMode === "remux" ? "webview" : "remux";
-      }}
+      onclick={() => switchPlayer(localMode === "remux" ? "webview" : "remux")}
     >
       {localMode === "remux" ? "Use webview player" : "Try MP4 streaming (experimental)"}
+    </Button>
+  {/if}
+  {#if source.kind === "local" && source.video.mpvAvailable}
+    <Button
+      variant="outline"
+      size="sm"
+      onclick={() => switchPlayer(localMode === "mpv" ? "webview" : "mpv")}
+    >
+      {localMode === "mpv" ? "Use webview player" : "Use native mpv player"}
     </Button>
   {/if}
   {#if source.kind === "youtube"}
@@ -276,25 +398,12 @@
 
 <section aria-label="Subtitles" class="mt-6 rounded-xl border bg-card p-4 sm:p-5">
   <div class="flex flex-wrap items-center gap-3">
-    <label class="flex items-center gap-2 text-sm font-medium">
-      <Captions class="size-4" /> Subtitles
-      <select
-        class="rounded-md border bg-background px-2 py-1"
-        value={track}
-        onchange={(event) => selectTrack(event.currentTarget.value)}
-        disabled={importing}
-      >
-        <option value="off">Off</option>
-        {#each tracks as item (item.index)}
-          <option value={String(item.index)} disabled={!item.text}>
-            {item.title || item.language || `Track ${item.index}`}{item.title && item.language
-              ? ` (${item.language})`
-              : ""}{item.text ? "" : " — image subtitles"}
-          </option>
-        {/each}
-        {#if sidecar.length}<option value="sidecar">Attached subtitles</option>{/if}
-      </select>
-    </label>
+    {#if localMode !== "mpv"}
+      <label class="flex items-center gap-2 text-sm font-medium">
+        <Captions class="size-4" /> Subtitles
+        {@render primarySubtitleSelect()}
+      </label>
+    {/if}
     <label class="text-sm">
       <span class="sr-only">Attach SRT or WebVTT subtitles</span>
       <input
@@ -308,6 +417,12 @@
   </div>
   {#if loading || importing}
     <p class="mt-2 text-sm text-muted-foreground" role="status">Loading subtitles…</p>
+  {/if}
+  {#if localMode === "mpv" && secondaryLoading}
+    <p class="mt-2 text-sm text-muted-foreground" role="status">Loading secondary subtitles…</p>
+  {/if}
+  {#if localMode === "mpv" && secondaryError}
+    <p class="mt-2 text-sm text-destructive" role="alert">{secondaryError}</p>
   {/if}
   {#if trackError}
     <p class="mt-2 text-sm text-destructive" role="alert">{trackError}</p>
@@ -393,3 +508,5 @@
     </section>
   {/key}
 {/if}
+</div>
+</div>

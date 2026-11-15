@@ -107,9 +107,9 @@ entries from their three-dot menus. Saved meanings are available offline.
 ### Watching local videos
 
 Open **My Library → Import → Choose video** and select a local video. Sori
-references the original file and saves your playback position. The desktop
-webview handles video playback, so codec support depends on the system. On
-Linux, Sori streams local videos over loopback HTTP.
+references the original file and saves your playback position. Linux plays
+local videos with mpv. Windows and macOS use the desktop webview, so codec
+support depends on the system.
 
 Install FFmpeg and make both `ffmpeg` and `ffprobe` available on the app’s PATH
 for embedded subtitle tracks. Sori converts embedded text tracks such as SRT,
@@ -122,10 +122,22 @@ Click a subtitle word to pause, see its analysis, and save it to Vocabulary.
 You can also attach a subtitle file while watching YouTube. The attachment lasts
 for that viewing session, and the embed’s CC button provides YouTube captions.
 
-The Linux Watch screen has **Try MP4 streaming (experimental)**.
+The Linux Watch screen has **Try MP4 streaming (experimental)** when using
+the webview player.
 It uses FFmpeg to stream compatible audio and video tracks without creating a
 second video file. Seeking restarts the stream near a keyframe. Sori reads
 subtitles directly from the original file.
+
+Linux builds require the libmpv development package (`mpv-devel` on Fedora).
+Run `npm run tauri dev` as usual. Local videos open in mpv by default on Linux.
+**Use webview player** switches to the webview.
+Use Left and Right to skip five seconds, or drag the timeline and release to
+seek. Open **CC** to select the primary and secondary subtitles. Embedded Korean
+and English text tracks are selected by default when available. An attached
+subtitle file takes priority for the primary track. The primary subtitles
+are clickable for word lookup.
+Move the pointer over the playing video to show the controls. Use the fullscreen
+button to expand the player and Esc to return to the Watch screen.
 
 ### YouTube discovery
 

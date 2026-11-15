@@ -10,6 +10,7 @@ export type SubtitleTrack = {
 export type LocalVideoDetails = LocalVideo & {
   path: string;
   playbackUrl: string | null;
+  mpvAvailable: boolean;
   seconds: number;
   sidecar: string | null;
   tracks: SubtitleTrack[];
