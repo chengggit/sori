@@ -18,7 +18,6 @@
   import type { TokenBlock } from "../reader/tokens";
   import LocalPlayer from "./LocalPlayer.svelte";
   import MpvPlayer from "./MpvPlayer.svelte";
-  import RemuxPlayer from "./RemuxPlayer.svelte";
   import YouTubePlayer from "./YouTubePlayer.svelte";
   import { readVideoSubtitles, saveVideoSidecar, type LocalVideoDetails } from "./local";
   import { activeSubtitleCues, parseSubtitles, type SubtitleCue } from "./subtitles";
@@ -37,7 +36,7 @@
   } = $props();
 
   let seconds = $state(0);
-  let localMode = $state<"webview" | "remux" | "mpv">(
+  let localMode = $state<"webview" | "mpv">(
     untrack(() => (source.kind === "local" && source.video.mpvAvailable ? "mpv" : "webview")),
   );
   let playerStart = $state<number>();
@@ -264,9 +263,7 @@
 
 <div class={localMode === "mpv" ? "flex h-[calc(100dvh-6.5rem)] flex-col" : "contents"}>
 <div class="relative shrink-0" bind:this={subtitleRoot}>
-  {#if source.kind === "local" && localMode === "remux"}
-    <RemuxPlayer id={source.video.id} {title} start={playerStart ?? start} {events} />
-  {:else if source.kind === "local" && localMode === "mpv"}
+  {#if source.kind === "local" && localMode === "mpv"}
     <MpvPlayer path={source.video.path} {title} start={playerStart ?? start} {events} {captions} {subtitleMenu} bind:fullscreen bind:captionsVisible {dismissLookup} />
   {:else if source.kind === "local"}
     <LocalPlayer
@@ -411,15 +408,6 @@
 <div class={localMode === "mpv" ? "min-h-0 flex-1 overflow-y-auto overscroll-contain" : "contents"}>
 <div class="mt-4 flex flex-wrap items-start justify-between gap-3">
   <h1 class="min-w-0 flex-1 text-xl leading-snug font-semibold wrap-break-word">{title}</h1>
-  {#if source.kind === "local" && source.video.playbackUrl && localMode !== "mpv"}
-    <Button
-      variant="outline"
-      size="sm"
-      onclick={() => switchPlayer(localMode === "remux" ? "webview" : "remux")}
-    >
-      {localMode === "remux" ? "Use webview player" : "Try MP4 streaming (experimental)"}
-    </Button>
-  {/if}
   {#if source.kind === "local" && source.video.mpvAvailable}
     <Button
       variant="outline"

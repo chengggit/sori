@@ -122,12 +122,6 @@ Click a subtitle word to pause, see its analysis, and save it to Vocabulary.
 You can also attach a subtitle file while watching YouTube. The attachment lasts
 for that viewing session, and the embed’s CC button provides YouTube captions.
 
-The Linux Watch screen has **Try MP4 streaming (experimental)** when using
-the webview player.
-It uses FFmpeg to stream compatible audio and video tracks without creating a
-second video file. Seeking restarts the stream near a keyframe. Sori reads
-subtitles directly from the original file.
-
 Linux builds require the libmpv development package (`mpv-devel` on Fedora).
 Run `npm run tauri dev` as usual. Local videos open in mpv by default on Linux.
 **Use webview player** switches to the webview.

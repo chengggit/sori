@@ -20,8 +20,6 @@ export type LocalVideoDetails = LocalVideo & {
 export const importVideo = () => invoke<number | null>("import_video");
 export const listVideos = () => invoke<LocalVideo[]>("list_videos");
 export const openVideo = (id: number) => invoke<LocalVideoDetails>("open_video", { id });
-export const openRemuxStream = (id: number, seconds: number) =>
-  invoke<{ url: string; start: number; duration: number }>("open_remux_stream", { id, seconds });
 export const removeVideo = (id: number) => invoke<void>("remove_video", { id });
 export const saveVideoProgress = (id: number, seconds: number) =>
   invoke<void>("save_video_progress", { id, seconds });

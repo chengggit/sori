@@ -58,7 +58,6 @@ pub fn run() {
             video::import_video,
             video::list_videos,
             video::open_video,
-            video::open_remux_stream,
             video::remove_video,
             video::save_video_progress,
             video::read_video_subtitles,
