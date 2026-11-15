@@ -10,12 +10,10 @@
   import { readingPassages, type TokenBlock } from "./tokens";
   import WordBreakdown from "./WordBreakdown.svelte";
   import WholeWordMeaning from "./WholeWordMeaning.svelte";
-  import DictionaryLookup from "../dictionary/DictionaryLookup.svelte";
   import EmbeddedLookup from "../dictionary/EmbeddedLookup.svelte";
   import { embeddedProviders } from "../dictionary/embedded";
   import { embedSettings } from "../dictionary/embed-settings";
   import {
-    dictionaryForm,
     dictionaryLicense,
     type DictionaryDefinition,
   } from "../dictionary/dictionary";
@@ -49,7 +47,6 @@
   let saved = $state<VocabularyEntry>();
   let normalized = $state("");
   let definition = $state<DictionaryDefinition | null>(null);
-  let dictionaryOpen = $state(false);
   let sources = $state<Record<string, string>>({});
   let lookupView = $state("analysis");
   const enabledProviders = $derived([
@@ -74,13 +71,6 @@
       error = String(cause);
     }
   }
-  const dictionaryTerm = $derived.by(() => {
-    if (!analysis) return "";
-    const token = normalized
-      ? analysis.morphemes.find((item) => item.form === normalized)
-      : analysis.morphemes.find((item) => /^(N|VV|VA|VX)/.test(item.tag));
-    return token ? dictionaryForm(token) : normalized || analysis.word;
-  });
   let loading = $state(false);
   let saving = $state(false);
   let error = $state("");
@@ -153,7 +143,6 @@
     saved = undefined;
     normalized = "";
     definition = null;
-    dictionaryOpen = false;
     sources = {};
     error = "";
     loading = true;
@@ -339,20 +328,6 @@
                     Meaning selected for saving · {definition.term}
                   </p>
                 {/if}
-                <details bind:open={dictionaryOpen} class="my-4 border-y py-3">
-                  <summary class="cursor-pointer text-sm font-medium"
-                    >{saved?.definition ? "Saved meaning" : "Search dictionary"}</summary
-                  >
-                  {#if dictionaryOpen}
-                    <DictionaryLookup
-                      onSources={collectSources}
-                      term={dictionaryTerm}
-                      savedDefinition={saved?.definition}
-                      locked={saving || !!saved}
-                      onSelect={(value) => (definition = value)}
-                    />
-                  {/if}
-                </details>
                 <div class="flex flex-wrap items-end gap-3">
                   <label class="grid gap-1 text-xs text-muted-foreground">
                     Morpheme to collect (optional)
