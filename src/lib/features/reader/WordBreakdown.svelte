@@ -67,9 +67,9 @@
 </script>
 
 {#if compact}
-  <section aria-label="Word breakdown" class="mt-2 space-y-1 border-t pt-2 text-xs wrap-anywhere">
+  <section aria-label="Word breakdown" class="mt-3 space-y-2 border-t pt-3 text-xs leading-relaxed wrap-anywhere">
     <h3 class="font-medium text-muted-foreground">Word breakdown</h3>
-    <ul class="space-y-1">
+    <ul class="space-y-1.5">
       {#each parts as part}
         {@const result = results[part.term]}
         <li>

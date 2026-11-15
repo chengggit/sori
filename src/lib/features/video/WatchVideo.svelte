@@ -293,9 +293,9 @@
         {#key fullscreenLookup}
           <section
             aria-label="Subtitle definition"
-            class="pointer-events-auto absolute bottom-full left-1/2 z-10 mb-2 max-h-[45dvh] w-72 max-w-[calc(100dvw-2rem)] -translate-x-1/2 overflow-y-auto overscroll-contain rounded-xl border bg-popover p-3 text-left whitespace-normal text-popover-foreground shadow-lg"
+            class="pointer-events-auto absolute bottom-full left-1/2 z-10 mb-3 max-h-[45dvh] w-88 max-w-[calc(100dvw-2rem)] -translate-x-1/2 overflow-y-auto overscroll-contain rounded-xl border bg-popover p-4 text-left whitespace-normal text-popover-foreground shadow-lg"
           >
-            <div class="mb-1 flex items-start justify-between gap-2">
+            <div class="mb-2 flex items-start justify-between gap-3">
               <h2 class="text-base font-semibold wrap-anywhere" lang="ko">{token.text}</h2>
               <Button variant="ghost" size="icon-xs" aria-label="Close definition" onclick={dismissLookup}>
                 <X />

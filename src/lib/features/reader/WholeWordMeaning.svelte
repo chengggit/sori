@@ -67,7 +67,7 @@
 </script>
 
 {#if compact}
-  <div aria-label="Dictionary lookup" class="space-y-1 text-sm wrap-anywhere">
+  <div aria-label="Dictionary lookup" class="space-y-2 text-sm leading-relaxed wrap-anywhere">
     {#if loading}
       <p role="status" class="text-muted-foreground">Looking up meaning…</p>
     {:else if definitions.length}
