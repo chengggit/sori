@@ -16,6 +16,7 @@
     subtitleMenu,
     fullscreen = $bindable(false),
     dismissLookup,
+    captionsVisible = $bindable(true),
   }: {
     path: string;
     title: string;
@@ -25,6 +26,7 @@
     subtitleMenu: Snippet;
     fullscreen?: boolean;
     dismissLookup: () => boolean;
+    captionsVisible?: boolean;
   } = $props();
 
   let element: HTMLVideoElement;
@@ -125,15 +127,25 @@
       if (!dismissLookup()) void toggleFullscreen();
       return;
     }
-    if (!player || (event.key !== "ArrowLeft" && event.key !== "ArrowRight")) return;
+    const key = event.key.toLowerCase();
+    const arrow = key === "arrowleft" || key === "arrowright";
+    if (!player || event.isComposing || document.querySelector('[role="dialog"][data-state="open"]')) return;
+    if (!arrow && (event.repeat || ![" ", "c", "f"].includes(key))) return;
     if (
       event.target instanceof HTMLElement &&
-      event.target.closest('button, a, input, textarea, select, [contenteditable], [role="dialog"]') &&
-      !event.target.matches('[data-mpv-position]')
+      (event.target.closest('textarea, select, [contenteditable], [role="dialog"]') ||
+        (event.target.closest("input") && !event.target.matches("[data-mpv-position]")) ||
+        (key === " " && event.target.closest('button, a, [role="button"]')))
     ) return;
     event.preventDefault();
     showControls();
-    seek(seconds + (event.key === "ArrowRight" ? 5 : -5));
+    if (arrow) seek(seconds + (key === "arrowright" ? 5 : -5));
+    else if (key === " ") playing ? pause() : play();
+    else if (key === "f") void toggleFullscreen();
+    else {
+      if (captionsVisible) dismissLookup();
+      captionsVisible = !captionsVisible;
+    }
   }
 
   onMount(() => {
@@ -252,6 +264,7 @@
     }}
   ></video>
   <div class="pointer-events-none absolute inset-2 flex flex-col justify-end gap-2" bind:this={overlay}>
+    <div class="modal-video-shade absolute -inset-2 rounded-xl"></div>
     {#if error}
       <p class="absolute inset-x-2 top-1/2 -translate-y-1/2 rounded-md bg-black/80 px-3 py-2 text-center text-sm text-white" role="alert">{error}</p>
     {/if}
@@ -341,6 +354,10 @@
 </div>
 
 <style>
+  :global(body:has([data-slot="sheet-overlay"][data-state="open"])) .modal-video-shade {
+    background: rgb(0 0 0 / 35%);
+  }
+
   :global(html:has(.fullscreen-stage)) {
     overflow: hidden;
   }

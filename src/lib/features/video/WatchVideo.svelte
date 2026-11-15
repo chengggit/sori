@@ -42,6 +42,7 @@
   );
   let playerStart = $state<number>();
   let fullscreen = $state(false);
+  let captionsVisible = $state(true);
   let controls: PlaybackControls | undefined;
   const events: PlaybackEvents = {
     onTime: (position) => {
@@ -266,7 +267,7 @@
   {#if source.kind === "local" && localMode === "remux"}
     <RemuxPlayer id={source.video.id} {title} start={playerStart ?? start} {events} />
   {:else if source.kind === "local" && localMode === "mpv"}
-    <MpvPlayer path={source.video.path} {title} start={playerStart ?? start} {events} {captions} {subtitleMenu} bind:fullscreen {dismissLookup} />
+    <MpvPlayer path={source.video.path} {title} start={playerStart ?? start} {events} {captions} {subtitleMenu} bind:fullscreen bind:captionsVisible {dismissLookup} />
   {:else if source.kind === "local"}
     <LocalPlayer
       path={source.video.path}
@@ -286,7 +287,7 @@
 </div>
 
 {#snippet captions(root: HTMLElement | undefined)}
-  {#if active.length || (track !== secondaryTrack && activeSecondary.length)}
+  {#if (localMode !== "mpv" || captionsVisible) && (active.length || (track !== secondaryTrack && activeSecondary.length))}
     <div class="pointer-events-none relative mx-auto grid w-fit max-w-full gap-1 rounded-md bg-black/80 px-3 py-1 text-center wrap-anywhere whitespace-pre-wrap text-white">
       {#if fullscreenLookup}
         {@const token = fullscreenLookup.token}
