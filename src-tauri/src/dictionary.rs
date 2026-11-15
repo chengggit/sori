@@ -163,6 +163,9 @@ fn hanja_entries(wikitext: &str) -> Vec<(String, Option<String>)> {
                 }
             }
         }
+        if matches!(name, "ko-etym-sino" | "ko-etym-Sino") && fields.len() >= 2 {
+            inherited = clean_hanja(fields[1]);
+        }
         let pos = match name {
             "ko-noun" => "Noun",
             "ko-proper noun" => "Proper noun",
@@ -285,6 +288,15 @@ mod tests {
             vec![("Noun".into(), Some("學校".into()))]
         );
         assert_eq!(clean_hanja("{{unknown|學校}}"), None);
+        assert_eq!(
+            hanja_entries(
+                "==Korean==\n===Etymology 1===\n{{ko-etym-sino|學界}}\n====Noun====\n{{ko-noun}}\n===Etymology 2===\n{{ko-etym-sino|學契}}\n====Noun====\n{{ko-noun}}"
+            ),
+            vec![
+                ("Noun".into(), Some("學界".into())),
+                ("Noun".into(), Some("學契".into()))
+            ]
+        );
     }
 
     #[test]
