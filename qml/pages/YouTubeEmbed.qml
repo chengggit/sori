@@ -19,7 +19,7 @@ WebEngineView {
         playbackError = ""
         const start = Math.max(0, Math.floor(video.seconds || 0))
         const playerUrl = "https://www.youtube.com/embed/" + video.youtubeId
-            + "?enablejsapi=1&cc_lang_pref=ko&start=" + start
+            + "?enablejsapi=1&hl=en&cc_lang_pref=ko&start=" + start
             + "&origin=" + encodeURIComponent(appOrigin)
         loadHtml(`<!doctype html>
 <meta name="referrer" content="strict-origin-when-cross-origin">
