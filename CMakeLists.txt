@@ -42,6 +42,8 @@ add_custom_command(OUTPUT "${PLAYBACK_LIB}"
         --manifest-path "${PLAYBACK_DIR}/Cargo.toml" --target-dir "${PLAYBACK_TARGET}"
     DEPENDS "${SORI_QMAKE}" "${PLAYBACK_DIR}/src/player_model.rs" "${PLAYBACK_DIR}/src/subtitle_model.rs"
         "${PLAYBACK_DIR}/Cargo.toml" "${PLAYBACK_DIR}/Cargo.lock" "${PLAYBACK_DIR}/src/lib.rs" "${PLAYBACK_DIR}/src/subtitles.rs" "${PLAYBACK_DIR}/src/controls.rs"
+        "${PLAYBACK_DIR}/src/db.rs" "${PLAYBACK_DIR}/src/schema.sql" "${PLAYBACK_DIR}/src/documents.rs"
+        "${PLAYBACK_DIR}/src/progress.rs" "${PLAYBACK_DIR}/src/library_model.rs"
     VERBATIM
 )
 add_custom_target(sori-qt-playback DEPENDS "${PLAYBACK_LIB}")
@@ -54,6 +56,7 @@ qt_add_resources(sori "watch" PREFIX "/" FILES
     qml/components/AppInput.qml
     qml/components/AppSidebar.qml
     qml/components/AppText.qml
+    qml/components/DocumentEditor.qml
     qml/components/EmptyState.qml
     qml/components/Icon.qml
     qml/components/PageHeader.qml

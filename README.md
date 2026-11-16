@@ -50,11 +50,15 @@ selected automatically when tagged. Scroll the transcript to suspend
 **Follow playback**, or click a cue to seek. **F** enters fullscreen, **Esc**
 exits it, **Space** toggles playback, and **Left/Right** seek five seconds.
 
-Watch supports local playback and subtitles. Home, Explore, My Library,
-Reader, Vocabulary, and History have QML layouts. Discovery, library storage
-and imports, document reading, Kiwi lookup, saved words, and progress history
-still need to be connected. Settings controls Watch text rendering for the
-current session. Appearance selection and dictionary preferences are pending.
+## Local library
+
+Import UTF-8 text files or paste text in My Library. Open a document to read
+it and resume from its saved scroll position. Sori uses the same local SQLite
+database as the earlier desktop app, under `com.sori.app/library.sqlite3` in
+your user data directory (`$XDG_DATA_HOME` or `~/.local/share` on Linux).
+
+Watch supports local playback and subtitles. Discovery, video library
+integration, Kiwi lookup, saved words, and history are still being ported.
 
 [Inter license](assets/OFL-Inter.txt), [Noto Sans KR license](assets/OFL-NotoSansKR.txt),
 and [Lucide license](assets/LUCIDE-LICENSE.txt).

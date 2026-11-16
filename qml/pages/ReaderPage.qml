@@ -1,73 +1,114 @@
 import QtQuick
+import QtQuick.Controls
 import QtQuick.Layouts
+import sori_qt_playback
 import "../Theme.js" as Theme
 import "../components"
 
 Item {
     id: root
 
-    property int documentId: 0
+    required property bool active
+    property real documentId: 0
+    property string documentTitle: "Reader"
+    property string documentError: ""
+    property string progressError: ""
+    property real restorePosition: 0
+    property bool restoring: false
+    property bool progressPending: false
+    readonly property real scrollRange: Math.max(0, viewport.contentHeight - viewport.height)
+
+    function openDocument(id, title) {
+        flushProgress()
+        const document = Library.readDocument(id)
+        restoring = true
+        documentId = id
+        documentTitle = title
+        documentError = document.error || ""
+        progressError = ""
+        restorePosition = document.position ?? 0
+        passage.text = document.content ?? ""
+        Qt.callLater(restoreProgress)
+    }
+
+    function restoreProgress() {
+        if (!root.active || !root.restoring)
+            return
+        viewport.contentY = root.restorePosition * root.scrollRange
+        root.restoring = false
+    }
+
+    function flushProgress() {
+        if (!progressPending)
+            return
+        progressPending = false
+        saveProgress.stop()
+        if (root.documentId && !root.restoring)
+            root.progressError = Library.saveReadingProgress(root.documentId,
+                root.scrollRange ? Math.max(0, Math.min(1, viewport.contentY / root.scrollRange)) : 0)
+    }
+
+    onActiveChanged: if (active) Qt.callLater(restoreProgress)
+
+    Timer {
+        id: saveProgress
+        interval: 500
+        onTriggered: root.flushProgress()
+    }
 
     ColumnLayout {
         anchors.fill: parent
-        spacing: 0
+        anchors.margins: 24
+        spacing: 10
 
-        RowLayout {
+        AppText {
+            Layout.fillWidth: true
+            visible: text !== ""
+            color: Theme.destructive
+            text: root.documentError || root.progressError
+            wrapMode: Text.Wrap
+        }
+
+        Rectangle {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            Layout.margins: 28
-            spacing: 18
+            color: Theme.card
+            border.color: Theme.border
+            radius: Theme.radiusLarge
 
-            Rectangle {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                radius: Theme.radiusLarge
-                color: Theme.card
-                border.width: 1
-                border.color: Theme.border
-
-                EmptyState {
-                    anchors.fill: parent
-                    iconName: "book-open"
-                    title: root.documentId > 0 ? "Document view is ready to connect" : "Choose a document"
-                    message: root.documentId > 0
-                        ? "The reading surface and progress controls are laid out. Document loading and Kiwi tokenization come in the next frontend steps."
-                        : "Open a Korean text from My Library to start reading."
+            Flickable {
+                id: viewport
+                anchors.fill: parent
+                anchors.margins: 2
+                clip: true
+                contentWidth: width
+                contentHeight: passage.implicitHeight + 64
+                boundsBehavior: Flickable.StopAtBounds
+                onContentYChanged: {
+                    if (root.active && root.documentId && !root.restoring
+                            && !root.documentError && !root.progressPending) {
+                        root.progressPending = true
+                        saveProgress.start()
+                    }
                 }
-            }
+                ScrollBar.vertical: ScrollBar {}
 
-            Rectangle {
-                Layout.preferredWidth: 330
-                Layout.fillHeight: true
-                radius: Theme.radiusLarge
-                color: Theme.card
-                border.width: 1
-                border.color: Theme.border
-
-                ColumnLayout {
-                    anchors.fill: parent
-                    anchors.margins: 20
-                    spacing: 12
-                    AppText { text: "Word analysis"; font.pixelSize: 16; font.weight: Font.DemiBold }
-                    AppText {
-                        text: "Select a Korean word to see its morphology, meaning, and source context."
-                        color: Theme.mutedForeground
-                        font.pixelSize: 13
-                        wrapMode: Text.Wrap
-                        Layout.fillWidth: true
-                    }
-                    Rectangle {
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: 1
-                        color: Theme.border
-                    }
-                    AppText {
-                        text: "No word selected"
-                        color: Theme.mutedForeground
-                        font.pixelSize: 13
-                    }
-                    Item { Layout.fillHeight: true }
-                    AppButton { text: "Save word"; iconName: "bookmark"; Layout.fillWidth: true; enabled: false }
+                TextArea {
+                    id: passage
+                    objectName: "readerText"
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    y: 32
+                    width: Math.min(viewport.width - 64, 760)
+                    padding: 0
+                    readOnly: true
+                    selectByMouse: true
+                    textFormat: TextEdit.PlainText
+                    wrapMode: TextEdit.Wrap
+                    color: Theme.foreground
+                    font.family: "Noto Sans KR"
+                    font.pixelSize: 19
+                    background: null
+                    Accessible.name: "Document text"
                 }
             }
         }

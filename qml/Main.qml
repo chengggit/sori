@@ -12,6 +12,7 @@ ApplicationWindow {
     id: root
 
     required property var renderHost
+    required property string dataDirectory
     required property string startupPath
     readonly property var player: Player
     readonly property var subtitles: Subtitles
@@ -26,7 +27,6 @@ ApplicationWindow {
         : page === "history" ? "History" : "Home"
 
     property string page: "home"
-    property int readerDocumentId: 0
     property bool sidebarExpanded: true
     property bool controlsAwake: true
     property bool captionsVisible: true
@@ -89,12 +89,15 @@ ApplicationWindow {
     }
 
     Component.onCompleted: {
+        Library.initialize(dataDirectory)
         wakeControls()
         if (startupPath) {
             navigate("watch")
             player.open(startupPath)
         }
     }
+    onPageChanged: if (page !== "reader") readerPage.flushProgress()
+    onClosing: readerPage.flushProgress()
 
     Connections {
         target: root.renderHost
@@ -233,7 +236,7 @@ ApplicationWindow {
 
             PageHeader {
                 Layout.fillWidth: true
-                title: root.pageTitle
+                title: root.page === "reader" ? readerPage.documentTitle : root.pageTitle
                 backLabel: root.page === "reader" ? "My Library" : ""
                 searchVisible: root.page === "home"
                 placeholder: "Search videos, podcasts, articles, or creators"
@@ -261,14 +264,16 @@ ApplicationWindow {
                 }
                 ExplorePage {}
                 LibraryPage {
-                    onOpenReaderRequested: id => {
-                        root.readerDocumentId = id
+                    renderHost: root.renderHost
+                    onOpenReaderRequested: (id, title) => {
+                        readerPage.openDocument(id, title)
                         root.navigate("reader")
                     }
                     onOpenWatchRequested: id => root.navigate("watch")
                 }
                 ReaderPage {
-                    documentId: root.readerDocumentId
+                    id: readerPage
+                    active: root.page === "reader"
                 }
                 VocabularyPage {}
                 HistoryPage { onExploreRequested: root.navigate("explore") }

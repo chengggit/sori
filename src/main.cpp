@@ -5,6 +5,7 @@
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
 #include <QQuickWindow>
+#include <QStandardPaths>
 
 #include <clocale>
 #include <mpv/client.h>
@@ -54,6 +55,8 @@ int main(int argc, char **argv)
     qmlRegisterType<VideoItem>("Sori", 1, 0, "VideoSurface");
     QQmlApplicationEngine engine;
     engine.setInitialProperties({{"renderHost", QVariant::fromValue(&renderHost)},
+                                 {"dataDirectory", QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation)
+                                     + QStringLiteral("/com.sori.app")},
                                  {"startupPath", parser.positionalArguments().value(0)}});
     engine.load(QUrl("qrc:/qml/Main.qml"));
     if (engine.rootObjects().isEmpty()) return 1;

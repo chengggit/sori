@@ -118,6 +118,10 @@ pub unsafe extern "C" fn sori_mpv_player_free(player: *mut mpv_handle) {
 }
 
 mod controls;
+mod db;
+mod documents;
+mod library_model;
+mod progress;
 mod subtitles;
 
 mod player_model;
@@ -128,4 +132,5 @@ pub extern "C" fn sori_qt_register_models() {
     use qtbridge::QmlElement;
     player_model::Player::register();
     subtitle_model::Subtitles::register();
+    library_model::Library::register();
 }
