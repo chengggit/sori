@@ -14,13 +14,14 @@ Popup {
     property real sourceId: 0
     property var savedWord: null
     property string saveError: ""
+    property int dictionaryRequest: 0
+    property string dictionaryError: ""
+    property var definitions: []
+    readonly property string lookupTerm: normalizedForm || result?.word || ""
     readonly property bool canSave: !!result?.word && sourceId > 0
     readonly property string normalizedForm: {
-        const token = result?.morphemes?.[0]
-        if (!token)
-            return ""
-        const form = /^(VV|VA)/.test(token.tag) ? token.form + "다" : token.form
-        return form === result.word ? "" : form
+        const form = result?.normalizedForm || ""
+        return form === result?.word ? "" : form
     }
 
     width: Math.min(340, parent.width - 40)
@@ -34,21 +35,34 @@ Popup {
         selectedWord = source.slice(start, end)
         result = null
         savedWord = null
+        dictionaryRequest = 0
+        dictionaryError = ""
+        definitions = []
         meaning.clear()
         saveError = ""
         request = Analysis.analyze(source, start, end)
         open()
     }
 
-    onClosed: request = 0
+    onClosed: {
+        request = 0
+        dictionaryRequest = 0
+    }
+
+    function lookupDictionary() {
+        dictionaryError = ""
+        dictionaryRequest = Analysis.lookupDictionary(lookupTerm)
+    }
 
     function saveWord() {
+        const chosen = definitions[definitionPicker.currentIndex]
+        const imported = chosen && meaning.text.trim() === chosen.text
         const input = {
             word: result.word,
             normalizedForm: normalizedForm || null,
             context: result.context,
             tags: [],
-            definition: meaning.text.trim() ? {
+            definition: imported ? chosen : meaning.text.trim() ? {
                 term: normalizedForm || result.word,
                 text: meaning.text.trim(),
                 partOfSpeech: "",
@@ -69,6 +83,18 @@ Popup {
                 root.result = result
                 if (root.canSave)
                     root.savedWord = Library.findWord(root.sourceKind, root.sourceId, result.word, result.context)
+            }
+        }
+        function onDictionaryFinished(request, result) {
+            if (request !== root.dictionaryRequest)
+                return
+            root.dictionaryRequest = 0
+            root.definitions = result.definitions ?? []
+            root.dictionaryError = result.error || (root.definitions.length ? "" : "No Korean definitions found.")
+            if (root.definitions.length) {
+                definitionPicker.currentIndex = 0
+                if (!meaning.text.trim())
+                    meaning.text = root.definitions[0].text
             }
         }
     }
@@ -118,6 +144,60 @@ Popup {
                     visible: text !== ""
                     color: root.result?.error ? Theme.destructive : Theme.mutedForeground
                     korean: !!root.result && !root.result.error
+                    wrapMode: Text.Wrap
+                }
+
+                AppButton {
+                    readonly property string entryUrl: (root.savedWord?.definition ?? root.definitions[definitionPicker.currentIndex])?.sourceUrl || ""
+                    visible: entryUrl.startsWith("https://en.wiktionary.org/wiki/")
+                    text: "Open full entry"
+                    variant: "ghost"
+                    small: true
+                    onClicked: Qt.openUrlExternally(entryUrl)
+                }
+
+                RowLayout {
+                    visible: root.lookupTerm !== "" && !root.savedWord?.id
+                    Layout.fillWidth: true
+                    AppButton {
+                        text: root.dictionaryRequest ? "Looking up…" : "Look up on Wiktionary"
+                        enabled: root.dictionaryRequest === 0
+                        variant: "outline"
+                        small: true
+                        onClicked: root.lookupDictionary()
+                    }
+                    AppButton {
+                        text: "Naver"
+                        variant: "ghost"
+                        small: true
+                        onClicked: Qt.openUrlExternally("https://korean.dict.naver.com/koendict/#/search?query="
+                            + encodeURIComponent(root.lookupTerm))
+                    }
+                }
+
+                AppText {
+                    visible: text !== "" && !root.savedWord?.id
+                    text: root.dictionaryError
+                    Layout.fillWidth: true
+                    wrapMode: Text.Wrap
+                    color: Theme.mutedForeground
+                }
+
+                ComboBox {
+                    id: definitionPicker
+                    visible: root.definitions.length > 0 && !root.savedWord?.id
+                    Layout.fillWidth: true
+                    model: root.definitions
+                    textRole: "text"
+                    Accessible.name: "Dictionary meaning"
+                    onActivated: meaning.text = root.definitions[index].text
+                }
+
+                AppText {
+                    readonly property var definition: root.definitions[definitionPicker.currentIndex]
+                    visible: !!definition && !root.savedWord?.id
+                    Layout.fillWidth: true
+                    text: definition ? [definition.hanja, definition.partOfSpeech, definition.text].filter(s => !!s).join(" · ") : ""
                     wrapMode: Text.Wrap
                 }
 

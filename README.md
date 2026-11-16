@@ -70,7 +70,10 @@ Save a word from Reader or click a primary caption in Watch to analyze and
 save it. Vocabulary stores the original context and lets you edit meanings,
 notes, and tags. You can save words offline with an optional custom meaning.
 
-Online discovery and dictionary lookup are still being ported.
+Select **Look up on Wiktionary** in the analysis panel to fetch Korean-to-English
+definitions and save one with the word. Naver opens in your browser.
+
+Online discovery is still being ported.
 
 [Inter license](assets/OFL-Inter.txt), [Noto Sans KR license](assets/OFL-NotoSansKR.txt),
 and [Lucide license](assets/LUCIDE-LICENSE.txt).

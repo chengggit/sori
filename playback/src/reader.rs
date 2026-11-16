@@ -7,6 +7,24 @@ pub struct WordAnalysis {
     pub word: String,
     pub context: String,
     pub morphemes: Vec<KoreanToken>,
+    pub normalized_form: String,
+}
+
+fn dictionary_form(tokens: &[KoreanToken]) -> String {
+    let mut form = String::new();
+    let mut last_tag = "";
+    for token in tokens {
+        let tag = token.tag.split('-').next().unwrap_or_default();
+        if tag.starts_with(['J', 'E', 'S']) && tag != "SL" && tag != "SH" {
+            break;
+        }
+        form.push_str(&token.form);
+        last_tag = tag;
+    }
+    if matches!(last_tag, "VV" | "VA" | "VX" | "VCP" | "VCN" | "XSV" | "XSA") {
+        form.push('다');
+    }
+    form
 }
 
 fn passage(text: &str, start: usize, end: usize) -> Result<(Vec<u16>, usize), String> {
@@ -80,7 +98,7 @@ pub fn analyze(
         .max(end - offset);
     let context = String::from_utf16(&passage[context_start..context_end])
         .map_err(|error| error.to_string())?;
-    let morphemes = tokens
+    let morphemes: Vec<_> = tokens
         .into_iter()
         .filter(|token| token.start < end - offset && token.end > start - offset)
         .map(|mut token| {
@@ -92,6 +110,7 @@ pub fn analyze(
     Ok(WordAnalysis {
         word,
         context,
+        normalized_form: dictionary_form(&morphemes),
         morphemes,
     })
 }
@@ -122,6 +141,7 @@ mod tests {
         let result = analyze(&analyzer, "😀 학교에 갔어요. 다음 문장입니다.", 7, 10).unwrap();
         assert_eq!(result.word, "갔어요");
         assert_eq!(result.context, "😀 학교에 갔어요.");
+        assert_eq!(result.normalized_form, "가다");
         assert!(result.morphemes.iter().any(|token| token.form == "가"));
         assert!(result.morphemes.len() > 1);
     }
