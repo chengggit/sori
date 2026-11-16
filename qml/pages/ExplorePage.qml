@@ -282,18 +282,33 @@ Item {
                         spacing: 0
 
                         Item {
+                            id: artwork
+                            readonly property bool highlighted: tile.hovered || tile.visualFocus
+                            readonly property int transitionDuration: 200
+
                             Layout.fillWidth: true
                             Layout.preferredHeight: width * 9 / 16
+                            clip: true
+
                             Image {
                                 anchors.fill: parent
                                 asynchronous: true
                                 fillMode: Image.PreserveAspectCrop
                                 source: "https://i.ytimg.com/vi/" + tile.modelData.id + "/mqdefault.jpg"
+                                scale: artwork.highlighted ? 1.02 : 1
+
+                                Behavior on scale {
+                                    NumberAnimation { duration: artwork.transitionDuration; easing.type: Easing.OutCubic }
+                                }
                             }
                             Rectangle {
                                 anchors.fill: parent
                                 color: Qt.alpha(Theme.darkBackground, 0.28)
-                                visible: tile.hovered || tile.visualFocus
+                                opacity: artwork.highlighted ? 1 : 0
+
+                                Behavior on opacity {
+                                    NumberAnimation { duration: artwork.transitionDuration; easing.type: Easing.OutCubic }
+                                }
                             }
                             Rectangle {
                                 anchors.centerIn: parent
@@ -301,7 +316,16 @@ Item {
                                 height: width
                                 radius: width / 2
                                 color: Theme.card
-                                visible: tile.hovered || tile.visualFocus
+                                scale: artwork.highlighted ? 1 : 0.9
+                                opacity: artwork.highlighted ? 1 : 0
+
+                                Behavior on opacity {
+                                    NumberAnimation { duration: artwork.transitionDuration; easing.type: Easing.OutCubic }
+                                }
+
+                                Behavior on scale {
+                                    NumberAnimation { duration: artwork.transitionDuration; easing.type: Easing.OutCubic }
+                                }
 
                                 Icon {
                                     anchors.centerIn: parent
