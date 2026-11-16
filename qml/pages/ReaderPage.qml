@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Shapes
 import sori_qt_playback
 import "../style"
 import "../components"
@@ -9,6 +10,7 @@ Item {
     id: root
 
     required property bool active
+    required property var renderHost
     property real documentId: 0
     property string documentTitle: "Reader"
     property string documentError: ""
@@ -23,6 +25,24 @@ Item {
     property int passageRequest: 0
     property bool tokenizationQueued: false
     property var wordRanges: []
+
+    function rangeAt(position) {
+        return wordRanges.find(range => position >= range.start && position < range.end) ?? null
+    }
+
+    function hoveredWord(x, y) {
+        const position = passage.positionAt(x, y)
+        const range = rangeAt(position) ?? rangeAt(position - 1)
+        if (!range)
+            return null
+        const first = passage.positionToRectangle(range.start)
+        const last = passage.positionToRectangle(range.end)
+        if (y < first.y || y >= last.y + last.height
+                || (y < first.y + first.height && x < first.x)
+                || (y >= last.y && x >= last.x))
+            return null
+        return range
+    }
 
     function queueTokenization() {
         if (active && !restoring && !documentError && passage.text)
@@ -61,8 +81,8 @@ Item {
         passageRequest = Analysis.tokenizePassage(passage.text.slice(start, end))
     }
 
-    function selectAt(position) {
-        const range = wordRanges.find(range => position >= range.start && position < range.end)
+    function selectAt(position, range) {
+        range = range ?? rangeAt(position)
         if (range) {
             passage.select(range.start, range.end)
         } else {
@@ -85,6 +105,7 @@ Item {
         progressError = ""
         restorePosition = document.position ?? 0
         passage.text = document.content ?? ""
+        renderHost.setReadingLineHeight(passage.textDocument, Theme.readerLineHeight)
         Qt.callLater(restoreProgress)
     }
 
@@ -161,7 +182,6 @@ Item {
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 24
         spacing: 10
 
         AppText {
@@ -172,57 +192,116 @@ Item {
             wrapMode: Text.Wrap
         }
 
-        Rectangle {
+        Flickable {
+            id: viewport
             Layout.fillWidth: true
             Layout.fillHeight: true
-            color: Theme.card
-            border.color: Theme.border
-            radius: Theme.radiusLarge
+            clip: true
+            contentWidth: width
+            contentHeight: passage.implicitHeight + 2 * Theme.readerPadding
+            boundsBehavior: Flickable.StopAtBounds
+            onWidthChanged: root.queueTokenization()
+            onHeightChanged: root.queueTokenization()
+            onContentYChanged: {
+                root.queueTokenization()
+                if (root.active && root.documentId && !root.restoring
+                        && !root.documentError && !root.progressPending) {
+                    root.progressPending = true
+                    saveProgress.start()
+                }
+            }
+            ScrollBar.vertical: ScrollBar {}
 
-            Flickable {
-                id: viewport
-                anchors.fill: parent
-                anchors.margins: 2
-                clip: true
-                contentWidth: width
-                contentHeight: passage.implicitHeight + 64
-                boundsBehavior: Flickable.StopAtBounds
-                onWidthChanged: root.queueTokenization()
-                onHeightChanged: root.queueTokenization()
-                onContentYChanged: {
-                    root.queueTokenization()
-                    if (root.active && root.documentId && !root.restoring
-                            && !root.documentError && !root.progressPending) {
-                        root.progressPending = true
-                        saveProgress.start()
+            TextArea {
+                id: passage
+                objectName: "readerText"
+                anchors.horizontalCenter: parent.horizontalCenter
+                y: Theme.readerPadding
+                width: Math.max(0, Math.min(viewport.width - 2 * Theme.readerPadding, Theme.readerTextWidth))
+                padding: 0
+                readOnly: true
+                renderType: Theme.nativeText ? TextEdit.NativeRendering : TextEdit.QtRendering
+                selectByMouse: true
+                textFormat: TextEdit.PlainText
+                wrapMode: TextEdit.Wrap
+                color: Qt.alpha(Theme.foreground, 0.86)
+                font.family: "Noto Sans KR"
+                font.pixelSize: Theme.readerTextSize
+                font.weight: Font.Light
+                background: null
+                Accessible.name: "Document text"
+
+                Keys.onReturnPressed: root.analyzeSelection()
+
+                FontMetrics {
+                    id: readingMetrics
+                    font: passage.font
+                }
+
+                Repeater {
+                    model: {
+                        const word = wordHover.word
+                        if (!word || passage.width <= 0)
+                            return []
+                        const segments = []
+                        let first = passage.positionToRectangle(word.start)
+                        let previous = first
+                        for (let position = word.start + 1; position <= word.end; position++) {
+                            const next = passage.positionToRectangle(position)
+                            const wraps = next.y !== previous.y
+                            if (wraps || position === word.end) {
+                                const edge = wraps ? previous.x + readingMetrics.advanceWidth(
+                                    passage.text.slice(position - 1, position)) : next.x
+                                segments.push({
+                                    left: first.x,
+                                    right: edge,
+                                    y: Math.round(first.y + readingMetrics.ascent
+                                                  + readingMetrics.underlinePosition
+                                                  + Theme.readerUnderlineOffset)
+                                })
+                            }
+                            if (wraps)
+                                first = next
+                            previous = next
+                        }
+                        return segments
+                    }
+
+                    Shape {
+                        id: underline
+                        required property var modelData
+                        x: modelData.left
+                        y: modelData.y
+                        width: Math.max(0, modelData.right - modelData.left)
+                        height: 2
+                        z: 1
+
+                        ShapePath {
+                            strokeColor: Theme.foreground
+                            strokeWidth: 2
+                            strokeStyle: ShapePath.DashLine
+                            dashPattern: [1, 1]
+                            capStyle: ShapePath.FlatCap
+                            fillColor: "transparent"
+                            startY: 1
+                            PathLine { x: underline.width; y: 1 }
+                        }
                     }
                 }
-                ScrollBar.vertical: ScrollBar {}
 
-                TextArea {
-                    id: passage
-                    objectName: "readerText"
-                    anchors.horizontalCenter: parent.horizontalCenter
-                    y: 32
-                    width: Math.min(viewport.width - 64, 760)
-                    padding: 0
-                    readOnly: true
-                    renderType: Theme.nativeText ? TextEdit.NativeRendering : TextEdit.QtRendering
-                    selectByMouse: true
-                    textFormat: TextEdit.PlainText
-                    wrapMode: TextEdit.Wrap
-                    color: Theme.foreground
-                    font.family: "Noto Sans KR"
-                    font.pixelSize: 19
-                    background: null
-                    Accessible.name: "Document text"
+                HoverHandler {
+                    id: wordHover
+                    readonly property var word: hovered && root.active
+                        ? root.hoveredWord(point.position.x, point.position.y) : null
+                    cursorShape: word ? Qt.PointingHandCursor : Qt.IBeamCursor
+                }
 
-                    Keys.onReturnPressed: root.analyzeSelection()
-                    TapHandler {
-                        onSingleTapped: (eventPoint, button) => {
-                            if (button === Qt.LeftButton) {
-                                root.selectAt(passage.positionAt(eventPoint.position.x, eventPoint.position.y))
-                            }
+                TapHandler {
+                    onSingleTapped: (eventPoint, button) => {
+                        if (button === Qt.LeftButton) {
+                            const point = eventPoint.position
+                            root.selectAt(passage.positionAt(point.x, point.y),
+                                          root.hoveredWord(point.x, point.y))
                         }
                     }
                 }

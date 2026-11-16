@@ -4,8 +4,21 @@
 #include <QOpenGLContext>
 #include <QOpenGLFramebufferObject>
 #include <QQuickOpenGLUtils>
+#include <QQuickTextDocument>
+#include <QTextBlockFormat>
+#include <QTextCursor>
+#include <QTextDocument>
 #include <mpv/render.h>
 #include <chrono>
+
+void RenderHost::setReadingLineHeight(QQuickTextDocument *document, int pixels)
+{
+    QTextCursor cursor(document->textDocument());
+    cursor.select(QTextCursor::Document);
+    QTextBlockFormat format;
+    format.setLineHeight(pixels, QTextBlockFormat::FixedHeight);
+    cursor.mergeBlockFormat(format);
+}
 
 extern "C" {
 mpv_handle *sori_qt_handle();

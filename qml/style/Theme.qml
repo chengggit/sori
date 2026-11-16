@@ -49,6 +49,13 @@ QtObject {
     readonly property color darkMuted: "#bcbcbc"
     readonly property color darkForeground: "#f4f4f4"
 
+    readonly property int readerTextWidth: 768
+    readonly property int readerHeaderWidth: 1088
+    readonly property int readerTextSize: 16
+    readonly property int readerLineHeight: 40
+    readonly property int readerUnderlineOffset: 4
+    readonly property int readerPadding: 24
+
     readonly property int radiusSmall: 8
     readonly property int radius: 12
     readonly property int radiusLarge: 20
