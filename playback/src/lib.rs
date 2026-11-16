@@ -120,6 +120,7 @@ pub unsafe extern "C" fn sori_mpv_player_free(player: *mut mpv_handle) {
 mod analysis_model;
 mod controls;
 mod db;
+mod dictionary;
 mod documents;
 mod library_model;
 mod nlp;
@@ -127,6 +128,7 @@ mod progress;
 mod reader;
 mod subtitles;
 mod video_library;
+mod vocabulary;
 
 mod player_model;
 mod subtitle_model;

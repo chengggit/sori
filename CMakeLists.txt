@@ -47,6 +47,7 @@ add_custom_command(OUTPUT "${PLAYBACK_LIB}"
         "${PLAYBACK_DIR}/src/progress.rs" "${PLAYBACK_DIR}/src/library_model.rs"
         "${PLAYBACK_DIR}/src/nlp.rs" "${PLAYBACK_DIR}/src/reader.rs" "${PLAYBACK_DIR}/src/analysis_model.rs"
         "${PLAYBACK_DIR}/src/video_library.rs"
+        "${PLAYBACK_DIR}/src/dictionary.rs" "${PLAYBACK_DIR}/src/vocabulary.rs"
     VERBATIM
 )
 add_custom_target(sori-qt-playback DEPENDS "${PLAYBACK_LIB}")
@@ -63,6 +64,7 @@ qt_add_resources(sori "watch" PREFIX "/" FILES
     qml/components/EmptyState.qml
     qml/components/Icon.qml
     qml/components/PageHeader.qml
+    qml/components/VocabularyEditor.qml
     qml/components/WordAnalysis.qml
     qml/icons/arrow-left.svg
     qml/icons/book-open.svg

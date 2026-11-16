@@ -63,6 +63,7 @@ Item {
     WordAnalysis {
         id: analysis
         parent: Overlay.overlay
+        sourceId: root.documentId
         x: parent.width - width - 20
         y: 76
     }

@@ -11,7 +11,7 @@ Quick OpenGL framebuffer so the video and UI are composited together.
 On Linux, use Qt 6.10 or later with its Quick, OpenGL, and Test modules and
 matching private development headers. The icons use Qt Quick Vector Image
 and Qt SVG. Use a C++17 toolchain, CMake 3.21 or later,
-pkg-config, Rust 1.88 or later, and libmpv development files. CMake uses
+pkg-config, Rust 1.89 or later, and libmpv development files. CMake uses
 the selected Qt SDK's qmake to build Qt Bridge. Use a linker supported by
 CXX-Qt such as lld. FFmpeg and FFprobe must be available on PATH to load
 subtitle tracks.
@@ -66,7 +66,11 @@ Videos opened from a file are added to My Library when the format is supported.
 Home and History can resume those videos at their saved position. Attached
 UTF-8 SRT and VTT subtitles are saved with the video entry.
 
-Discovery and saved words are still being ported.
+Save a word from Reader or click a primary caption in Watch to analyze and
+save it. Vocabulary stores the original context and lets you edit meanings,
+notes, and tags. You can save words offline with an optional custom meaning.
+
+Online discovery and dictionary lookup are still being ported.
 
 [Inter license](assets/OFL-Inter.txt), [Noto Sans KR license](assets/OFL-NotoSansKR.txt),
 and [Lucide license](assets/LUCIDE-LICENSE.txt).

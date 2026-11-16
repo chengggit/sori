@@ -19,7 +19,7 @@ ApplicationWindow {
     readonly property var subtitles: Subtitles
     readonly property bool fullScreen: visibility === Window.FullScreen
     readonly property bool watchShortcutsEnabled: page === "watch" && player.loaded
-        && !watchPage.trackMenu.opened && !settingsSheet.visible
+        && !watchPage.trackMenu.opened && !watchPage.analysisOpened && !settingsSheet.visible
     readonly property string pageTitle: page === "watch" ? "Watch"
         : page === "library" ? "My Library"
         : page === "reader" ? "Reader"
@@ -74,6 +74,7 @@ ApplicationWindow {
         if (page === "watch" && nextPage !== "watch" && videoReady) {
             saveVideoProgress()
             player.pause()
+            watchPage.closeAnalysis()
         }
         page = nextPage
     }
@@ -185,6 +186,7 @@ ApplicationWindow {
     Connections {
         target: root.player
         function onMediaOpening() {
+            watchPage.closeAnalysis()
             root.subtitles.reset()
             root.followPlayback = true
             root.captionsVisible = true
@@ -240,7 +242,7 @@ ApplicationWindow {
     }
     Shortcut {
         sequence: "Esc"
-        enabled: root.fullScreen && !watchPage.trackMenu.opened && !settingsSheet.visible
+        enabled: root.fullScreen && !watchPage.trackMenu.opened && !watchPage.analysisOpened && !settingsSheet.visible
         onActivated: root.toggleFullscreen()
     }
     Shortcut {
@@ -312,6 +314,7 @@ ApplicationWindow {
         height: parent.height
         currentPage: root.page === "reader" ? "library" : root.page
         expanded: root.sidebarExpanded
+        vocabularyCount: Library.vocabulary.length
         onToggleRequested: root.sidebarExpanded = !root.sidebarExpanded
         onPageRequested: pageName => root.navigate(pageName)
         onSettingsRequested: settingsSheet.open()
@@ -402,6 +405,7 @@ ApplicationWindow {
                 followPlayback: root.followPlayback
                 nativeText: root.nativeText
                 libraryError: root.videoError
+                videoId: root.currentVideo?.id ?? 0
                 onNativeTextRequested: enabled => root.nativeText = enabled
                 onWakeControlsRequested: root.wakeControls()
                 onToggleFullscreenRequested: root.toggleFullscreen()

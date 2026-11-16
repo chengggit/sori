@@ -1,4 +1,4 @@
-use crate::{db::Database, documents, progress, video_library};
+use crate::{db::Database, documents, progress, video_library, vocabulary};
 use qtbridge::qobject;
 use rusqlite::Connection;
 use serde_json::{json, Value};
@@ -10,6 +10,7 @@ pub struct Library {
     database: Option<Database>,
     documents: Vec<Value>,
     videos: Vec<Value>,
+    vocabulary: Vec<Value>,
     error: String,
 }
 
@@ -23,12 +24,20 @@ impl Library {
         Notify = videos_changed
     );
     qproperty!("error", Member = error, Notify = library_changed);
+    qproperty!(
+        "vocabulary",
+        Member = vocabulary,
+        Notify = vocabulary_changed
+    );
 
     #[qsignal]
     fn library_changed(&mut self);
 
     #[qsignal]
     fn videos_changed(&mut self);
+
+    #[qsignal]
+    fn vocabulary_changed(&mut self);
 
     fn recent_videos(&self) -> Vec<Value> {
         self.videos
@@ -50,6 +59,7 @@ impl Library {
                 self.database = Some(database);
                 self.refresh();
                 self.refresh_videos();
+                self.refresh_vocabulary();
             }
             Err(error) => {
                 self.error = error;
@@ -95,7 +105,11 @@ impl Library {
 
     #[qslot]
     fn remove_document(&mut self, id: i64) -> String {
-        self.change(|connection| documents::remove(connection, id))
+        let error = self.change(|connection| documents::remove(connection, id));
+        if error.is_empty() {
+            self.refresh_vocabulary();
+        }
+        error
     }
 
     #[qslot]
@@ -156,6 +170,69 @@ impl Library {
             .and_then(|connection| video_library::save_sidecar(&connection, id, Path::new(&path)))
             .map(|text| json!({ "text": text }))
             .unwrap_or_else(|error| json!({ "error": error }))
+    }
+
+    #[qslot]
+    fn save_word(&mut self, kind: String, id: i64, mut input: Value) -> Value {
+        let result = self.connection().and_then(|connection| {
+            let fields = input.as_object_mut().ok_or("Invalid vocabulary entry.")?;
+            if kind == "local" {
+                fields.insert("source".into(), json!({"kind": "local", "id": id}));
+                let input = serde_json::from_value(input).map_err(|error| error.to_string())?;
+                vocabulary::save_video(&connection, input)
+            } else {
+                fields.insert("documentId".into(), json!(id));
+                let input = serde_json::from_value(input).map_err(|error| error.to_string())?;
+                vocabulary::save(&connection, input)
+            }
+        });
+        match result {
+            Ok(entry) => {
+                self.refresh_vocabulary();
+                json!(entry)
+            }
+            Err(error) => json!({ "error": error }),
+        }
+    }
+
+    #[qslot]
+    fn find_word(&self, kind: String, id: i64, word: String, context: String) -> Value {
+        if kind == "local" {
+            return self
+                .connection()
+                .and_then(|connection| {
+                    vocabulary::find_video_entry(
+                        &connection,
+                        vocabulary::VideoSource::Local { id },
+                        &word,
+                        &context,
+                    )
+                })
+                .map(|entry| json!(entry))
+                .unwrap_or_default();
+        }
+        self.vocabulary
+            .iter()
+            .find(|entry| {
+                entry["documentId"].as_i64() == Some(id)
+                    && entry["word"] == word.trim()
+                    && entry["context"] == context.trim()
+            })
+            .cloned()
+            .unwrap_or_default()
+    }
+
+    #[qslot]
+    fn edit_word(&mut self, id: i64, input: Value) -> String {
+        self.change_vocabulary(|connection| {
+            let input = serde_json::from_value(input).map_err(|error| error.to_string())?;
+            vocabulary::edit(connection, id, input).map(|_| ())
+        })
+    }
+
+    #[qslot]
+    fn remove_word(&mut self, id: i64) -> String {
+        self.change_vocabulary(|connection| vocabulary::remove(connection, id))
     }
 }
 
@@ -218,6 +295,38 @@ impl Library {
             Ok(items) => {
                 self.videos = items.into_iter().map(|item| json!(item)).collect();
                 self.videos_changed();
+            }
+            Err(error) => {
+                self.error = error;
+                self.library_changed();
+            }
+        }
+    }
+
+    fn change_vocabulary(
+        &mut self,
+        operation: impl FnOnce(&Connection) -> Result<(), String>,
+    ) -> String {
+        match self
+            .connection()
+            .and_then(|connection| operation(&connection))
+        {
+            Ok(()) => {
+                self.refresh_vocabulary();
+                String::new()
+            }
+            Err(error) => error,
+        }
+    }
+
+    fn refresh_vocabulary(&mut self) {
+        match self
+            .connection()
+            .and_then(|connection| vocabulary::list(&connection))
+        {
+            Ok(items) => {
+                self.vocabulary = items.into_iter().map(|item| json!(item)).collect();
+                self.vocabulary_changed();
             }
             Err(error) => {
                 self.error = error;

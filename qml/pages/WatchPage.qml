@@ -17,6 +17,7 @@ Item {
     required property bool followPlayback
     required property bool nativeText
     required property string libraryError
+    required property real videoId
 
     signal wakeControlsRequested()
     signal toggleFullscreenRequested()
@@ -28,6 +29,7 @@ Item {
     signal backRequested()
 
     readonly property var trackMenu: trackMenu
+    readonly property bool analysisOpened: wordAnalysis.visible
     readonly property int textMode: nativeText ? Text.NativeRendering : Text.QtRendering
     readonly property bool showControls: player.loaded && (controlsAwake || player.paused
         || player.ended || timeline.pressed || trackMenu.opened || controlHover.hovered)
@@ -43,6 +45,8 @@ Item {
 
     function wakeControls() { root.wakeControlsRequested() }
 
+    function closeAnalysis() { wordAnalysis.close() }
+
     function followCurrentCue() {
         if (!root.followPlayback || root.fullScreen)
             return
@@ -54,6 +58,15 @@ Item {
 
     onFollowPlaybackChanged: followCurrentCue()
     onFullScreenChanged: Qt.callLater(followCurrentCue)
+
+    WordAnalysis {
+        id: wordAnalysis
+        parent: Overlay.overlay
+        sourceKind: "local"
+        sourceId: root.videoId
+        x: parent.width - width - 20
+        y: root.fullScreen ? 20 : 76
+    }
 
     Connections {
         target: root.subtitles
@@ -179,7 +192,7 @@ Item {
                 anchors.leftMargin: 12
                 anchors.rightMargin: 12
                 spacing: 3
-                WatchText {
+                TextEdit {
                     id: primary
                     objectName: "primaryCaption"
                     width: parent.width
@@ -188,9 +201,24 @@ Item {
                     color: "white"
                     font.family: "Noto Sans KR"
                     font.pixelSize: root.fullScreen ? 28 : 21
+                    readOnly: true
+                    renderType: root.textMode
                     horizontalAlignment: Text.AlignHCenter
                     wrapMode: Text.Wrap
-                    textFormat: Text.PlainText
+                    textFormat: TextEdit.PlainText
+                    Accessible.name: "Primary subtitle"
+
+                    TapHandler {
+                        onSingleTapped: (eventPoint, button) => {
+                            primary.cursorPosition = primary.positionAt(eventPoint.position.x, eventPoint.position.y)
+                            primary.selectWord()
+                            if (primary.selectedText.trim()) {
+                                root.player.pause()
+                                wordAnalysis.lookup(primary.text, primary.selectionStart, primary.selectionEnd)
+                                primary.deselect()
+                            }
+                        }
+                    }
                 }
                 WatchText {
                     id: secondary
