@@ -62,8 +62,12 @@ endif()
 qt_add_resources(sori "watch" PREFIX "/" FILES
     qml/Main.qml
     qml/style/Theme.qml
+    qml/style/DictionaryTabs.qml
     qml/style/qmldir
     qml/components/AppButton.qml
+    qml/components/DictionaryLookup.qml
+    qml/components/DictionaryWebView.qml
+    qml/components/DictionarySettings.qml
     qml/components/AppInput.qml
     qml/components/AppSidebar.qml
     qml/components/AppText.qml

@@ -53,6 +53,21 @@ impl Analysis {
     }
 
     #[qslot]
+    fn dictionary_lookup_url(&self, template: String, encoded_word: String) -> String {
+        let url = template.trim().replace("{word}", &encoded_word);
+        url::Url::parse(&url)
+            .ok()
+            .filter(|url| {
+                url.scheme() == "https"
+                    && url.has_host()
+                    && url.username().is_empty()
+                    && url.password().is_none()
+            })
+            .map(String::from)
+            .unwrap_or_default()
+    }
+
+    #[qslot]
     fn lookup_dictionary(&mut self, term: String) -> i32 {
         self.dictionary_request = self.dictionary_request.wrapping_add(1).max(1);
         let request = self.dictionary_request;

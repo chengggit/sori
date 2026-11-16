@@ -7,6 +7,8 @@ import "../components"
 Popup {
     id: root
 
+    DictionarySettings { id: dictionarySettings; parent: root.parent }
+
     width: Math.min(420, parent ? parent.width - 40 : 420)
     x: parent ? Math.round((parent.width - width) / 2) : 0
     y: parent ? Math.round((parent.height - height) / 2) : 0
@@ -75,6 +77,11 @@ Popup {
                 text: "Use native text rendering"
                 checked: Theme.nativeText
                 onToggled: Theme.nativeText = checked
+            }
+            AppButton {
+                text: "Dictionary tabs"
+                variant: "outline"
+                onClicked: dictionarySettings.open()
             }
         }
     }

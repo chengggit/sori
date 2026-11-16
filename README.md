@@ -70,7 +70,10 @@ save it. Vocabulary stores the original context and lets you edit meanings,
 notes, and tags. You can save words offline with an optional custom meaning.
 
 Select **Look up on Wiktionary** in the analysis panel to fetch Korean-to-English
-definitions and save one with the word. Naver opens in your browser.
+definitions and save one with the word. Select **Dictionaries** for Naver,
+Papago, or a custom tab. Manage tabs in Settings and use `{word}` in a custom
+HTTPS address to insert the selected word. Tabs open inside Sori when Qt
+WebEngine Quick is available, with an option to open them in a browser.
 
 Settings remembers the appearance mode and the Reader and Watch text renderer
 across launches.

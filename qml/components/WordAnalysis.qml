@@ -45,6 +45,7 @@ Popup {
     }
 
     onClosed: {
+        dictionaries.close()
         request = 0
         dictionaryRequest = 0
     }
@@ -167,11 +168,14 @@ Popup {
                         onClicked: root.lookupDictionary()
                     }
                     AppButton {
-                        text: "Naver"
+                        visible: DictionaryTabs.enabled.length > 0
+                        text: "Dictionaries"
                         variant: "ghost"
                         small: true
-                        onClicked: Qt.openUrlExternally("https://korean.dict.naver.com/koendict/#/search?query="
-                            + encodeURIComponent(root.lookupTerm))
+                        onClicked: {
+                            dictionaries.term = root.lookupTerm
+                            dictionaries.open()
+                        }
                     }
                 }
 
@@ -255,4 +259,10 @@ Popup {
             }
         }
     }
+
+    DictionaryLookup {
+        id: dictionaries
+        parent: root.parent
+    }
+
 }
