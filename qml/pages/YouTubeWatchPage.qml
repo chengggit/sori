@@ -40,16 +40,27 @@ Item {
             }
         }
 
-        Loader {
-            id: embed
-            objectName: "youtubePlayerLoader"
-            Layout.fillWidth: true
-            Layout.preferredHeight: Math.max(200, content.width * 9 / 16)
-            active: root.embeddingAvailable && content.width >= 200
-            visible: active && status !== Loader.Error
-            source: "YouTubeEmbed.qml"
+        Rectangle {
+            id: playerFrame
+            readonly property int inset: Math.ceil(radius / 3)
+            readonly property real playerWidth: content.width - 2 * inset
 
-            onLoaded: item.video = Qt.binding(() => root.video)
+            Layout.fillWidth: true
+            Layout.preferredHeight: Math.max(200, playerWidth * 9 / 16) + 2 * inset
+            visible: embed.active && embed.status !== Loader.Error
+            radius: Theme.radius
+            color: "black"
+
+            Loader {
+                id: embed
+                objectName: "youtubePlayerLoader"
+                anchors.fill: parent
+                anchors.margins: playerFrame.inset
+                active: root.embeddingAvailable && playerFrame.playerWidth >= 200
+                source: "YouTubeEmbed.qml"
+
+                onLoaded: item.video = Qt.binding(() => root.video)
+            }
         }
 
         Connections {
