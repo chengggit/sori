@@ -48,7 +48,7 @@ pub struct Player {
     codec: String,
     container: String,
     file_path: String,
-    pending_path: String,
+    pending_media: Option<(CString, String)>,
 }
 
 #[qobject(Singleton, ConvertToCamelCase)]
@@ -79,9 +79,10 @@ impl Player {
     #[qslot]
     fn renderer_ready(&mut self, ready: bool) {
         self.ready = ready;
-        if ready && !self.pending_path.is_empty() {
-            let path = std::mem::take(&mut self.pending_path);
-            self.open(path);
+        if ready {
+            if let Some((path, title)) = self.pending_media.take() {
+                self.load_media(path, title);
+            }
         }
         self.state_changed();
     }
@@ -98,10 +99,6 @@ impl Player {
         if self.loading || sori_qt_handle().is_null() {
             return;
         }
-        if !self.ready {
-            self.pending_path = path;
-            return;
-        }
         let file = Path::new(&path);
         let resolved = file.canonicalize().ok().filter(|local| local.is_file());
         let handle_path = resolved
@@ -112,13 +109,33 @@ impl Player {
             self.state_changed();
             return;
         };
-        self.media_opening();
-        self.file_path = handle_path.to_string_lossy().into_owned();
-        self.filename = file
+        let title = file
             .file_name()
             .unwrap_or_default()
             .to_string_lossy()
             .into_owned();
+        self.load_media(handle_path, title);
+    }
+
+    #[qslot]
+    fn open_youtube(&mut self, id: String, title: String) {
+        if let Some(url) = crate::youtube::watch_url(&id) {
+            let path = CString::new(format!("ytdl://{url}")).expect("validated YouTube ID");
+            self.load_media(path, title);
+        }
+    }
+
+    fn load_media(&mut self, handle_path: CString, title: String) {
+        if self.loading || sori_qt_handle().is_null() {
+            return;
+        }
+        if !self.ready {
+            self.pending_media = Some((handle_path, title));
+            return;
+        }
+        self.media_opening();
+        self.file_path = handle_path.to_string_lossy().into_owned();
+        self.filename = title;
         self.loaded = false;
         self.loading = true;
         self.paused = false;
@@ -296,6 +313,14 @@ impl Player {
 
     fn read_metadata(&mut self) {
         let handle = sori_qt_handle();
+        if self.filename.is_empty() && self.file_path.starts_with("ytdl://") {
+            let title = property(handle, c"media-title");
+            self.filename = if title.is_empty() || title.contains("youtube.com/watch?") {
+                "YouTube video".into()
+            } else {
+                title
+            };
+        }
         self.codec = property(handle, c"video-format");
         self.container = property(handle, c"file-format");
         self.update_details();
