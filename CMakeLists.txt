@@ -80,6 +80,9 @@ qt_add_resources(sori "watch" PREFIX "/" FILES
     qml/icons/history.svg
     qml/icons/house.svg
     qml/icons/library.svg
+    qml/icons/maximize.svg
+    qml/icons/minimize.svg
+    qml/icons/pause.svg
     qml/icons/panel-left.svg
     qml/icons/pencil.svg
     qml/icons/play.svg

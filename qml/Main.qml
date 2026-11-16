@@ -31,7 +31,6 @@ ApplicationWindow {
     property bool sidebarExpanded: true
     property bool controlsAwake: true
     property bool captionsVisible: true
-    property bool followPlayback: true
     property int previousVisibility: Window.Windowed
     property var pageStack: []
     property var currentVideo: null
@@ -45,7 +44,7 @@ ApplicationWindow {
     minimumHeight: 600
     visible: true
     title: pageTitle === "Home" ? "Sori" : pageTitle + " · Sori"
-    color: page === "watch" ? Theme.darkBackground : Theme.background
+    color: fullScreen ? "#000000" : Theme.background
     font.family: "Inter"
     palette.window: Theme.background
     palette.base: Theme.card
@@ -196,7 +195,6 @@ ApplicationWindow {
         function onMediaOpening() {
             watchPage.closeAnalysis()
             root.subtitles.reset()
-            root.followPlayback = true
             root.captionsVisible = true
             root.wakeControls()
         }
@@ -311,7 +309,7 @@ ApplicationWindow {
 
     Rectangle {
         anchors.fill: parent
-        color: root.page === "watch" ? Theme.darkBackground : Theme.background
+        color: root.fullScreen ? "#000000" : Theme.background
     }
 
     AppSidebar {
@@ -410,30 +408,28 @@ ApplicationWindow {
 
             Rectangle {
                 anchors.fill: parent
-                color: Theme.darkBackground
+                color: root.fullScreen ? "#000000" : Theme.background
             }
 
             WatchPage {
                 id: watchPage
                 anchors.fill: parent
-                anchors.margins: root.fullScreen ? 0 : 24
                 player: root.player
                 subtitles: root.subtitles
                 renderHost: root.renderHost
                 fullScreen: root.fullScreen
                 controlsAwake: root.controlsAwake
                 captionsVisible: root.captionsVisible
-                followPlayback: root.followPlayback
                 nativeText: Theme.nativeText
                 libraryError: root.videoError
                 videoId: root.currentVideo?.id ?? 0
+                backLabel: root.pageStack[root.pageStack.length - 1] === "library" ? "My Library" : "Back"
                 onNativeTextRequested: enabled => Theme.nativeText = enabled
                 onWakeControlsRequested: root.wakeControls()
                 onToggleFullscreenRequested: root.toggleFullscreen()
                 onCaptionsToggleRequested: root.captionsVisible = !root.captionsVisible
                 onOpenVideoRequested: videoPicker.open()
                 onOpenSubtitlesRequested: subtitlePicker.open()
-                onFollowPlaybackRequested: follow => root.followPlayback = follow
                 onBackRequested: root.goBack("home")
             }
         }

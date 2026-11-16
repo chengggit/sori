@@ -1,7 +1,7 @@
 # Sori
 
 Sori is a local-first Korean immersion app. The Watch page uses Qt Quick for the
-sidebar, player controls, captions, and transcript. Qt Bridge for Rust exposes
+sidebar, player controls, and captions. Qt Bridge for Rust exposes
 playback and subtitle state to QML. Rust controls libmpv, runs FFprobe and
 FFmpeg, and tracks the active subtitle cues. The C++ adapter gives libmpv a Qt
 Quick OpenGL framebuffer so the video and UI are composited together.
@@ -46,8 +46,7 @@ local development.
 
 Use the sidebar toggle during playback to see the video move with the layout.
 **CC** selects primary and secondary tracks. Korean and English tracks are
-selected automatically when tagged. Scroll the transcript to suspend
-**Follow playback**, or click a cue to seek. **F** enters fullscreen, **Esc**
+selected automatically when tagged. **F** enters fullscreen, **Esc**
 exits it, **Space** toggles playback, and **Left/Right** seek five seconds.
 
 ## Local library
