@@ -7,7 +7,7 @@ TextField {
 
     property string iconName: ""
 
-    implicitHeight: 38
+    implicitHeight: Theme.inputHeight
     leftPadding: iconName === "" ? 12 : 36
     rightPadding: 12
     color: Theme.foreground

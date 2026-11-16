@@ -9,38 +9,51 @@ Button {
     property string variant: "default"
     property string iconName: ""
     property bool small: false
+    property bool compact: false
+    readonly property bool iconOnly: text === "" && iconName !== ""
+    readonly property color contentColor: variant === "default" ? Theme.onAccent
+        : variant === "primary" ? Theme.primaryForeground : Theme.foreground
 
-    implicitHeight: small ? 32 : 38
-    implicitWidth: Math.max(small ? 64 : 80, contentRow.implicitWidth + (small ? 20 : 26))
-    leftPadding: 13
-    rightPadding: 13
+    implicitHeight: iconOnly ? Theme.iconButtonSize
+        : small || compact ? Theme.compactControlHeight : Theme.inputHeight
+    implicitWidth: iconOnly ? Theme.iconButtonSize
+        : Math.max(small ? 64 : 80, contentRow.implicitWidth + leftPadding + rightPadding)
+    padding: 0
+    leftPadding: iconOnly ? 0 : small ? 10 : 13
+    rightPadding: leftPadding
     hoverEnabled: true
 
-    contentItem: RowLayout {
-        id: contentRow
-        spacing: 7
+    contentItem: Item {
+        RowLayout {
+            id: contentRow
+            anchors.centerIn: parent
+            spacing: Theme.controlGap
 
-        Icon {
-            visible: control.iconName !== ""
-            name: control.iconName
-            size: control.small ? 14 : 16
-            color: control.variant === "default" ? Theme.onAccent : Theme.foreground
-        }
-        AppText {
-            text: control.text
-            color: control.variant === "default" ? Theme.onAccent : Theme.foreground
-            font.pixelSize: control.small ? 12 : 13
-            font.weight: Font.Medium
+            Icon {
+                visible: control.iconName !== ""
+                name: control.iconName
+                size: control.small ? 14 : Theme.iconSize
+                color: control.contentColor
+            }
+            AppText {
+                visible: text !== ""
+                text: control.text
+                color: control.contentColor
+                font.pixelSize: control.small ? 12 : 13
+                font.weight: Font.Medium
+            }
         }
     }
 
     background: Rectangle {
-        radius: Theme.radiusSmall
+        radius: control.variant === "primary" ? Theme.radius : Theme.radiusSmall
         color: {
             if (!control.enabled)
                 return control.variant === "default" ? Theme.disabledAccent : Theme.sidebar
             if (control.variant === "default")
                 return control.down ? Theme.accentPressed : control.hovered ? Theme.accentHover : Theme.accent
+            if (control.variant === "primary")
+                return Qt.alpha(Theme.primary, control.down || control.hovered ? 0.8 : 1)
             if (control.variant === "secondary")
                 return control.down || control.hovered ? Theme.accentSoftHover : Theme.accentSoft
             if (control.variant === "ghost")

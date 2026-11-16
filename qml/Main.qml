@@ -325,7 +325,6 @@ ApplicationWindow {
         height: parent.height
         currentPage: root.page === "reader" ? "library" : root.page
         expanded: root.sidebarExpanded
-        vocabularyCount: Library.vocabulary.length
         onToggleRequested: root.sidebarExpanded = !root.sidebarExpanded
         onPageRequested: pageName => root.navigate(pageName)
         onSettingsRequested: settingsSheet.open()
@@ -349,7 +348,7 @@ ApplicationWindow {
                 backLabel: root.page === "reader" ? "My Library" : ""
                 searchVisible: root.page === "home"
                 searchEnabled: YouTube.configured
-                maximumContentWidth: root.page === "home" ? 1528 : 0
+                maximumContentWidth: root.page === "home" ? Theme.dashboardWidth : 0
                 placeholder: "Search YouTube for Korean videos"
                 onBackRequested: root.goBack("library")
                 onSearchAccepted: query => {

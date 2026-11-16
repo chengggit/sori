@@ -7,7 +7,6 @@ Rectangle {
 
     required property string currentPage
     required property bool expanded
-    property int vocabularyCount: 0
     signal pageRequested(string page)
     signal settingsRequested()
     signal toggleRequested()
@@ -29,7 +28,7 @@ Rectangle {
         anchors.right: parent.right
         width: 1
         height: parent.height
-        color: Theme.border
+        color: Theme.sidebarBorder
     }
 
     Item {
@@ -103,16 +102,15 @@ Rectangle {
                 Rectangle {
                     anchors.fill: parent
                     radius: 14
-                    color: linkItem.active ? Theme.accentSoft
-                        : linkMouse.containsMouse ? Theme.hero : "transparent"
+                    color: linkItem.active || linkMouse.containsMouse ? Theme.sidebarSelection : "transparent"
                 }
 
                 Icon {
                     x: root.expanded ? 13 : Math.round((parent.width - width) / 2)
                     anchors.verticalCenter: parent.verticalCenter
                     name: linkItem.modelData.icon
-                    size: 16
-                    color: linkItem.active ? Theme.accent : Theme.mutedForeground
+                    size: Theme.iconSize
+                    color: linkItem.active ? Theme.sidebarActiveText : Theme.foreground
                 }
 
                 AppText {
@@ -120,21 +118,11 @@ Rectangle {
                     x: 41
                     anchors.verticalCenter: parent.verticalCenter
                     text: linkItem.modelData.label
-                    color: linkItem.active ? Theme.accent : Theme.foreground
+                    color: linkItem.active ? Theme.sidebarActiveText : Theme.foreground
                     font.pixelSize: 13
                     font.weight: linkItem.active ? Font.DemiBold : Font.Normal
                 }
 
-                AppText {
-                    visible: root.expanded && linkItem.modelData.page === "vocabulary"
-                        && root.vocabularyCount > 0
-                    anchors.right: parent.right
-                    anchors.rightMargin: 10
-                    anchors.verticalCenter: parent.verticalCenter
-                    text: root.vocabularyCount > 99 ? "99+" : String(root.vocabularyCount)
-                    color: Theme.mutedForeground
-                    font.pixelSize: 11
-                }
 
                 MouseArea {
                     id: linkMouse

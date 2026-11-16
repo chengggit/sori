@@ -80,6 +80,7 @@ qt_add_resources(sori "watch" PREFIX "/" FILES
     qml/icons/history.svg
     qml/icons/house.svg
     qml/icons/library.svg
+    qml/icons/link.svg
     qml/icons/maximize.svg
     qml/icons/minimize.svg
     qml/icons/pause.svg
@@ -87,6 +88,7 @@ qt_add_resources(sori "watch" PREFIX "/" FILES
     qml/icons/pencil.svg
     qml/icons/play.svg
     qml/icons/plus.svg
+    qml/icons/refresh.svg
     qml/icons/search.svg
     qml/icons/settings.svg
     qml/icons/upload.svg

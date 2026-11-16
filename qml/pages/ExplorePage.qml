@@ -20,6 +20,10 @@ Item {
     property string error: ""
     property bool loadingMore: false
     property string linkError: ""
+    readonly property string statusText: error || (!YouTube.configured
+        ? "Set SORI_YOUTUBE_API_KEY in .env.local to search YouTube from Sori."
+        : request && !loadingMore ? "Searching YouTube…"
+        : currentQuery && !videos.length ? "No videos found." : "")
 
     readonly property var topics: [
         { label: "History", query: "한국 역사 다큐 한국어 자막" },
@@ -129,31 +133,12 @@ Item {
     ColumnLayout {
         anchors.top: parent.top
         anchors.bottom: parent.bottom
-        anchors.topMargin: root.discovery ? 28 : 32
-        anchors.bottomMargin: root.discovery ? 0 : 32
+        anchors.topMargin: root.discovery ? 0 : Theme.pageInset
+        anchors.bottomMargin: root.discovery ? 0 : Theme.pageInset
         anchors.horizontalCenter: parent.horizontalCenter
-        width: root.discovery ? Math.min(1528, parent.width - 64) : parent.width - 64
-        spacing: root.discovery ? 20 : 14
-
-        Loader {
-            visible: status === Loader.Ready
-            Layout.fillWidth: true
-            Layout.bottomMargin: 4
-            sourceComponent: root.leadingContent
-        }
-
-        RowLayout {
-            Layout.fillWidth: true
-            visible: root.discovery
-            ColumnLayout {
-                Layout.fillWidth: true
-                spacing: 5
-                AppText { text: "DISCOVER"; font.pixelSize: 11; font.weight: Font.DemiBold; color: Theme.mutedForeground; font.letterSpacing: 1 }
-                AppText { text: "Korean videos on YouTube"; font.pixelSize: 24; font.weight: Font.DemiBold }
-            }
-            AppButton { text: "Paste YouTube link"; variant: "outline"; small: true; onClicked: root.showLinkForm() }
-            AppButton { text: "Refresh Discover"; variant: "outline"; small: true; enabled: YouTube.configured && !root.request; onClicked: root.refreshDiscovery() }
-        }
+        width: root.discovery ? Math.min(Theme.dashboardWidth, parent.width - 2 * Theme.pageInset)
+            : parent.width - 2 * Theme.pageInset
+        spacing: root.discovery ? 0 : 14
 
         RowLayout {
             Layout.fillWidth: true
@@ -197,27 +182,78 @@ Item {
             }
         }
 
-        AppText {
-            visible: text !== ""
-            text: root.error || (!YouTube.configured
-                ? "Set SORI_YOUTUBE_API_KEY to enable search. You can open a video link without a key."
-                : root.request && !root.loadingMore ? "Searching YouTube…"
-                : root.currentQuery && !root.videos.length ? "No videos found." : "")
-            Layout.fillWidth: true
-            color: root.error ? Theme.destructive : Theme.mutedForeground
-            wrapMode: Text.Wrap
-        }
-
         GridView {
             id: results
             Layout.fillWidth: true
             Layout.fillHeight: true
             clip: true
             model: root.videos
-            readonly property int columns: Math.max(1, Math.floor(width / (root.discovery ? 330 : 290)))
+            readonly property int columns: Math.min(4, Math.max(1, Math.floor(width / (root.discovery ? 330 : 290))))
             cellWidth: Math.floor(width / columns)
-            cellHeight: (cellWidth - 20 + 20 / columns) * 9 / 16 + 92
-            ScrollBar.vertical: ScrollBar {}
+            readonly property real tileWidth: cellWidth - Theme.dashboardColumnGap
+                + Theme.dashboardColumnGap / columns
+            readonly property int titleHeight: 2 * Theme.videoTitleLineHeight
+            cellHeight: Math.ceil(tileWidth * 9 / 16) + titleHeight
+                + Theme.videoChannelHeight + Theme.controlGap + Theme.dashboardRowGap
+            ScrollBar.vertical: ScrollBar {
+                parent: root.discovery ? root : results
+                anchors.top: parent.top
+                anchors.bottom: parent.bottom
+                anchors.right: parent.right
+            }
+
+            header: ColumnLayout {
+                width: results.width
+                spacing: 0
+
+                Item {
+                    visible: root.discovery
+                    Layout.preferredHeight: Theme.dashboardPadding
+                }
+
+                Loader {
+                    visible: status === Loader.Ready
+                    Layout.fillWidth: true
+                    Layout.bottomMargin: Theme.dashboardSectionGap
+                    sourceComponent: root.leadingContent
+                }
+
+                GridLayout {
+                    Layout.fillWidth: true
+                    visible: root.discovery
+                    columns: width >= discoverHeading.implicitWidth + discoverActions.implicitWidth + columnSpacing ? 2 : 1
+                    columnSpacing: Theme.controlGap
+                    rowSpacing: Theme.controlGap
+
+                    ColumnLayout {
+                        id: discoverHeading
+                        Layout.fillWidth: true
+                        spacing: 5
+                        AppText { text: "DISCOVER"; font.pixelSize: 11; font.weight: Font.DemiBold; color: Theme.mutedForeground; font.letterSpacing: 1 }
+                        AppText { text: "Korean videos on YouTube"; font.pixelSize: 24; font.weight: Font.DemiBold }
+                    }
+                    RowLayout {
+                        id: discoverActions
+                        Layout.alignment: Qt.AlignBottom
+                        spacing: Theme.controlGap
+                        AppButton { text: "Paste YouTube link"; iconName: "link"; variant: "outline"; compact: true; onClicked: root.showLinkForm() }
+                        AppButton { text: "Refresh Discover"; iconName: "refresh"; variant: "outline"; compact: true; enabled: YouTube.configured && !root.request; onClicked: root.refreshDiscovery() }
+                    }
+                }
+
+                AppText {
+                    visible: text !== ""
+                    text: root.statusText
+                    Layout.fillWidth: true
+                    color: root.error ? Theme.destructive : Theme.mutedForeground
+                    wrapMode: Text.Wrap
+                }
+
+                Item {
+                    visible: root.discovery || root.statusText !== ""
+                    Layout.preferredHeight: Theme.dashboardColumnGap
+                }
+            }
 
             delegate: Item {
                 id: cell
@@ -229,9 +265,9 @@ Item {
                 ItemDelegate {
                     id: tile
                     readonly property var modelData: cell.modelData
-                    x: (cell.index % results.columns) * 20 / results.columns
-                    width: results.cellWidth - 20 + 20 / results.columns
-                    height: results.cellHeight - 16
+                    x: (cell.index % results.columns) * Theme.dashboardColumnGap / results.columns
+                    width: results.tileWidth
+                    height: results.cellHeight - Theme.dashboardRowGap
                     padding: 0
                     Accessible.name: modelData.title + ", open in browser"
 
@@ -242,7 +278,7 @@ Item {
                     }
 
                     contentItem: ColumnLayout {
-                        spacing: 6
+                        spacing: 0
 
                         Item {
                             Layout.fillWidth: true
@@ -256,9 +292,10 @@ Item {
                             Repeater {
                                 model: 4
                                 delegate: Shape {
+                                    id: corner
                                     required property int index
-                                    width: 14
-                                    height: 14
+                                    width: Theme.radius
+                                    height: width
                                     x: index === 1 || index === 2 ? parent.width - width : 0
                                     y: index >= 2 ? parent.height - height : 0
                                     rotation: index * 90
@@ -266,7 +303,7 @@ Item {
                                     ShapePath {
                                         strokeWidth: 0
                                         fillColor: tile.activeFocus ? Theme.hero : Theme.background
-                                        PathSvg { path: "M 0 0 H 14 A 14 14 0 0 0 0 14 Z" }
+                                        PathSvg { path: "M 0 0 H %1 A %1 %1 0 0 0 0 %1 Z".arg(corner.width) }
                                     }
                                 }
                             }
@@ -275,6 +312,11 @@ Item {
                         AppText {
                             Layout.fillWidth: true
                             text: tile.modelData.title
+                            Layout.topMargin: Theme.controlGap
+                            Layout.preferredHeight: results.titleHeight
+                            verticalAlignment: Text.AlignTop
+                            lineHeightMode: Text.FixedHeight
+                            lineHeight: Theme.videoTitleLineHeight
                             font.weight: Font.DemiBold
                             elide: Text.ElideRight
                             wrapMode: Text.Wrap
@@ -295,7 +337,8 @@ Item {
             }
             footer: Item {
                 width: results.width
-                height: root.nextPage ? loadMore.implicitHeight : 0
+                height: (root.nextPage ? loadMore.implicitHeight : 0)
+                    + (root.discovery ? Theme.dashboardBottomPadding : 0)
 
                 AppButton {
                     id: loadMore
