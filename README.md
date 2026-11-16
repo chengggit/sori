@@ -62,8 +62,11 @@ model. Click a word in Reader to see its morphemes and sentence context. The
 analysis runs locally. To distribute a build, place the prepared `kiwi`
 directory beside the executable.
 
-Watch supports local playback and subtitles. Discovery, video library
-integration, saved words, and history are still being ported.
+Videos opened from a file are added to My Library when the format is supported.
+Home and History can resume those videos at their saved position. Attached
+UTF-8 SRT and VTT subtitles are saved with the video entry.
+
+Discovery and saved words are still being ported.
 
 [Inter license](assets/OFL-Inter.txt), [Noto Sans KR license](assets/OFL-NotoSansKR.txt),
 and [Lucide license](assets/LUCIDE-LICENSE.txt).

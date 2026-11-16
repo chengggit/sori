@@ -36,6 +36,10 @@ ApplicationWindow {
     property int previousVisibility: Window.Windowed
     property string appearance: "system"
     property var pageStack: []
+    property var currentVideo: null
+    property bool videoReady: false
+    property bool awaitingVideoPosition: false
+    property string videoError: ""
 
     width: 1280
     height: 840
@@ -51,17 +55,27 @@ ApplicationWindow {
             return
         if (pushHistory !== false)
             pageStack = pageStack.concat([page])
-        page = nextPage
+        changePage(nextPage)
     }
 
     function goBack(fallback) {
         if (pageStack.length > 0) {
             const previous = pageStack[pageStack.length - 1]
             pageStack = pageStack.slice(0, -1)
-            page = previous
+            changePage(previous)
         } else {
             navigate(fallback || "home", false)
         }
+    }
+
+    function changePage(nextPage) {
+        if (page === "reader" && nextPage !== "reader")
+            readerPage.leave()
+        if (page === "watch" && nextPage !== "watch" && videoReady) {
+            saveVideoProgress()
+            player.pause()
+        }
+        page = nextPage
     }
 
     function wakeControls() {
@@ -71,11 +85,60 @@ ApplicationWindow {
 
     function openLocalVideo(url) {
         const path = renderHost.localPath(url)
-        if (!path)
+        if (path)
+            openVideoPath(path)
+    }
+
+    function openVideoPath(path) {
+        if (player.loading)
             return
+        const imported = Library.importVideo(path)
+        if (imported.id) {
+            openSavedVideo(imported.id)
+            return
+        }
+        beginVideo({ path: path })
+    }
+
+    function openSavedVideo(id) {
+        if (player.loading)
+            return "Wait for the current video to finish opening."
+        const video = Library.readVideo(id)
+        if (video.error)
+            return video.error
+        video.id = id
+        beginVideo(video)
+        return ""
+    }
+
+    function beginVideo(video) {
+        if (page === "watch")
+            saveVideoProgress()
+        currentVideo = video
+        videoReady = false
+        awaitingVideoPosition = (video.seconds ?? 0) > 0
+        videoError = ""
         navigate("watch")
-        player.open(path)
+        player.open(video.path)
         wakeControls()
+    }
+
+    function saveVideoProgress() {
+        videoProgressTimer.stop()
+        if (videoReady && !awaitingVideoPosition && currentVideo?.id)
+            videoError = Library.saveVideoProgress(currentVideo.id, player.ended ? 0 : player.position)
+    }
+
+    function attachSubtitles(url) {
+        const path = renderHost.localPath(url)
+        if (!videoReady || !currentVideo?.id) {
+            subtitles.attach(path)
+            return
+        }
+        const result = Library.saveVideoSubtitles(currentVideo.id, path)
+        videoError = result.error || ""
+        if (result.text)
+            subtitles.attachSaved(result.text)
     }
 
     function toggleFullscreen() {
@@ -93,13 +156,14 @@ ApplicationWindow {
         Library.initialize(dataDirectory)
         Analysis.initialize(kiwiDirectory)
         wakeControls()
-        if (startupPath) {
-            navigate("watch")
-            player.open(startupPath)
-        }
+        if (startupPath)
+            openVideoPath(startupPath)
     }
-    onPageChanged: if (page !== "reader") readerPage.leave()
-    onClosing: readerPage.flushProgress()
+    onClosing: {
+        readerPage.flushProgress()
+        if (page === "watch")
+            saveVideoProgress()
+    }
 
     Connections {
         target: root.renderHost
@@ -121,7 +185,6 @@ ApplicationWindow {
     Connections {
         target: root.player
         function onMediaOpening() {
-            root.navigate("watch")
             root.subtitles.reset()
             root.followPlayback = true
             root.captionsVisible = true
@@ -130,8 +193,38 @@ ApplicationWindow {
         function onMediaReady(path) {
             root.subtitles.probe(path)
             root.wakeControls()
+            const video = root.currentVideo
+            if (video?.sidecar)
+                root.subtitles.attachSaved(video.sidecar)
+            Qt.callLater(() => {
+                if (root.currentVideo !== video)
+                    return
+                const resumeAt = Math.min(video?.seconds ?? 0, Math.max(0, root.player.duration - 0.1))
+                root.awaitingVideoPosition = resumeAt > 0
+                if (resumeAt > 0)
+                    root.player.seek(resumeAt)
+                root.videoReady = true
+                if (root.page === "watch")
+                    videoProgressTimer.start()
+                else
+                    root.player.pause()
+            })
         }
-        function onPositionChanged() { root.subtitles.update(root.player.position) }
+        function onPositionChanged() {
+            root.subtitles.update(root.player.position)
+            if (!root.videoReady || root.page !== "watch" || !root.currentVideo?.id)
+                return
+            if (root.player.position > 0)
+                root.awaitingVideoPosition = false
+            if (!videoProgressTimer.running)
+                videoProgressTimer.start()
+        }
+    }
+
+    Timer {
+        id: videoProgressTimer
+        interval: 3000
+        onTriggered: root.saveVideoProgress()
     }
 
     Timer {
@@ -203,7 +296,7 @@ ApplicationWindow {
         id: subtitlePicker
         title: "Attach subtitles"
         nameFilters: ["Subtitle files (*.srt *.vtt)", "All files (*)"]
-        onAccepted: root.subtitles.attach(root.renderHost.localPath(selectedFile))
+        onAccepted: root.attachSubtitles(selectedFile)
     }
 
     Rectangle {
@@ -263,6 +356,7 @@ ApplicationWindow {
                 HomePage {
                     onOpenLibraryRequested: root.navigate("library")
                     onOpenVideoRequested: videoPicker.open()
+                    onResumeVideoRequested: id => error = root.openSavedVideo(id)
                 }
                 ExplorePage {}
                 LibraryPage {
@@ -271,14 +365,18 @@ ApplicationWindow {
                         readerPage.openDocument(id, title)
                         root.navigate("reader")
                     }
-                    onOpenWatchRequested: id => root.navigate("watch")
+                    onOpenWatchRequested: id => error = root.openSavedVideo(id)
+                    onImportVideoRequested: videoPicker.open()
                 }
                 ReaderPage {
                     id: readerPage
                     active: root.page === "reader"
                 }
                 VocabularyPage {}
-                HistoryPage { onExploreRequested: root.navigate("explore") }
+                HistoryPage {
+                    onOpenLibraryRequested: root.navigate("library")
+                    onOpenWatchRequested: id => error = root.openSavedVideo(id)
+                }
             }
         }
 
@@ -303,6 +401,7 @@ ApplicationWindow {
                 captionsVisible: root.captionsVisible
                 followPlayback: root.followPlayback
                 nativeText: root.nativeText
+                libraryError: root.videoError
                 onNativeTextRequested: enabled => root.nativeText = enabled
                 onWakeControlsRequested: root.wakeControls()
                 onToggleFullscreenRequested: root.toggleFullscreen()

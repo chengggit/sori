@@ -151,6 +151,13 @@ impl Player {
     }
 
     #[qslot]
+    fn pause(&self) {
+        if self.loaded {
+            unsafe { controls::sori_mpv_pause(sori_qt_handle()) };
+        }
+    }
+
+    #[qslot]
     fn seek(&self, position: f64) {
         if self.loaded {
             unsafe { controls::sori_mpv_seek(sori_qt_handle(), position, self.duration) };

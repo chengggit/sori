@@ -126,6 +126,7 @@ mod nlp;
 mod progress;
 mod reader;
 mod subtitles;
+mod video_library;
 
 mod player_model;
 mod subtitle_model;

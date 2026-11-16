@@ -46,6 +46,7 @@ add_custom_command(OUTPUT "${PLAYBACK_LIB}"
         "${PLAYBACK_DIR}/src/db.rs" "${PLAYBACK_DIR}/src/schema.sql" "${PLAYBACK_DIR}/src/documents.rs"
         "${PLAYBACK_DIR}/src/progress.rs" "${PLAYBACK_DIR}/src/library_model.rs"
         "${PLAYBACK_DIR}/src/nlp.rs" "${PLAYBACK_DIR}/src/reader.rs" "${PLAYBACK_DIR}/src/analysis_model.rs"
+        "${PLAYBACK_DIR}/src/video_library.rs"
     VERBATIM
 )
 add_custom_target(sori-qt-playback DEPENDS "${PLAYBACK_LIB}")

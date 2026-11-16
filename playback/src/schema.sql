@@ -45,6 +45,11 @@ CREATE TABLE IF NOT EXISTS videos (
     sidecar TEXT
 );
 
+CREATE TABLE IF NOT EXISTS local_watch_history (
+    video_id INTEGER PRIMARY KEY REFERENCES videos(id) ON DELETE CASCADE,
+    watched_at INTEGER NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS video_vocabulary (
     vocabulary_id INTEGER PRIMARY KEY REFERENCES vocabulary(id) ON DELETE CASCADE,
     video_id INTEGER REFERENCES videos(id) ON DELETE CASCADE,

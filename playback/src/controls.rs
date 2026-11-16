@@ -41,6 +41,10 @@ pub unsafe extern "C" fn sori_mpv_toggle(player: *mut mpv_handle, ended: bool) {
     }
 }
 
+pub unsafe fn sori_mpv_pause(player: *mut mpv_handle) {
+    command(player, 0, [c"set", c"pause", c"yes"]);
+}
+
 #[no_mangle]
 pub unsafe extern "C" fn sori_mpv_seek(player: *mut mpv_handle, seconds: f64, duration: f64) {
     if seconds.is_finite() {

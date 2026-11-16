@@ -3,12 +3,18 @@ use qtbridge::{qobject, QmlObject};
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::path::Path;
+use std::sync::Arc;
 
 #[derive(Clone)]
 struct Track {
-    path: String,
-    mapping: String,
+    source: TrackSource,
     label: String,
+}
+
+#[derive(Clone)]
+enum TrackSource {
+    File { path: String, mapping: String },
+    Text(Arc<str>),
 }
 
 #[derive(Default)]
@@ -171,31 +177,25 @@ impl Subtitles {
             self.tracks_changed();
             return;
         };
-        let source = Track {
-            path: resolved.to_string_lossy().into_owned(),
-            mapping: "0:s:0".into(),
+        self.attach_track(Track {
+            source: TrackSource::File {
+                path: resolved.to_string_lossy().into_owned(),
+                mapping: "0:s:0".into(),
+            },
             label: path
                 .file_name()
                 .unwrap_or_default()
                 .to_string_lossy()
                 .into_owned(),
-        };
-        let index = if let Some(index) = self.attached {
-            self.tracks[index] = source;
-            index
-        } else {
-            let index = self.tracks.len();
-            self.tracks.push(source);
-            self.attached = Some(index);
-            index
-        };
-        let track = index as i32 + 1;
-        if self.secondary() == track {
-            self.load(1, 0);
-        }
-        self.load(0, track);
-        self.rebuild();
-        self.tracks_changed();
+        });
+    }
+
+    #[qslot]
+    fn attach_saved(&mut self, text: String) {
+        self.attach_track(Track {
+            source: TrackSource::Text(text.into()),
+            label: "Attached subtitles".into(),
+        });
     }
 
     #[qslot]
@@ -217,6 +217,25 @@ impl Subtitles {
 }
 
 impl Subtitles {
+    fn attach_track(&mut self, source: Track) {
+        let index = if let Some(index) = self.attached {
+            self.tracks[index] = source;
+            index
+        } else {
+            let index = self.tracks.len();
+            self.tracks.push(source);
+            self.attached = Some(index);
+            index
+        };
+        let track = index as i32 + 1;
+        if self.secondary() == track {
+            self.load(1, 0);
+        }
+        self.load(0, track);
+        self.rebuild();
+        self.tracks_changed();
+    }
+
     fn finish_probe(&mut self, generation: u64, result: Result<Vec<(Track, String)>, String>) {
         if self.generation != generation {
             return;
@@ -380,8 +399,10 @@ fn probe_tracks(path: &str) -> Result<Vec<(Track, String)>, String> {
             .join(" · ");
             (
                 Track {
-                    path: path.into(),
-                    mapping: format!("0:{id}"),
+                    source: TrackSource::File {
+                        path: path.into(),
+                        mapping: format!("0:{id}"),
+                    },
                     label,
                 },
                 stream.tags.language,
@@ -391,27 +412,34 @@ fn probe_tracks(path: &str) -> Result<Vec<(Track, String)>, String> {
 }
 
 fn extract(source: &Track) -> Result<Vec<Cue>, String> {
-    let output = subtitles::command_output(
-        "ffmpeg",
-        [
-            "-v",
-            "error",
-            "-nostdin",
-            "-protocol_whitelist",
-            "file",
-            "-i",
-            &source.path,
-            "-map",
-            &source.mapping,
-            "-c:s",
-            "webvtt",
-            "-f",
-            "webvtt",
-            "pipe:1",
-        ],
-        8 * 1024 * 1024,
-    )?;
-    let cues = subtitles::parse(&String::from_utf8_lossy(&output));
+    let output = match &source.source {
+        TrackSource::Text(text) => return parse_cues(text),
+        TrackSource::File { path, mapping } => subtitles::command_output(
+            "ffmpeg",
+            [
+                "-v",
+                "error",
+                "-nostdin",
+                "-protocol_whitelist",
+                "file",
+                "-i",
+                path,
+                "-map",
+                mapping,
+                "-c:s",
+                "webvtt",
+                "-f",
+                "webvtt",
+                "pipe:1",
+            ],
+            8 * 1024 * 1024,
+        )?,
+    };
+    parse_cues(&String::from_utf8_lossy(&output))
+}
+
+fn parse_cues(text: &str) -> Result<Vec<Cue>, String> {
+    let cues = subtitles::parse(text.trim_start_matches('\u{feff}'));
     if cues.is_empty() {
         Err("This track contains no readable subtitle cues".into())
     } else {

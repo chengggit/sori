@@ -16,6 +16,7 @@ Item {
     required property bool captionsVisible
     required property bool followPlayback
     required property bool nativeText
+    required property string libraryError
 
     signal wakeControlsRequested()
     signal toggleFullscreenRequested()
@@ -415,11 +416,11 @@ Item {
                 }
 
                 WatchText {
-                    visible: root.subtitles.error !== "" || root.subtitles.loading || !transcript.count
+                    visible: root.libraryError !== "" || root.subtitles.error !== "" || root.subtitles.loading || !transcript.count
                     Layout.fillWidth: true
-                    text: root.subtitles.error || (root.subtitles.loading
+                    text: root.libraryError || root.subtitles.error || (root.subtitles.loading
                         ? "Loading subtitles…" : "Select a track in CC or attach a subtitle file.")
-                    color: root.subtitles.error ? "#ffb4ac" : "#bcbcbc"
+                    color: root.libraryError || root.subtitles.error ? "#ffb4ac" : "#bcbcbc"
                     font.pixelSize: 13
                     elide: Text.ElideRight
                 }

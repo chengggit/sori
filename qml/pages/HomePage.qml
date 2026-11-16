@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import sori_qt_playback
 import "../Theme.js" as Theme
 import "../components"
 
@@ -8,6 +9,9 @@ Item {
 
     signal openLibraryRequested()
     signal openVideoRequested()
+    signal resumeVideoRequested(real id)
+    property string error: ""
+    readonly property var recentVideo: Library.recentVideos[0] ?? null
 
     ColumnLayout {
         anchors.fill: parent
@@ -35,18 +39,28 @@ Item {
                     font.letterSpacing: 1.2
                 }
                 AppText {
-                    text: "Pick up where you left off"
+                    text: root.recentVideo ? root.recentVideo.title : "Pick up where you left off"
+                    Layout.fillWidth: true
+                    elide: Text.ElideRight
                     font.pixelSize: 25
                     font.weight: Font.DemiBold
                 }
                 AppText {
-                    text: "Your recent reading and watching activity will appear here."
+                    text: root.error || (root.recentVideo ? (root.recentVideo.seconds > 0
+                        ? "Resume at " + Player.formatTime(root.recentVideo.seconds) : "Recently watched")
+                        : "Open local Korean text or a video to get started.")
                     color: Theme.mutedForeground
                     font.pixelSize: 13
                 }
                 Item { Layout.fillHeight: true }
                 RowLayout {
                     spacing: 8
+                    AppButton {
+                        visible: !!root.recentVideo
+                        text: root.recentVideo?.seconds > 0 ? "Resume video" : "Watch again"
+                        iconName: "play"
+                        onClicked: root.resumeVideoRequested(root.recentVideo.id)
+                    }
                     AppButton { text: "Open Library"; iconName: "library"; onClicked: root.openLibraryRequested() }
                     AppButton { text: "Open a video"; iconName: "play"; variant: "outline"; onClicked: root.openVideoRequested() }
                 }

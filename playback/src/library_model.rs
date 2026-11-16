@@ -1,4 +1,4 @@
-use crate::{db::Database, documents, progress};
+use crate::{db::Database, documents, progress, video_library};
 use qtbridge::qobject;
 use rusqlite::Connection;
 use serde_json::{json, Value};
@@ -9,16 +9,36 @@ use std::path::{Path, PathBuf};
 pub struct Library {
     database: Option<Database>,
     documents: Vec<Value>,
+    videos: Vec<Value>,
     error: String,
 }
 
 #[qobject(Singleton, ConvertToCamelCase)]
 impl Library {
     qproperty!("documents", Member = documents, Notify = library_changed);
+    qproperty!("videos", Member = videos, Notify = videos_changed);
+    qproperty!(
+        "recentVideos",
+        Read = recent_videos,
+        Notify = videos_changed
+    );
     qproperty!("error", Member = error, Notify = library_changed);
 
     #[qsignal]
     fn library_changed(&mut self);
+
+    #[qsignal]
+    fn videos_changed(&mut self);
+
+    fn recent_videos(&self) -> Vec<Value> {
+        self.videos
+            .iter()
+            .filter(|video| {
+                !video["watchedAt"].is_null() || video["seconds"].as_f64().unwrap_or_default() > 0.0
+            })
+            .cloned()
+            .collect()
+    }
 
     #[qslot]
     fn initialize(&mut self, directory: String) {
@@ -29,6 +49,7 @@ impl Library {
             Ok(database) => {
                 self.database = Some(database);
                 self.refresh();
+                self.refresh_videos();
             }
             Err(error) => {
                 self.error = error;
@@ -96,6 +117,46 @@ impl Library {
             .err()
             .unwrap_or_default()
     }
+
+    #[qslot]
+    fn import_video(&mut self, path: String) -> Value {
+        match self
+            .connection()
+            .and_then(|connection| video_library::import(&connection, Path::new(&path)))
+        {
+            Ok(id) => {
+                self.refresh_videos();
+                json!({ "id": id })
+            }
+            Err(error) => json!({ "error": error }),
+        }
+    }
+
+    #[qslot]
+    fn read_video(&self, id: i64) -> Value {
+        self.connection()
+            .and_then(|connection| video_library::read(&connection, id))
+            .map(|video| json!(video))
+            .unwrap_or_else(|error| json!({ "error": error }))
+    }
+
+    #[qslot]
+    fn remove_video(&mut self, id: i64) -> String {
+        self.change_videos(|connection| video_library::remove(connection, id))
+    }
+
+    #[qslot]
+    fn save_video_progress(&mut self, id: i64, seconds: f64) -> String {
+        self.change_videos(|connection| video_library::save_progress(connection, id, seconds))
+    }
+
+    #[qslot]
+    fn save_video_subtitles(&self, id: i64, path: String) -> Value {
+        self.connection()
+            .and_then(|connection| video_library::save_sidecar(&connection, id, Path::new(&path)))
+            .map(|text| json!({ "text": text }))
+            .unwrap_or_else(|error| json!({ "error": error }))
+    }
 }
 
 impl Library {
@@ -131,5 +192,37 @@ impl Library {
             Err(error) => self.error = error,
         }
         self.library_changed();
+    }
+
+    fn change_videos(
+        &mut self,
+        operation: impl FnOnce(&Connection) -> Result<(), String>,
+    ) -> String {
+        match self
+            .connection()
+            .and_then(|connection| operation(&connection))
+        {
+            Ok(()) => {
+                self.refresh_videos();
+                String::new()
+            }
+            Err(error) => error,
+        }
+    }
+
+    fn refresh_videos(&mut self) {
+        match self
+            .connection()
+            .and_then(|connection| video_library::list(&connection))
+        {
+            Ok(items) => {
+                self.videos = items.into_iter().map(|item| json!(item)).collect();
+                self.videos_changed();
+            }
+            Err(error) => {
+                self.error = error;
+                self.library_changed();
+            }
+        }
     }
 }

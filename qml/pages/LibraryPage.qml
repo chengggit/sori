@@ -12,13 +12,16 @@ Item {
     required property var renderHost
     property string error: ""
     property var selectedDocument: null
-    readonly property var matchingDocuments: {
+    readonly property var matchingItems: {
         const query = search.text.trim().toLowerCase()
-        return Library.documents.filter(document => document.title.toLowerCase().includes(query))
+        return Library.documents.map(item => ({ id: item.id, title: item.title, video: false }))
+            .concat(Library.videos.map(item => ({ id: item.id, title: item.title, video: true })))
+            .filter(item => item.title.toLowerCase().includes(query))
     }
 
     signal openReaderRequested(real documentId, string title)
     signal openWatchRequested(real videoId)
+    signal importVideoRequested()
 
     function importText() {
         selectedDocument = null
@@ -72,13 +75,17 @@ Item {
         anchors.centerIn: parent
         modal: true
         width: Math.min(380, parent.width - 48)
-        title: "Delete document?"
+        title: root.selectedDocument?.video ? "Remove video?" : "Delete document?"
         standardButtons: Dialog.Cancel | Dialog.Yes
         contentItem: AppText {
-            text: "Delete “" + (root.selectedDocument?.title ?? "") + "” from your library?"
+            text: root.selectedDocument?.video
+                ? "Remove “" + root.selectedDocument.title + "” from your library? The video file stays on disk."
+                : "Delete “" + (root.selectedDocument?.title ?? "") + "” from your library?"
             wrapMode: Text.Wrap
         }
-        onAccepted: root.error = Library.removeDocument(root.selectedDocument.id)
+        onAccepted: root.error = root.selectedDocument.video
+            ? Library.removeVideo(root.selectedDocument.id)
+            : Library.removeDocument(root.selectedDocument.id)
     }
 
     ColumnLayout {
@@ -97,7 +104,8 @@ Item {
                 iconName: "search"
             }
             Item { Layout.fillWidth: true }
-            AppButton { text: "Import"; iconName: "plus"; onClicked: root.importText() }
+            AppButton { text: "Import text"; iconName: "plus"; onClicked: root.importText() }
+            AppButton { text: "Import video"; iconName: "film"; variant: "outline"; onClicked: root.importVideoRequested() }
         }
 
         AppText {
@@ -115,7 +123,7 @@ Item {
             visible: count > 0
             clip: true
             spacing: 8
-            model: root.matchingDocuments
+            model: root.matchingItems
             ScrollBar.vertical: ScrollBar {}
 
             delegate: Rectangle {
@@ -133,26 +141,32 @@ Item {
                     anchors.rightMargin: 14
                     spacing: 10
 
-                    Icon { name: "file-text"; color: Theme.accent }
+                    Icon { name: row.modelData.video ? "film" : "file-text"; color: Theme.accent }
                     AppText {
                         Layout.fillWidth: true
                         text: row.modelData.title
                         elide: Text.ElideRight
                     }
                     AppButton {
-                        text: "Read"
+                        text: row.modelData.video ? "Watch" : "Read"
                         variant: "outline"
                         small: true
-                        onClicked: root.openReaderRequested(row.modelData.id, row.modelData.title)
+                        onClicked: {
+                            if (row.modelData.video)
+                                root.openWatchRequested(row.modelData.id)
+                            else
+                                root.openReaderRequested(row.modelData.id, row.modelData.title)
+                        }
                     }
                     AppButton {
                         text: "Edit"
+                        visible: !row.modelData.video
                         variant: "ghost"
                         small: true
                         onClicked: root.editDocument(row.modelData)
                     }
                     AppButton {
-                        text: "Delete"
+                        text: row.modelData.video ? "Remove" : "Delete"
                         variant: "ghost"
                         small: true
                         onClicked: {
@@ -169,9 +183,9 @@ Item {
             Layout.fillHeight: true
             visible: documents.count === 0 && Library.error === ""
             iconName: "library"
-            title: Library.documents.length ? "No matching documents" : "Your library is empty"
-            message: Library.documents.length ? "" : "Import a .txt file or paste Korean text."
-            actionText: Library.documents.length ? "" : "Import text"
+            title: search.text.trim() ? "No matching items" : "Your library is empty"
+            message: search.text.trim() ? "" : "Import a video, a .txt file, or pasted Korean text."
+            actionText: search.text.trim() ? "" : "Import text"
             onActionRequested: root.importText()
         }
     }
