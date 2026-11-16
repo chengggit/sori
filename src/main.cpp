@@ -7,6 +7,9 @@
 #include <QQmlApplicationEngine>
 #include <QQuickWindow>
 #include <QStandardPaths>
+#ifdef SORI_WEB_ENGINE
+#include <QtWebEngineQuick/qtwebenginequickglobal.h>
+#endif
 
 #include <clocale>
 #include <mpv/client.h>
@@ -29,6 +32,13 @@ int main(int argc, char **argv)
     // Let the desktop portal choose the system file dialog outside Sori's process.
     qputenv("QT_QPA_PLATFORMTHEME", "xdgdesktopportal");
     qputenv("QT_QPA_PLATFORMTHEME_QT6", "xdgdesktopportal");
+#endif
+#ifdef SORI_WEB_ENGINE
+    QCoreApplication::setAttribute(Qt::AA_ShareOpenGLContexts);
+    QtWebEngineQuick::initialize();
+    constexpr bool youtubeEmbeddingAvailable = true;
+#else
+    constexpr bool youtubeEmbeddingAvailable = false;
 #endif
     QGuiApplication app(argc, argv);
     // Qt initializes the system locale. libmpv requires C numeric formatting.
@@ -62,7 +72,8 @@ int main(int argc, char **argv)
                                  {"dataDirectory", QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation)
                                      + QStringLiteral("/com.sori.app")},
                                  {"kiwiDirectory", kiwiDirectory},
-                                 {"startupPath", parser.positionalArguments().value(0)}});
+                                 {"startupPath", parser.positionalArguments().value(0)},
+                                 {"youtubeEmbeddingAvailable", youtubeEmbeddingAvailable}});
     engine.load(QUrl("qrc:/qml/Main.qml"));
     if (engine.rootObjects().isEmpty()) return 1;
     return app.exec();

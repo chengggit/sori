@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.21)
 project(Sori LANGUAGES CXX)
 
 find_package(Qt6 6.10 REQUIRED COMPONENTS Quick OpenGL Test)
+find_package(Qt6 6.10 QUIET OPTIONAL_COMPONENTS WebEngineQuick)
 find_package(PkgConfig REQUIRED)
 find_program(CARGO_EXECUTABLE cargo REQUIRED)
 pkg_check_modules(MPV REQUIRED IMPORTED_TARGET mpv)
@@ -54,6 +55,10 @@ add_custom_command(OUTPUT "${PLAYBACK_LIB}"
 add_custom_target(sori-qt-playback DEPENDS "${PLAYBACK_LIB}")
 add_dependencies(sori sori-qt-playback)
 target_link_libraries(sori PRIVATE "${PLAYBACK_LIB}" Qt6::Quick Qt6::OpenGL Qt6::Test PkgConfig::MPV)
+if(TARGET Qt6::WebEngineQuick)
+    target_link_libraries(sori PRIVATE Qt6::WebEngineQuick)
+    target_compile_definitions(sori PRIVATE SORI_WEB_ENGINE)
+endif()
 qt_add_resources(sori "watch" PREFIX "/" FILES
     qml/Main.qml
     qml/style/Theme.qml
@@ -102,5 +107,7 @@ qt_add_resources(sori "watch" PREFIX "/" FILES
     qml/pages/SettingsSheet.qml
     qml/pages/VocabularyPage.qml
     qml/pages/WatchPage.qml
+    qml/pages/YouTubeWatchPage.qml
+    qml/pages/YouTubeEmbed.qml
     assets/Inter-Variable.ttf assets/NotoSansKR-Regular.otf
 )

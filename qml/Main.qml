@@ -12,6 +12,7 @@ import "style"
 ApplicationWindow {
     id: root
 
+    property bool youtubeEmbeddingAvailable: false
     required property var renderHost
     required property string dataDirectory
     required property string kiwiDirectory
@@ -19,7 +20,7 @@ ApplicationWindow {
     readonly property var player: Player
     readonly property var subtitles: Subtitles
     readonly property bool fullScreen: visibility === Window.FullScreen
-    readonly property bool watchShortcutsEnabled: page === "watch" && player.loaded
+    readonly property bool watchShortcutsEnabled: page === "watch" && !currentVideo?.youtubeId && player.loaded
         && !watchPage.trackMenu.opened && !watchPage.analysisOpened && !settingsSheet.visible
     readonly property string pageTitle: page === "watch" ? "Watch"
         : page === "library" ? "My Library"
@@ -137,7 +138,7 @@ ApplicationWindow {
         beginVideo({
             youtubeId: id,
             youtubeUrl: canonical,
-            title: title || previous?.title || "",
+            title: title || previous?.title || "YouTube video",
             channel: channel || previous?.channel || "",
             seconds: previous?.seconds ?? 0
         })
@@ -158,7 +159,7 @@ ApplicationWindow {
         videoError = ""
         navigate("watch")
         if (video.youtubeId)
-            player.openYoutube(video.youtubeId, video.title)
+            player.pause()
         else
             player.open(video.path)
         wakeControls()
@@ -169,10 +170,7 @@ ApplicationWindow {
         if (!videoReady || !player.loaded || awaitingVideoPosition)
             return
         const seconds = player.ended ? 0 : player.position
-        if (currentVideo?.youtubeId)
-            videoError = Library.saveYoutubeProgress(currentVideo.youtubeId, player.filename,
-                                                     currentVideo.channel, seconds, player.duration)
-        else if (currentVideo?.id)
+        if (currentVideo?.id)
             videoError = Library.saveVideoProgress(currentVideo.id, seconds, player.duration)
     }
 
@@ -238,8 +236,7 @@ ApplicationWindow {
             root.wakeControls()
         }
         function onMediaReady(path) {
-            if (!root.currentVideo?.youtubeId)
-                root.subtitles.probe(path)
+            root.subtitles.probe(path)
             root.wakeControls()
             const video = root.currentVideo
             if (video?.sidecar)
@@ -263,7 +260,7 @@ ApplicationWindow {
         }
         function onPositionChanged() {
             root.subtitles.update(root.player.position)
-            if (!root.videoReady || root.page !== "watch" || !(root.currentVideo?.id || root.currentVideo?.youtubeId))
+            if (!root.videoReady || root.page !== "watch" || !root.currentVideo?.id)
                 return
             if (root.player.position > 0)
                 root.awaitingVideoPosition = false
@@ -466,7 +463,7 @@ ApplicationWindow {
                 captionsVisible: root.captionsVisible
                 nativeText: Theme.nativeText
                 libraryError: root.videoError
-                youtubeUrl: root.currentVideo?.youtubeUrl ?? ""
+                visible: !root.currentVideo?.youtubeId
                 videoId: root.currentVideo?.id ?? 0
                 backLabel: root.pageStack[root.pageStack.length - 1] === "library" ? "My Library" : "Back"
                 onNativeTextRequested: enabled => Theme.nativeText = enabled
@@ -476,6 +473,21 @@ ApplicationWindow {
                 onOpenVideoRequested: videoPicker.open()
                 onOpenSubtitlesRequested: subtitlePicker.open()
                 onBackRequested: root.goBack("home")
+            }
+
+            Loader {
+                anchors.fill: parent
+                active: parent.visible && !!root.currentVideo?.youtubeId
+                sourceComponent: YouTubeWatchPage {
+                    video: root.currentVideo
+                    embeddingAvailable: root.youtubeEmbeddingAvailable
+                    onBackRequested: root.goBack("home")
+                    onCheckpoint: (entry, seconds, duration) => {
+                        root.videoError = Library.saveYoutubeProgress(entry.youtubeId, entry.title,
+                                                                      entry.channel, seconds, duration)
+                    }
+                    saveError: root.videoError
+                }
             }
         }
     }

@@ -9,8 +9,6 @@ import "../components"
 Item {
     id: root
 
-    property string youtubeUrl: ""
-
     required property var player
     required property var subtitles
     required property var renderHost
@@ -173,15 +171,10 @@ Item {
                 AppButton {
                     anchors.horizontalCenter: parent.horizontalCenter
                     visible: !root.player.loading
-                    text: root.youtubeUrl ? "Open in browser" : "Open video"
+                    text: "Open video"
                     iconName: "play"
-                    enabled: !!root.youtubeUrl || root.player.ready
-                    onClicked: {
-                        if (root.youtubeUrl)
-                            Qt.openUrlExternally(root.youtubeUrl)
-                        else
-                            root.openVideoRequested()
-                    }
+                    enabled: root.player.ready
+                    onClicked: root.openVideoRequested()
                 }
             }
         }
@@ -440,7 +433,7 @@ Item {
         spacing: 20
 
         AppText {
-            text: root.youtubeUrl ? root.player.filename : root.player.filename.replace(/\.[^.]+$/, "")
+            text: root.player.filename.replace(/\.[^.]+$/, "")
             font.pixelSize: 20
             font.weight: Font.DemiBold
             elide: Text.ElideRight

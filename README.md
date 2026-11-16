@@ -79,10 +79,10 @@ across launches.
 
 Set `SORI_YOUTUBE_API_KEY` in the launch environment or in `.env.local` in the working directory to search the YouTube Data API
 from Home and Explore. Paste a YouTube video link in either page without a key.
-YouTube playback uses the same Watch player as local video. With a current
-`yt-dlp` on PATH, libmpv can resolve supported YouTube links. If a video cannot
-play in Sori, use **Open in browser**. YouTube progress is saved locally and can
-be resumed from Home or History. Local playback works without `yt-dlp`.
+YouTube playback uses the official embedded player when built with the matching
+Qt WebEngine Quick module. If the module is unavailable or a video cannot be
+embedded, use **Open in browser**. YouTube progress is saved locally and can
+be resumed from Home or History.
 
 [Inter license](assets/OFL-Inter.txt), [Noto Sans KR license](assets/OFL-NotoSansKR.txt),
 and [Lucide license](assets/LUCIDE-LICENSE.txt).
