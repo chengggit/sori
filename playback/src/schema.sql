@@ -42,6 +42,8 @@ CREATE TABLE IF NOT EXISTS videos (
     path TEXT NOT NULL UNIQUE,
     title TEXT NOT NULL,
     seconds REAL NOT NULL DEFAULT 0,
+    duration REAL NOT NULL DEFAULT 0,
+    thumbnail TEXT,
     sidecar TEXT
 );
 

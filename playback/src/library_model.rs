@@ -1,9 +1,13 @@
 use crate::{db::Database, documents, progress, video_library, vocabulary};
-use qtbridge::qobject;
+use qtbridge::{qobject, QmlObject};
 use rusqlite::Connection;
 use serde_json::{json, Value};
+use std::collections::{HashMap, HashSet};
 use std::io::Read;
 use std::path::{Path, PathBuf};
+use std::time::{Duration, Instant};
+
+const THUMBNAIL_RETRY_DELAY: Duration = Duration::from_secs(60);
 
 #[derive(Default)]
 pub struct Library {
@@ -11,6 +15,8 @@ pub struct Library {
     documents: Vec<Value>,
     videos: Vec<Value>,
     vocabulary: Vec<Value>,
+    pending_thumbnails: HashSet<i64>,
+    last_thumbnail_attempt: HashMap<i64, Instant>,
     error: String,
 }
 
@@ -156,12 +162,103 @@ impl Library {
 
     #[qslot]
     fn remove_video(&mut self, id: i64) -> String {
-        self.change_videos(|connection| video_library::remove(connection, id))
+        let error = self.change_videos(|connection| video_library::remove(connection, id));
+        if error.is_empty() {
+            self.last_thumbnail_attempt.remove(&id);
+            if let Some(database) = &self.database {
+                let _ = std::fs::remove_file(video_library::thumbnail_path(
+                    &database.thumbnail_directory(),
+                    id,
+                ));
+            }
+        }
+        error
     }
 
     #[qslot]
-    fn save_video_progress(&mut self, id: i64, seconds: f64) -> String {
-        self.change_videos(|connection| video_library::save_progress(connection, id, seconds))
+    fn save_video_progress(&mut self, id: i64, seconds: f64, duration: f64) -> String {
+        let error = self.change_videos(|connection| {
+            video_library::save_progress(connection, id, seconds, duration)
+        });
+        if error.is_empty() {
+            self.ensure_video_thumbnail(id);
+        }
+        error
+    }
+
+    #[qslot]
+    fn ensure_video_thumbnail(&mut self, id: i64) {
+        if self.pending_thumbnails.contains(&id)
+            || self
+                .last_thumbnail_attempt
+                .get(&id)
+                .is_some_and(|attempt| attempt.elapsed() < THUMBNAIL_RETRY_DELAY)
+        {
+            return;
+        }
+        let Some(database) = self.database.clone() else {
+            return;
+        };
+        let Ok(metadata) = database
+            .connect()
+            .and_then(|connection| video_library::metadata(&connection, id))
+        else {
+            return;
+        };
+        let has_thumbnail = metadata
+            .thumbnail
+            .as_deref()
+            .map(Path::new)
+            .is_some_and(video_library::has_thumbnail);
+        if metadata.duration > 0.0 && has_thumbnail {
+            return;
+        }
+
+        self.pending_thumbnails.insert(id);
+        let output = video_library::thumbnail_path(&database.thumbnail_directory(), id);
+        let handle = self.get_thread_handle();
+        std::thread::spawn(move || {
+            let probed_duration = if metadata.duration <= 0.0 {
+                video_library::probe_duration(&metadata.path).unwrap_or(0.0)
+            } else {
+                0.0
+            };
+            let thumbnail = if has_thumbnail {
+                None
+            } else {
+                video_library::prepare_thumbnail(
+                    &metadata.path,
+                    &output,
+                    metadata.duration.max(probed_duration),
+                )
+                .ok()
+                .map(|()| output.as_path())
+            };
+            let result = if probed_duration > 0.0 || thumbnail.is_some() {
+                database.connect().and_then(|connection| {
+                    video_library::update_metadata(&connection, id, probed_duration, thumbnail)
+                })
+            } else {
+                Ok(false)
+            };
+            if matches!(result, Ok(false)) && thumbnail.is_some() {
+                // The entry was removed while the worker was decoding the frame.
+                let _ = std::fs::remove_file(&output);
+            }
+            let _ = handle.invoke_mut(move |model| {
+                model.pending_thumbnails.remove(&id);
+                if model
+                    .videos
+                    .iter()
+                    .any(|video| video["id"].as_i64() == Some(id))
+                {
+                    model.last_thumbnail_attempt.insert(id, Instant::now());
+                }
+                if matches!(result, Ok(true)) {
+                    model.refresh_videos();
+                }
+            });
+        });
     }
 
     #[qslot]

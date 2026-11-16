@@ -105,12 +105,16 @@ ApplicationWindow {
             openSavedVideo(imported.id)
             return
         }
+        if (page === "watch")
+            saveVideoProgress()
         beginVideo({ path: path })
     }
 
     function openSavedVideo(id) {
         if (player.loading)
             return "Wait for the current video to finish opening."
+        if (page === "watch")
+            saveVideoProgress()
         const video = Library.readVideo(id)
         if (video.error)
             return video.error
@@ -120,8 +124,6 @@ ApplicationWindow {
     }
 
     function beginVideo(video) {
-        if (page === "watch")
-            saveVideoProgress()
         currentVideo = video
         videoReady = false
         awaitingVideoPosition = (video.seconds ?? 0) > 0
@@ -134,7 +136,7 @@ ApplicationWindow {
     function saveVideoProgress() {
         videoProgressTimer.stop()
         if (videoReady && !awaitingVideoPosition && currentVideo?.id)
-            videoError = Library.saveVideoProgress(currentVideo.id, player.ended ? 0 : player.position)
+            videoError = Library.saveVideoProgress(currentVideo.id, player.ended ? 0 : player.position, player.duration)
     }
 
     function attachSubtitles(url) {
@@ -207,7 +209,10 @@ ApplicationWindow {
             Qt.callLater(() => {
                 if (root.currentVideo !== video)
                     return
-                const resumeAt = Math.min(video?.seconds ?? 0, Math.max(0, root.player.duration - 0.1))
+                const savedPosition = video?.seconds ?? 0
+                const resumeAt = root.player.duration > 0
+                    ? Math.min(savedPosition, Math.max(0, root.player.duration - 0.1))
+                    : savedPosition
                 root.awaitingVideoPosition = resumeAt > 0
                 if (resumeAt > 0)
                     root.player.seek(resumeAt)

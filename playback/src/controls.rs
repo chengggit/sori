@@ -48,7 +48,12 @@ pub unsafe fn sori_mpv_pause(player: *mut mpv_handle) {
 #[no_mangle]
 pub unsafe extern "C" fn sori_mpv_seek(player: *mut mpv_handle, seconds: f64, duration: f64) {
     if seconds.is_finite() {
-        let position = CString::new(seconds.max(0.0).min(duration.max(0.0)).to_string()).unwrap();
+        let position = if duration.is_finite() && duration > 0.0 {
+            seconds.clamp(0.0, duration)
+        } else {
+            seconds.max(0.0)
+        };
+        let position = CString::new(position.to_string()).unwrap();
         command(player, 0, [c"seek", &position, c"absolute+exact"]);
     }
 }

@@ -1,5 +1,8 @@
 use rusqlite::Connection;
-use std::{path::PathBuf, time::Duration};
+use std::{
+    path::{Path, PathBuf},
+    time::Duration,
+};
 
 /// Each operation owns a connection; shared application state contains only its path.
 #[derive(Clone)]
@@ -28,6 +31,13 @@ impl Database {
             .map_err(|error| error.to_string())?;
         Ok(connection)
     }
+
+    pub fn thumbnail_directory(&self) -> PathBuf {
+        self.path
+            .parent()
+            .unwrap_or_else(|| Path::new("."))
+            .join("thumbnails")
+    }
 }
 
 fn initialize_schema(connection: &mut Connection) -> Result<(), String> {
@@ -37,7 +47,36 @@ fn initialize_schema(connection: &mut Connection) -> Result<(), String> {
     transaction
         .execute_batch(include_str!("schema.sql"))
         .map_err(|error| error.to_string())?;
+    // Existing pre-release databases predate the Continue Watching metadata.
+    // Keep version 1 and fold the columns in until released builds need migrations.
+    for (column, definition) in [
+        ("duration", "REAL NOT NULL DEFAULT 0"),
+        ("thumbnail", "TEXT"),
+    ] {
+        if !has_column(&transaction, "videos", column)? {
+            transaction
+                .execute(
+                    &format!("ALTER TABLE videos ADD COLUMN {column} {definition}"),
+                    [],
+                )
+                .map_err(|error| error.to_string())?;
+        }
+    }
     transaction.commit().map_err(|error| error.to_string())
+}
+
+fn has_column(connection: &Connection, table: &str, column: &str) -> Result<bool, String> {
+    let mut statement = connection
+        .prepare(&format!("PRAGMA table_info({table})"))
+        .map_err(|error| error.to_string())?;
+    let mut rows = statement.query([]).map_err(|error| error.to_string())?;
+    while let Some(row) = rows.next().map_err(|error| error.to_string())? {
+        let name: String = row.get(1).map_err(|error| error.to_string())?;
+        if name == column {
+            return Ok(true);
+        }
+    }
+    Ok(false)
 }
 
 #[cfg(test)]
@@ -63,6 +102,37 @@ mod tests {
             .pragma_query_value(None, "user_version", |row| row.get(0))
             .unwrap();
         assert_eq!(version, 1);
+    }
+
+    #[test]
+    fn adds_video_metadata_columns_to_existing_database() {
+        let mut connection = Connection::open_in_memory().unwrap();
+        connection
+            .execute_batch(
+                "CREATE TABLE videos (
+                     id INTEGER PRIMARY KEY AUTOINCREMENT,
+                     path TEXT NOT NULL UNIQUE,
+                     title TEXT NOT NULL,
+                     seconds REAL NOT NULL DEFAULT 0,
+                     sidecar TEXT
+                 );
+                 INSERT INTO videos (path, title, seconds) VALUES ('/tmp/old.mkv', 'Old', 12.5);",
+            )
+            .unwrap();
+        initialize_schema(&mut connection).unwrap();
+        assert!(has_column(&connection, "videos", "duration").unwrap());
+        assert!(has_column(&connection, "videos", "thumbnail").unwrap());
+        let (title, seconds, duration, thumbnail): (String, f64, f64, Option<String>) = connection
+            .query_row(
+                "SELECT title, seconds, duration, thumbnail FROM videos",
+                [],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+            )
+            .unwrap();
+        assert_eq!(title, "Old");
+        assert_eq!(seconds, 12.5);
+        assert_eq!(duration, 0.0);
+        assert_eq!(thumbnail, None);
     }
 
     #[test]

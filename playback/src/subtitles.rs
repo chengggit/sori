@@ -104,10 +104,10 @@ pub(super) fn command_output(
         .map_err(|error| format!("Could not wait for {program}: {error}"))?;
     read.map_err(|error| format!("Could not read output from {program}: {error}"))?;
     if output.len() > limit {
-        return Err("Subtitle data exceeds the size limit".into());
+        return Err(format!("{program} output exceeds the size limit"));
     }
     if !status.success() {
-        return Err(format!("{program} could not read subtitles"));
+        return Err(format!("{program} could not process the media"));
     }
     Ok(output)
 }
