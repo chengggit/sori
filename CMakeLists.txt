@@ -49,5 +49,41 @@ add_dependencies(sori sori-qt-playback)
 target_link_libraries(sori PRIVATE "${PLAYBACK_LIB}" Qt6::Quick Qt6::OpenGL Qt6::Test PkgConfig::MPV)
 qt_add_resources(sori "watch" PREFIX "/" FILES
     qml/Main.qml
+    qml/Theme.js
+    qml/components/AppButton.qml
+    qml/components/AppInput.qml
+    qml/components/AppSidebar.qml
+    qml/components/AppText.qml
+    qml/components/EmptyState.qml
+    qml/components/Icon.qml
+    qml/components/PageHeader.qml
+    qml/icons/arrow-left.svg
+    qml/icons/book-open.svg
+    qml/icons/bookmark.svg
+    qml/icons/chevron-down.svg
+    qml/icons/clock.svg
+    qml/icons/compass.svg
+    qml/icons/file-text.svg
+    qml/icons/film.svg
+    qml/icons/folder-open.svg
+    qml/icons/history.svg
+    qml/icons/house.svg
+    qml/icons/library.svg
+    qml/icons/panel-left.svg
+    qml/icons/pencil.svg
+    qml/icons/play.svg
+    qml/icons/plus.svg
+    qml/icons/search.svg
+    qml/icons/settings.svg
+    qml/icons/upload.svg
+    qml/icons/x.svg
+    qml/pages/ExplorePage.qml
+    qml/pages/HistoryPage.qml
+    qml/pages/HomePage.qml
+    qml/pages/LibraryPage.qml
+    qml/pages/ReaderPage.qml
+    qml/pages/SettingsSheet.qml
+    qml/pages/VocabularyPage.qml
+    qml/pages/WatchPage.qml
     assets/Inter-Variable.ttf assets/NotoSansKR-Regular.otf
 )

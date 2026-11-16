@@ -9,7 +9,8 @@ Quick OpenGL framebuffer so the video and UI are composited together.
 ## Build and run
 
 On Linux, use Qt 6.10 or later with its Quick, OpenGL, and Test modules and
-matching private development headers, a C++17 toolchain, CMake 3.21 or later,
+matching private development headers. The icons use Qt Quick Vector Image
+and Qt SVG. Use a C++17 toolchain, CMake 3.21 or later,
 pkg-config, Rust 1.88 or later, and libmpv development files. CMake uses
 the selected Qt SDK's qmake to build Qt Bridge. Use a linker supported by
 CXX-Qt such as lld. FFmpeg and FFprobe must be available on PATH to load
@@ -49,6 +50,11 @@ selected automatically when tagged. Scroll the transcript to suspend
 **Follow playback**, or click a cue to seek. **F** enters fullscreen, **Esc**
 exits it, **Space** toggles playback, and **Left/Right** seek five seconds.
 
-Watch is the current page. Library integration and Kiwi lookup are planned.
+Watch supports local playback and subtitles. Home, Explore, My Library,
+Reader, Vocabulary, and History have QML layouts. Discovery, library storage
+and imports, document reading, Kiwi lookup, saved words, and progress history
+still need to be connected. Settings controls Watch text rendering for the
+current session. Appearance selection and dictionary preferences are pending.
 
-[Inter license](assets/OFL-Inter.txt) and [Noto Sans KR license](assets/OFL-NotoSansKR.txt).
+[Inter license](assets/OFL-Inter.txt), [Noto Sans KR license](assets/OFL-NotoSansKR.txt),
+and [Lucide license](assets/LUCIDE-LICENSE.txt).
