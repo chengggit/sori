@@ -9,7 +9,7 @@ WebEngineView {
     readonly property string appOrigin: "https://com.sori.app"
     signal checkpoint(var entry, real seconds, real duration)
 
-    profile: WebEngineProfile { offTheRecord: true }
+    // Qt Quick shares an off-the-record profile by default.
     backgroundColor: "black"
     settings.playbackRequiresUserGesture: true
 
@@ -18,18 +18,20 @@ WebEngineView {
             return
         playbackError = ""
         const start = Math.max(0, Math.floor(video.seconds || 0))
+        const playerUrl = "https://www.youtube.com/embed/" + video.youtubeId
+            + "?enablejsapi=1&cc_lang_pref=ko&start=" + start
+            + "&origin=" + encodeURIComponent(appOrigin)
         loadHtml(`<!doctype html>
 <meta name="referrer" content="strict-origin-when-cross-origin">
-<style>html,body,#player{width:100%;height:100%;margin:0;background:black} iframe{display:block}</style>
-<div id="player"></div>
+<style>html,body,iframe{width:100%;height:100%;margin:0;background:black} iframe{display:block;border:0}</style>
+<iframe id="player" title="YouTube video player" src="${playerUrl.replace(/&/g, "&amp;")}"
+        referrerpolicy="strict-origin-when-cross-origin" allow="encrypted-media; picture-in-picture"></iframe>
 <script>
 let player, played = false, error = false;
 function onYouTubeIframeAPIReady() {
-    player = new YT.Player('player', {
-        width: '100%', height: '100%',
-        videoId: ${JSON.stringify(video.youtubeId)},
-        playerVars: {origin: ${JSON.stringify(appOrigin)}, start: ${start}, cc_lang_pref: 'ko'},
+    player = new YT.Player(document.getElementById('player'), {
         events: {
+            onReady: event => { if (event.target.getPlayerState() === YT.PlayerState.PLAYING) played = true; },
             onStateChange: event => { if (event.data === YT.PlayerState.PLAYING) played = true; },
             onError: () => { error = true; }
         }
@@ -43,7 +45,7 @@ function playbackSnapshot() {
     return { seconds: state === 0 ? 0 : player.getCurrentTime(), duration: player.getDuration() };
 }
 </script>
-<script src="https://www.youtube.com/iframe_api" onerror="error = true"></script>`, appOrigin + "/")
+<script async src="https://www.youtube.com/iframe_api"></script>`, appOrigin + "/")
     }
 
     onLoadingChanged: info => {
