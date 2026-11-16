@@ -9,6 +9,7 @@ import "../components"
 Item {
     id: root
 
+    signal openYouTubeRequested(string url, string title, string channel)
     required property var searchCache
     readonly property int cacheLifetime: 24 * 60 * 60 * 1000
     readonly property int paginationDistance: 500
@@ -54,13 +55,6 @@ Item {
         linkError = ""
         pasteDialog.open()
         videoLink.forceActiveFocus()
-    }
-
-    function openLink(raw) {
-        const url = YouTube.resolveLink(raw)
-        if (!url)
-            return "Enter a YouTube video link."
-        return Qt.openUrlExternally(url) ? "" : "Could not open your browser."
     }
 
     function freshCacheEntries() {
@@ -145,11 +139,15 @@ Item {
         title: "Open a YouTube video"
 
         function submit() {
-            root.linkError = root.openLink(videoLink.text)
-            if (!root.linkError) {
-                videoLink.clear()
-                close()
+            const url = YouTube.resolveLink(videoLink.text)
+            if (!url) {
+                root.linkError = "Enter a YouTube video link."
+                return
             }
+            videoLink.clear()
+            root.linkError = ""
+            close()
+            root.openYouTubeRequested(url, "", "")
         }
 
         contentItem: ColumnLayout {
@@ -174,7 +172,7 @@ Item {
             RowLayout {
                 Layout.alignment: Qt.AlignRight
                 AppButton { text: "Cancel"; variant: "ghost"; onClicked: pasteDialog.close() }
-                AppButton { text: "Open in browser"; enabled: !!videoLink.text.trim(); onClicked: pasteDialog.submit() }
+                AppButton { text: "Watch"; enabled: !!videoLink.text.trim(); onClicked: pasteDialog.submit() }
             }
         }
     }
@@ -338,7 +336,7 @@ Item {
                     height: results.cellHeight - Theme.dashboardRowGap
                     padding: 0
                     hoverEnabled: true
-                    Accessible.name: modelData.title + ", open in browser"
+                    Accessible.name: modelData.title
 
                     background: Rectangle {
                         color: tile.activeFocus ? Theme.hero : "transparent"
@@ -458,7 +456,8 @@ Item {
                         }
                     }
 
-                    onClicked: root.error = root.openLink("https://www.youtube.com/watch?v=" + modelData.id)
+                    onClicked: root.openYouTubeRequested("https://www.youtube.com/watch?v=" + modelData.id,
+                                                         modelData.title, modelData.channel)
                 }
             }
             footer: Item {

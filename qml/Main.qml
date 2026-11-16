@@ -124,20 +124,56 @@ ApplicationWindow {
         return ""
     }
 
+    function openYouTube(url, title, channel) {
+        if (player.loading)
+            return
+        const canonical = YouTube.resolveLink(url)
+        if (!canonical)
+            return
+        if (page === "watch")
+            saveVideoProgress()
+        const id = canonical.slice(-11)
+        const previous = Library.youtubeHistory.find(entry => entry.youtubeId === id)
+        beginVideo({
+            youtubeId: id,
+            youtubeUrl: canonical,
+            title: title || previous?.title || "",
+            channel: channel || previous?.channel || "",
+            seconds: previous?.seconds ?? 0
+        })
+    }
+
+    function openHistoryVideo(entry) {
+        if (entry.youtubeId) {
+            openYouTube("https://www.youtube.com/watch?v=" + entry.youtubeId, entry.title, entry.channel)
+            return ""
+        }
+        return openSavedVideo(entry.id)
+    }
+
     function beginVideo(video) {
         currentVideo = video
         videoReady = false
         awaitingVideoPosition = (video.seconds ?? 0) > 0
         videoError = ""
         navigate("watch")
-        player.open(video.path)
+        if (video.youtubeId)
+            player.openYoutube(video.youtubeId, video.title)
+        else
+            player.open(video.path)
         wakeControls()
     }
 
     function saveVideoProgress() {
         videoProgressTimer.stop()
-        if (videoReady && !awaitingVideoPosition && currentVideo?.id)
-            videoError = Library.saveVideoProgress(currentVideo.id, player.ended ? 0 : player.position, player.duration)
+        if (!videoReady || !player.loaded || awaitingVideoPosition)
+            return
+        const seconds = player.ended ? 0 : player.position
+        if (currentVideo?.youtubeId)
+            videoError = Library.saveYoutubeProgress(currentVideo.youtubeId, player.filename,
+                                                     currentVideo.channel, seconds, player.duration)
+        else if (currentVideo?.id)
+            videoError = Library.saveVideoProgress(currentVideo.id, seconds, player.duration)
     }
 
     function attachSubtitles(url) {
@@ -202,7 +238,8 @@ ApplicationWindow {
             root.wakeControls()
         }
         function onMediaReady(path) {
-            root.subtitles.probe(path)
+            if (!root.currentVideo?.youtubeId)
+                root.subtitles.probe(path)
             root.wakeControls()
             const video = root.currentVideo
             if (video?.sidecar)
@@ -226,7 +263,7 @@ ApplicationWindow {
         }
         function onPositionChanged() {
             root.subtitles.update(root.player.position)
-            if (!root.videoReady || root.page !== "watch" || !root.currentVideo?.id)
+            if (!root.videoReady || root.page !== "watch" || !(root.currentVideo?.id || root.currentVideo?.youtubeId))
                 return
             if (root.player.position > 0)
                 root.awaitingVideoPosition = false
@@ -378,13 +415,15 @@ ApplicationWindow {
                 HomePage {
                     id: homePage
                     searchCache: youtubeSearchCache
+                    onOpenYouTubeRequested: (url, title, channel) => root.openYouTube(url, title, channel)
                     onOpenLibraryRequested: root.navigate("library")
                     onOpenVideoRequested: videoPicker.open()
-                    onResumeVideoRequested: id => homePage.resumeError = root.openSavedVideo(id)
+                    onResumeVideoRequested: entry => homePage.resumeError = root.openHistoryVideo(entry)
                 }
                 ExplorePage {
                     id: explorePage
                     searchCache: youtubeSearchCache
+                    onOpenYouTubeRequested: (url, title, channel) => root.openYouTube(url, title, channel)
                 }
                 LibraryPage {
                     renderHost: root.renderHost
@@ -402,7 +441,7 @@ ApplicationWindow {
                 VocabularyPage {}
                 HistoryPage {
                     onOpenLibraryRequested: root.navigate("library")
-                    onOpenWatchRequested: id => error = root.openSavedVideo(id)
+                    onOpenWatchRequested: entry => error = root.openHistoryVideo(entry)
                 }
             }
         }
@@ -427,6 +466,7 @@ ApplicationWindow {
                 captionsVisible: root.captionsVisible
                 nativeText: Theme.nativeText
                 libraryError: root.videoError
+                youtubeUrl: root.currentVideo?.youtubeUrl ?? ""
                 videoId: root.currentVideo?.id ?? 0
                 backLabel: root.pageStack[root.pageStack.length - 1] === "library" ? "My Library" : "Back"
                 onNativeTextRequested: enabled => Theme.nativeText = enabled
