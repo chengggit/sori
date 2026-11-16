@@ -344,9 +344,15 @@ ApplicationWindow {
                 Layout.fillWidth: true
                 title: root.page === "reader" ? readerPage.documentTitle : root.pageTitle
                 backLabel: root.page === "reader" ? "My Library" : ""
-                searchVisible: root.page === "home"
-                placeholder: "Search videos, podcasts, articles, or creators"
+                searchVisible: root.page === "home" && YouTube.configured
+                placeholder: "Search YouTube for Korean videos"
                 onBackRequested: root.goBack("library")
+                onSearchAccepted: query => {
+                    if (query.trim()) {
+                        root.navigate("explore")
+                        explorePage.browse(query)
+                    }
+                }
             }
 
             StackLayout {
@@ -368,8 +374,15 @@ ApplicationWindow {
                     onOpenLibraryRequested: root.navigate("library")
                     onOpenVideoRequested: videoPicker.open()
                     onResumeVideoRequested: id => error = root.openSavedVideo(id)
+                    onExploreRequested: root.navigate("explore")
+                    onOpenYouTubeRequested: {
+                        root.navigate("explore")
+                        explorePage.showLinkForm()
+                    }
                 }
-                ExplorePage {}
+                ExplorePage {
+                    id: explorePage
+                }
                 LibraryPage {
                     renderHost: root.renderHost
                     onOpenReaderRequested: (id, title) => {

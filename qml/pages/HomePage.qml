@@ -10,6 +10,8 @@ Item {
     signal openLibraryRequested()
     signal openVideoRequested()
     signal resumeVideoRequested(real id)
+    signal openYouTubeRequested()
+    signal exploreRequested()
     property string error: ""
     readonly property var recentVideo: Library.recentVideos[0] ?? null
 
@@ -67,44 +69,30 @@ Item {
             }
         }
 
-        RowLayout {
+        Rectangle {
             Layout.fillWidth: true
-            AppText { text: "Discover"; font.pixelSize: 24; font.weight: Font.DemiBold; Layout.fillWidth: true }
-            AppText { text: "Korean media picked for you"; color: Theme.mutedForeground; font.pixelSize: 13 }
-        }
+            Layout.preferredHeight: discovery.implicitHeight + 40
+            radius: Theme.radiusLarge
+            color: Theme.card
+            border.color: Theme.border
 
-        Flow {
-            Layout.fillWidth: true
-            spacing: 8
-            Repeater {
-                model: ["All", "Daily life", "Vlogs", "Food", "Travel", "Culture", "Grammar"]
-                delegate: Rectangle {
-                    required property string modelData
-                    width: chipLabel.implicitWidth + 26
-                    height: 30
-                    radius: 15
-                    color: modelData === "All" ? Theme.accent : Theme.card
-                    border.width: modelData === "All" ? 0 : 1
-                    border.color: Theme.border
-                    AppText {
-                        id: chipLabel
-                        anchors.centerIn: parent
-                        text: modelData
-                        color: modelData === "All" ? Theme.onAccent : Theme.foreground
-                        font.pixelSize: 12
-                    }
+            ColumnLayout {
+                id: discovery
+                anchors.left: parent.left
+                anchors.right: parent.right
+                anchors.top: parent.top
+                anchors.margins: 20
+                spacing: 10
+
+                AppText { text: "Discover Korean videos"; font.pixelSize: 20; font.weight: Font.DemiBold }
+
+                RowLayout {
+                    AppButton { text: "Explore"; iconName: "compass"; onClicked: root.exploreRequested() }
+                    AppButton { text: "Paste YouTube link"; variant: "outline"; onClicked: root.openYouTubeRequested() }
                 }
             }
         }
 
-        EmptyState {
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            iconName: "compass"
-            title: "Discover is ready for its data source"
-            message: "The Home layout is ported. YouTube discovery and saved progress will be connected in a later frontend step."
-            actionText: "Browse Library"
-            onActionRequested: root.openLibraryRequested()
-        }
+        Item { Layout.fillHeight: true }
     }
 }

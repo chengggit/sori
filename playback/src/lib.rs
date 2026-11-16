@@ -129,6 +129,7 @@ mod reader;
 mod subtitles;
 mod video_library;
 mod vocabulary;
+mod youtube;
 
 mod player_model;
 mod subtitle_model;
@@ -140,4 +141,5 @@ pub extern "C" fn sori_qt_register_models() {
     subtitle_model::Subtitles::register();
     library_model::Library::register();
     analysis_model::Analysis::register();
+    youtube::YouTube::register();
 }
