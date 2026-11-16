@@ -269,6 +269,7 @@ Item {
                     width: results.tileWidth
                     height: results.cellHeight - Theme.dashboardRowGap
                     padding: 0
+                    hoverEnabled: true
                     Accessible.name: modelData.title + ", open in browser"
 
                     background: Rectangle {
@@ -288,6 +289,26 @@ Item {
                                 asynchronous: true
                                 fillMode: Image.PreserveAspectCrop
                                 source: "https://i.ytimg.com/vi/" + tile.modelData.id + "/mqdefault.jpg"
+                            }
+                            Rectangle {
+                                anchors.fill: parent
+                                color: Qt.alpha(Theme.darkBackground, 0.28)
+                                visible: tile.hovered || tile.visualFocus
+                            }
+                            Rectangle {
+                                anchors.centerIn: parent
+                                width: 40
+                                height: width
+                                radius: width / 2
+                                color: Theme.card
+                                visible: tile.hovered || tile.visualFocus
+
+                                Icon {
+                                    anchors.centerIn: parent
+                                    name: "play-filled"
+                                    size: 18
+                                    color: Theme.dashboardAccent
+                                }
                             }
                             Repeater {
                                 model: 4
