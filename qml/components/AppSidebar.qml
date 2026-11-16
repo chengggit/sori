@@ -21,8 +21,8 @@ Rectangle {
         { page: "home", label: "Home", icon: "house" },
         { page: "explore", label: "Explore", icon: "compass" },
         { page: "library", label: "My Library", icon: "library" },
-        { page: "vocabulary", label: "Vocabulary", icon: "bookmark" },
-        { page: "history", label: "History", icon: "history" }
+        { page: "history", label: "History", icon: "history" },
+        { page: "vocabulary", label: "Vocabulary", icon: "bookmark" }
     ]
 
     Rectangle {
@@ -47,9 +47,9 @@ Rectangle {
             anchors.verticalCenter: parent.verticalCenter
             visible: root.expanded
             text: "sori"
-            font.pixelSize: 20
+            font.pixelSize: 18
             font.weight: Font.Bold
-            color: Theme.accent
+            color: Theme.foreground
         }
 
         Item {
@@ -66,7 +66,7 @@ Rectangle {
             Icon {
                 anchors.centerIn: parent
                 name: "panel-left"
-                size: 18
+                size: 16
                 color: Theme.foreground
             }
             MouseArea {
@@ -82,7 +82,7 @@ Rectangle {
     ColumnLayout {
         id: navigation
         anchors.top: brandRow.bottom
-        anchors.topMargin: 20
+        anchors.topMargin: 40
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.leftMargin: 10
@@ -98,11 +98,11 @@ Rectangle {
                 readonly property bool active: root.currentPage === modelData.page
 
                 Layout.fillWidth: true
-                Layout.preferredHeight: 38
+                Layout.preferredHeight: 34
 
                 Rectangle {
                     anchors.fill: parent
-                    radius: 10
+                    radius: 14
                     color: linkItem.active ? Theme.accentSoft
                         : linkMouse.containsMouse ? Theme.hero : "transparent"
                 }
@@ -111,7 +111,7 @@ Rectangle {
                     x: root.expanded ? 13 : Math.round((parent.width - width) / 2)
                     anchors.verticalCenter: parent.verticalCenter
                     name: linkItem.modelData.icon
-                    size: 18
+                    size: 16
                     color: linkItem.active ? Theme.accent : Theme.mutedForeground
                 }
 
@@ -150,8 +150,8 @@ Rectangle {
     Rectangle {
         anchors.left: parent.left
         anchors.right: parent.right
-        anchors.bottom: settingsRow.top
-        anchors.bottomMargin: 12
+        anchors.top: navigation.bottom
+        anchors.topMargin: 24
         anchors.leftMargin: 20
         anchors.rightMargin: 20
         height: 1
@@ -163,23 +163,23 @@ Rectangle {
         anchors.left: parent.left
         anchors.right: parent.right
         anchors.bottom: parent.bottom
-        anchors.bottomMargin: 14
+        anchors.bottomMargin: 30
         anchors.leftMargin: 10
         anchors.rightMargin: 10
         height: 38
 
         Rectangle {
             anchors.fill: parent
-            radius: 10
+            radius: 14
             color: settingsMouse.containsMouse ? Theme.accentSoft : "transparent"
-            border.width: root.expanded ? 1 : 0
+            border.width: 0
             border.color: Theme.border
         }
         Icon {
             x: root.expanded ? 13 : Math.round((parent.width - width) / 2)
             anchors.verticalCenter: parent.verticalCenter
             name: "settings"
-            size: 18
+            size: 16
             color: Theme.mutedForeground
         }
         AppText {

@@ -15,7 +15,14 @@ Item {
     property string error: ""
     readonly property var recentVideo: Library.recentVideos[0] ?? null
 
+    ExplorePage {
+        anchors.fill: parent
+        discovery: true
+        visible: YouTube.configured
+    }
+
     ColumnLayout {
+        visible: !YouTube.configured
         anchors.fill: parent
         anchors.margins: 28
         spacing: 24

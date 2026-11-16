@@ -8,6 +8,9 @@ import "../components"
 Item {
     id: root
 
+    property bool discovery: false
+    property int discoveryIndex: 0
+    readonly property var discoveryQueries: ["한국 집밥 요리 브이로그", "한국 일상 브이로그", "한국 여행 브이로그"]
     property int request: 0
     property var videos: []
     property string currentQuery: ""
@@ -26,6 +29,13 @@ Item {
         { label: "Music", query: "한국 음악 공연 인터뷰 한국어 자막" },
         { label: "Daily life", query: "한국 시골 일상 브이로그 한국어 자막" }
     ]
+
+    function refreshDiscovery() {
+        browse(discoveryQueries[discoveryIndex])
+        discoveryIndex = (discoveryIndex + 1) % discoveryQueries.length
+    }
+
+    Component.onCompleted: if (discovery && YouTube.configured) refreshDiscovery()
 
     function showLinkForm() {
         linkError = ""
@@ -116,11 +126,25 @@ Item {
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 28
+        anchors.margins: 32
         spacing: 14
 
         RowLayout {
             Layout.fillWidth: true
+            visible: root.discovery
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 5
+                AppText { text: "DISCOVER"; font.pixelSize: 11; font.weight: Font.DemiBold; color: Theme.mutedForeground; font.letterSpacing: 1 }
+                AppText { text: "Korean videos on YouTube"; font.pixelSize: 24; font.weight: Font.DemiBold }
+            }
+            AppButton { text: "Paste YouTube link"; variant: "outline"; small: true; onClicked: root.showLinkForm() }
+            AppButton { text: "Refresh Discover"; variant: "outline"; small: true; enabled: !root.request; onClicked: root.refreshDiscovery() }
+        }
+
+        RowLayout {
+            Layout.fillWidth: true
+            visible: !root.discovery
 
             AppInput {
                 id: search
@@ -143,7 +167,7 @@ Item {
         }
 
         Flow {
-            visible: YouTube.configured
+            visible: YouTube.configured && !root.discovery
             Layout.fillWidth: true
             spacing: 8
 
@@ -177,21 +201,21 @@ Item {
             Layout.fillHeight: true
             clip: true
             model: root.videos
-            cellWidth: width / Math.max(1, Math.floor(width / 234))
-            cellHeight: (cellWidth - 12) * 9 / 16 + 78
+            cellWidth: (width + 20) / Math.max(1, Math.floor(width / 290))
+            cellHeight: (cellWidth - 20) * 9 / 16 + 92
             ScrollBar.vertical: ScrollBar {}
 
             delegate: ItemDelegate {
                 id: tile
                 required property var modelData
-                width: results.cellWidth - 12
-                height: results.cellHeight - 12
-                padding: 6
+                width: results.cellWidth - 20
+                height: results.cellHeight - 16
+                padding: 0
                 Accessible.name: modelData.title + ", open in browser"
 
                 background: Rectangle {
-                    color: tile.hovered || tile.activeFocus ? Theme.hero : Theme.card
-                    border.color: Theme.border
+                    color: tile.activeFocus ? Theme.hero : "transparent"
+                    border.width: 0
                     radius: Theme.radiusSmall
                 }
 
@@ -211,6 +235,8 @@ Item {
                         text: tile.modelData.title
                         font.weight: Font.DemiBold
                         elide: Text.ElideRight
+                        wrapMode: Text.Wrap
+                        maximumLineCount: 2
                     }
 
                     AppText {
@@ -224,15 +250,14 @@ Item {
 
                 onClicked: root.error = root.openLink("https://www.youtube.com/watch?v=" + modelData.id)
             }
-        }
-
-        AppButton {
-            Layout.alignment: Qt.AlignHCenter
-            visible: !!root.nextPage
-            text: root.request ? "Loading…" : "Load more"
-            variant: "outline"
-            enabled: !root.request
-            onClicked: root.browse(root.currentQuery, root.nextPage)
+            footer: AppButton {
+                anchors.horizontalCenter: parent.horizontalCenter
+                visible: !!root.nextPage
+                text: root.request ? "Loading…" : "Load more"
+                variant: "outline"
+                enabled: !root.request
+                onClicked: root.browse(root.currentQuery, root.nextPage)
+            }
         }
     }
 }

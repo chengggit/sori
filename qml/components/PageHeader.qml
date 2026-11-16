@@ -14,8 +14,8 @@ Rectangle {
     signal backRequested()
     signal searchAccepted(string text)
 
-    implicitHeight: 64
-    color: Theme.sidebar
+    implicitHeight: 56
+    color: root.searchVisible ? Theme.background : Theme.sidebar
 
     Rectangle {
         anchors.bottom: parent.bottom
@@ -26,7 +26,7 @@ Rectangle {
 
     RowLayout {
         anchors.fill: parent
-        anchors.leftMargin: 24
+        anchors.leftMargin: 32
         anchors.rightMargin: 24
         spacing: 12
 
@@ -50,14 +50,24 @@ Rectangle {
         }
 
         AppInput {
+            id: headerSearch
             visible: root.searchVisible
             Layout.fillWidth: true
-            Layout.maximumWidth: 504
+            Layout.maximumWidth: 460
             Layout.preferredHeight: 38
             placeholderText: root.placeholder
             text: root.searchText
-            iconName: root.searchIcon
+            iconName: ""
             onAccepted: root.searchAccepted(text)
+        }
+
+        AppButton {
+            visible: root.searchVisible
+            iconName: root.searchIcon
+            variant: "outline"
+            Accessible.name: "Search"
+            Layout.preferredWidth: 36
+            onClicked: root.searchAccepted(headerSearch.text)
         }
 
         AppText {
