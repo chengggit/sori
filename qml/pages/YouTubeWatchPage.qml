@@ -14,6 +14,7 @@ Item {
     signal checkpoint(var entry, real seconds, real duration)
 
     ColumnLayout {
+        id: content
         anchors.top: parent.top
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.margins: 24
@@ -41,9 +42,10 @@ Item {
 
         Loader {
             id: embed
+            objectName: "youtubePlayerLoader"
             Layout.fillWidth: true
-            Layout.preferredHeight: Math.max(200, width * 9 / 16)
-            active: root.embeddingAvailable && width >= 200
+            Layout.preferredHeight: Math.max(200, content.width * 9 / 16)
+            active: root.embeddingAvailable && content.width >= 200
             visible: active && status !== Loader.Error
             source: "YouTubeEmbed.qml"
 
