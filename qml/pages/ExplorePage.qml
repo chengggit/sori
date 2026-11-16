@@ -250,13 +250,19 @@ Item {
 
                 onClicked: root.error = root.openLink("https://www.youtube.com/watch?v=" + modelData.id)
             }
-            footer: AppButton {
-                anchors.horizontalCenter: parent.horizontalCenter
-                visible: !!root.nextPage
-                text: root.request ? "Loading…" : "Load more"
-                variant: "outline"
-                enabled: !root.request
-                onClicked: root.browse(root.currentQuery, root.nextPage)
+            footer: Item {
+                width: results.width
+                height: root.nextPage ? loadMore.implicitHeight : 0
+
+                AppButton {
+                    id: loadMore
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    visible: !!root.nextPage
+                    text: root.request ? "Loading…" : "Load more"
+                    variant: "outline"
+                    enabled: !root.request
+                    onClicked: root.browse(root.currentQuery, root.nextPage)
+                }
             }
         }
     }
