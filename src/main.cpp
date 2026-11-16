@@ -1,0 +1,56 @@
+#include "videoitem.h"
+
+#include <QCommandLineParser>
+#include <QFontDatabase>
+#include <QGuiApplication>
+#include <QQmlApplicationEngine>
+#include <QQuickWindow>
+
+#include <clocale>
+#include <mpv/client.h>
+
+extern "C" {
+int sori_qt_start();
+void sori_qt_stop();
+void sori_qt_register_models();
+}
+
+namespace {
+struct MpvLifetime {
+    ~MpvLifetime() { sori_qt_stop(); }
+};
+}
+
+int main(int argc, char **argv)
+{
+    QGuiApplication app(argc, argv);
+    // Qt initializes the system locale. libmpv requires C numeric formatting.
+    std::setlocale(LC_NUMERIC, "C");
+    app.setApplicationName(QStringLiteral("Sori Qt Watch"));
+    QCommandLineParser parser;
+    parser.setApplicationDescription(QStringLiteral("Qt Quick and libmpv Watch prototype"));
+    parser.addHelpOption();
+    parser.addPositionalArgument("video", "Open a local video on launch.", "[video]");
+    parser.process(app);
+    if (parser.positionalArguments().size() > 1) parser.showHelp(2);
+
+    QQuickWindow::setGraphicsApi(QSGRendererInterface::OpenGL);
+    QFontDatabase::addApplicationFont(":/assets/Inter-Variable.ttf");
+    QFontDatabase::addApplicationFont(":/assets/NotoSansKR-Regular.otf");
+
+    const auto result = sori_qt_start();
+    if (result < 0) {
+        qCritical("Could not start libmpv: %s", mpv_error_string(result));
+        return 1;
+    }
+    const MpvLifetime mpv;
+    RenderHost renderHost;
+    sori_qt_register_models();
+    qmlRegisterType<VideoItem>("Sori", 1, 0, "VideoSurface");
+    QQmlApplicationEngine engine;
+    engine.setInitialProperties({{"renderHost", QVariant::fromValue(&renderHost)},
+                                 {"startupPath", parser.positionalArguments().value(0)}});
+    engine.load(QUrl("qrc:/qml/Main.qml"));
+    if (engine.rootObjects().isEmpty()) return 1;
+    return app.exec();
+}
