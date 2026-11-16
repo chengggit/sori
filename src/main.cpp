@@ -23,12 +23,17 @@ struct MpvLifetime {
 
 int main(int argc, char **argv)
 {
+#ifdef Q_OS_LINUX
+    // Let the desktop portal choose the system file dialog outside Sori's process.
+    qputenv("QT_QPA_PLATFORMTHEME", "xdgdesktopportal");
+    qputenv("QT_QPA_PLATFORMTHEME_QT6", "xdgdesktopportal");
+#endif
     QGuiApplication app(argc, argv);
     // Qt initializes the system locale. libmpv requires C numeric formatting.
     std::setlocale(LC_NUMERIC, "C");
-    app.setApplicationName(QStringLiteral("Sori Qt Watch"));
+    app.setApplicationName(QStringLiteral("Sori"));
     QCommandLineParser parser;
-    parser.setApplicationDescription(QStringLiteral("Qt Quick and libmpv Watch prototype"));
+    parser.setApplicationDescription(QStringLiteral("A local-first Korean immersion app"));
     parser.addHelpOption();
     parser.addPositionalArgument("video", "Open a local video on launch.", "[video]");
     parser.process(app);

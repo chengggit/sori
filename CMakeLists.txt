@@ -1,33 +1,53 @@
 cmake_minimum_required(VERSION 3.21)
-project(SoriQtPlayer LANGUAGES CXX)
+project(Sori LANGUAGES CXX)
 
 find_package(Qt6 6.10 REQUIRED COMPONENTS Quick OpenGL Test)
 find_package(PkgConfig REQUIRED)
 find_program(CARGO_EXECUTABLE cargo REQUIRED)
 pkg_check_modules(MPV REQUIRED IMPORTED_TARGET mpv)
+get_target_property(SORI_QMAKE Qt6::qmake IMPORTED_LOCATION)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
 
-add_executable(sori-qt-player
+add_executable(sori
     src/main.cpp
     src/videoitem.cpp src/videoitem.h
 )
+option(SORI_QML_PREVIEW "Enable QML live preview for local development" OFF)
+if(SORI_QML_PREVIEW)
+    if(Qt6_VERSION VERSION_LESS 6.12)
+        message(FATAL_ERROR "SORI_QML_PREVIEW requires Qt 6.12 or newer")
+    endif()
+    target_compile_definitions(sori PRIVATE QT_QML_DEBUG)
+    get_filename_component(SORI_QT_BIN "${SORI_QMAKE}" DIRECTORY)
+    find_program(SORI_QML_PREVIEW_EXECUTABLE NAMES qmlpreview qmlpreview-qt6
+        HINTS "${SORI_QT_BIN}" NO_DEFAULT_PATH REQUIRED)
+    add_custom_target(qml-preview
+        COMMAND "${SORI_QML_PREVIEW_EXECUTABLE}"
+            --resource "${CMAKE_CURRENT_BINARY_DIR}/.qt/rcc/watch.qrc"
+            "$<TARGET_FILE:sori>"
+        DEPENDS sori
+        USES_TERMINAL
+        VERBATIM
+    )
+endif()
 set(PLAYBACK_DIR "${CMAKE_CURRENT_SOURCE_DIR}/playback")
 set(PLAYBACK_TARGET "${CMAKE_CURRENT_BINARY_DIR}/cargo")
 set(PLAYBACK_LIB "${PLAYBACK_TARGET}/release/${CMAKE_STATIC_LIBRARY_PREFIX}sori_qt_playback${CMAKE_STATIC_LIBRARY_SUFFIX}")
 add_custom_command(OUTPUT "${PLAYBACK_LIB}"
-    COMMAND "${CARGO_EXECUTABLE}" build --release --locked
+    COMMAND "${CMAKE_COMMAND}" -E env "QMAKE=${SORI_QMAKE}"
+        "${CARGO_EXECUTABLE}" build --release --locked
         --manifest-path "${PLAYBACK_DIR}/Cargo.toml" --target-dir "${PLAYBACK_TARGET}"
-    DEPENDS "${PLAYBACK_DIR}/src/player_model.rs" "${PLAYBACK_DIR}/src/subtitle_model.rs"
+    DEPENDS "${SORI_QMAKE}" "${PLAYBACK_DIR}/src/player_model.rs" "${PLAYBACK_DIR}/src/subtitle_model.rs"
         "${PLAYBACK_DIR}/Cargo.toml" "${PLAYBACK_DIR}/Cargo.lock" "${PLAYBACK_DIR}/src/lib.rs" "${PLAYBACK_DIR}/src/subtitles.rs" "${PLAYBACK_DIR}/src/controls.rs"
     VERBATIM
 )
 add_custom_target(sori-qt-playback DEPENDS "${PLAYBACK_LIB}")
-add_dependencies(sori-qt-player sori-qt-playback)
-target_link_libraries(sori-qt-player PRIVATE "${PLAYBACK_LIB}" Qt6::Quick Qt6::OpenGL Qt6::Test PkgConfig::MPV)
-qt_add_resources(sori-qt-player "watch" PREFIX "/" FILES
+add_dependencies(sori sori-qt-playback)
+target_link_libraries(sori PRIVATE "${PLAYBACK_LIB}" Qt6::Quick Qt6::OpenGL Qt6::Test PkgConfig::MPV)
+qt_add_resources(sori "watch" PREFIX "/" FILES
     qml/Main.qml
     assets/Inter-Variable.ttf assets/NotoSansKR-Regular.otf
 )

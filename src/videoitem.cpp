@@ -1,5 +1,4 @@
 #include "videoitem.h"
-
 #include <QGuiApplication>
 #include <QtGui/qguiapplication_platform.h>
 #include <QOpenGLContext>

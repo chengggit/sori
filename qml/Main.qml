@@ -29,7 +29,7 @@ ApplicationWindow {
     minimumWidth: 640
     minimumHeight: 480
     visible: true
-    title: "Sori · Qt Watch"
+    title: "Sori"
     color: fullScreen ? "#000000" : "#121212"
     font.family: "Inter"
     palette.window: "#191919"
