@@ -3,6 +3,7 @@ use reqwest::blocking::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::io::Read;
+use std::path::PathBuf;
 use std::sync::OnceLock;
 use std::time::Duration;
 use url::Url;
@@ -53,10 +54,40 @@ fn api_key() -> Option<String> {
         .map(|key| key.trim().to_owned())
         .filter(|key| !key.is_empty())
         .or_else(|| {
-            let settings = std::fs::read_to_string(".env.local").ok()?;
+            let path = env_file()?;
+            let settings = std::fs::read_to_string(path).ok()?;
             key_from_settings(&settings, "SORI_YOUTUBE_API_KEY")
                 .or_else(|| key_from_settings(&settings, "VITE_YOUTUBE_API_KEY"))
         })
+}
+
+/// Resolve `.env.local` independently of the directory Sori was launched from.
+fn env_file() -> Option<PathBuf> {
+    if let Some(path) = std::env::var_os("SORI_ENV_FILE") {
+        let path = PathBuf::from(path);
+        if path.is_file() {
+            return Some(path);
+        }
+    }
+    let mut candidates = Vec::new();
+    if let Ok(directory) = std::env::current_dir() {
+        candidates.extend(
+            directory
+                .ancestors()
+                .take(6)
+                .map(|ancestor| ancestor.join(".env.local")),
+        );
+    }
+    if let Ok(executable) = std::env::current_exe() {
+        candidates.extend(
+            executable
+                .ancestors()
+                .skip(1)
+                .take(6)
+                .map(|ancestor| ancestor.join(".env.local")),
+        );
+    }
+    candidates.into_iter().find(|path| path.is_file())
 }
 
 fn key_from_settings(settings: &str, name: &str) -> Option<String> {
@@ -66,6 +97,9 @@ fn key_from_settings(settings: &str, name: &str) -> Option<String> {
             .strip_prefix("export ")
             .unwrap_or(line)
             .split_once('=')?;
+        if key.trim() != name {
+            return None;
+        }
         let value = value.trim();
         let value = value
             .strip_prefix('"')
@@ -76,7 +110,7 @@ fn key_from_settings(settings: &str, name: &str) -> Option<String> {
                     .and_then(|value| value.strip_suffix('\''))
             })
             .unwrap_or(value);
-        (key.trim() == name && !value.is_empty()).then(|| value.to_owned())
+        (!value.is_empty()).then(|| value.to_owned())
     })
 }
 
@@ -180,7 +214,9 @@ fn parse_search(body: &[u8]) -> Result<SearchPage, String> {
 }
 
 fn search(query: &str, page: &str) -> Result<SearchPage, String> {
-    let key = api_key().ok_or("Set SORI_YOUTUBE_API_KEY to search YouTube from Sori.")?;
+    let key = api_key().ok_or(
+        "Set SORI_YOUTUBE_API_KEY in .env.local to search YouTube from Sori.",
+    )?;
     let query = query.trim();
     if query.is_empty() || query.chars().count() > 250 {
         return Err("Enter a search of up to 250 characters.".into());
@@ -238,6 +274,15 @@ fn search(query: &str, page: &str) -> Result<SearchPage, String> {
             (429, _) | (_, Some("rateLimitExceeded" | "userRateLimitExceeded")) => {
                 "YouTube is limiting requests. Try again shortly."
             }
+            (400, Some("keyInvalid" | "API_KEY_INVALID")) => {
+                "The YouTube API key is not valid."
+            }
+            (403, Some("accessNotConfigured")) => {
+                "The YouTube Data API is not enabled for this key."
+            }
+            (403, Some("ipRefererBlocked" | "refererBlocked")) => {
+                "YouTube blocked this key for this app."
+            }
             (403, _) => "YouTube denied the search. Check the API key and its restrictions.",
             _ => "YouTube did not return search results.",
         }
@@ -261,6 +306,20 @@ mod tests {
         }
         assert!(video_id("https://youtube.com.example.org/watch?v=dQw4w9WgXcQ").is_none());
         assert!(video_id("https://www.youtube.com/embed/bad").is_none());
+    }
+
+    #[test]
+    fn reads_key_from_settings_file_syntax() {
+        let settings = "VITE_YOUTUBE_API_KEY=old\nexport SORI_YOUTUBE_API_KEY = \"new-key\"\n";
+        assert_eq!(
+            key_from_settings(settings, "SORI_YOUTUBE_API_KEY").as_deref(),
+            Some("new-key")
+        );
+        assert_eq!(
+            key_from_settings(settings, "VITE_YOUTUBE_API_KEY").as_deref(),
+            Some("old")
+        );
+        assert_eq!(key_from_settings(settings, "OTHER_KEY"), None);
     }
 
     #[test]
