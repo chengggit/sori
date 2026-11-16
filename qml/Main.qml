@@ -342,7 +342,9 @@ ApplicationWindow {
                 Layout.fillWidth: true
                 title: root.page === "reader" ? readerPage.documentTitle : root.pageTitle
                 backLabel: root.page === "reader" ? "My Library" : ""
-                searchVisible: root.page === "home" && YouTube.configured
+                searchVisible: root.page === "home"
+                searchEnabled: YouTube.configured
+                maximumContentWidth: root.page === "home" ? 1528 : 0
                 placeholder: "Search YouTube for Korean videos"
                 onBackRequested: root.goBack("library")
                 onSearchAccepted: query => {
@@ -369,14 +371,10 @@ ApplicationWindow {
                 }
 
                 HomePage {
+                    id: homePage
                     onOpenLibraryRequested: root.navigate("library")
                     onOpenVideoRequested: videoPicker.open()
-                    onResumeVideoRequested: id => error = root.openSavedVideo(id)
-                    onExploreRequested: root.navigate("explore")
-                    onOpenYouTubeRequested: {
-                        root.navigate("explore")
-                        explorePage.showLinkForm()
-                    }
+                    onResumeVideoRequested: id => homePage.resumeError = root.openSavedVideo(id)
                 }
                 ExplorePage {
                     id: explorePage

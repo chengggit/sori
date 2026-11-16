@@ -11,6 +11,8 @@ Rectangle {
     property bool searchVisible: false
     property string searchText: ""
     property string searchIcon: "search"
+    property bool searchEnabled: true
+    property int maximumContentWidth: 0
     signal backRequested()
     signal searchAccepted(string text)
 
@@ -26,7 +28,7 @@ Rectangle {
 
     RowLayout {
         anchors.fill: parent
-        anchors.leftMargin: 32
+        anchors.leftMargin: root.maximumContentWidth > 0 ? Math.max(32, (root.width - root.maximumContentWidth) / 2) : 32
         anchors.rightMargin: 24
         spacing: 12
 
@@ -52,6 +54,7 @@ Rectangle {
         AppInput {
             id: headerSearch
             visible: root.searchVisible
+            enabled: root.searchEnabled
             Layout.fillWidth: true
             Layout.maximumWidth: 460
             Layout.preferredHeight: 38
@@ -63,6 +66,7 @@ Rectangle {
 
         AppButton {
             visible: root.searchVisible
+            enabled: root.searchEnabled
             iconName: root.searchIcon
             variant: "outline"
             Accessible.name: "Search"

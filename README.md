@@ -77,7 +77,7 @@ across launches.
 
 ## YouTube discovery
 
-Set `SORI_YOUTUBE_API_KEY` when launching Sori to search the YouTube Data API
+Set `SORI_YOUTUBE_API_KEY` in the launch environment or in `.env.local` in the working directory to search the YouTube Data API
 from Home and Explore. Paste a YouTube video link in either page without a key.
 YouTube videos open in the system browser.
 

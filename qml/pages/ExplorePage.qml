@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Shapes
 import sori_qt_playback
 import "../style"
 import "../components"
@@ -9,6 +10,7 @@ Item {
     id: root
 
     property bool discovery: false
+    property Component leadingContent
     property int discoveryIndex: 0
     readonly property var discoveryQueries: ["한국 집밥 요리 브이로그", "한국 일상 브이로그", "한국 여행 브이로그"]
     property int request: 0
@@ -125,9 +127,20 @@ Item {
     }
 
     ColumnLayout {
-        anchors.fill: parent
-        anchors.margins: 32
-        spacing: 14
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        anchors.topMargin: root.discovery ? 28 : 32
+        anchors.bottomMargin: root.discovery ? 0 : 32
+        anchors.horizontalCenter: parent.horizontalCenter
+        width: root.discovery ? Math.min(1528, parent.width - 64) : parent.width - 64
+        spacing: root.discovery ? 20 : 14
+
+        Loader {
+            visible: status === Loader.Ready
+            Layout.fillWidth: true
+            Layout.bottomMargin: 4
+            sourceComponent: root.leadingContent
+        }
 
         RowLayout {
             Layout.fillWidth: true
@@ -139,7 +152,7 @@ Item {
                 AppText { text: "Korean videos on YouTube"; font.pixelSize: 24; font.weight: Font.DemiBold }
             }
             AppButton { text: "Paste YouTube link"; variant: "outline"; small: true; onClicked: root.showLinkForm() }
-            AppButton { text: "Refresh Discover"; variant: "outline"; small: true; enabled: !root.request; onClicked: root.refreshDiscovery() }
+            AppButton { text: "Refresh Discover"; variant: "outline"; small: true; enabled: YouTube.configured && !root.request; onClicked: root.refreshDiscovery() }
         }
 
         RowLayout {
@@ -201,54 +214,84 @@ Item {
             Layout.fillHeight: true
             clip: true
             model: root.videos
-            cellWidth: (width + 20) / Math.max(1, Math.floor(width / 290))
-            cellHeight: (cellWidth - 20) * 9 / 16 + 92
+            readonly property int columns: Math.max(1, Math.floor(width / (root.discovery ? 330 : 290)))
+            cellWidth: Math.floor(width / columns)
+            cellHeight: (cellWidth - 20 + 20 / columns) * 9 / 16 + 92
             ScrollBar.vertical: ScrollBar {}
 
-            delegate: ItemDelegate {
-                id: tile
+            delegate: Item {
+                id: cell
                 required property var modelData
-                width: results.cellWidth - 20
-                height: results.cellHeight - 16
-                padding: 0
-                Accessible.name: modelData.title + ", open in browser"
+                required property int index
+                width: results.cellWidth
+                height: results.cellHeight
 
-                background: Rectangle {
-                    color: tile.activeFocus ? Theme.hero : "transparent"
-                    border.width: 0
-                    radius: Theme.radiusSmall
+                ItemDelegate {
+                    id: tile
+                    readonly property var modelData: cell.modelData
+                    x: (cell.index % results.columns) * 20 / results.columns
+                    width: results.cellWidth - 20 + 20 / results.columns
+                    height: results.cellHeight - 16
+                    padding: 0
+                    Accessible.name: modelData.title + ", open in browser"
+
+                    background: Rectangle {
+                        color: tile.activeFocus ? Theme.hero : "transparent"
+                        border.width: 0
+                        radius: Theme.radiusSmall
+                    }
+
+                    contentItem: ColumnLayout {
+                        spacing: 6
+
+                        Item {
+                            Layout.fillWidth: true
+                            Layout.preferredHeight: width * 9 / 16
+                            Image {
+                                anchors.fill: parent
+                                asynchronous: true
+                                fillMode: Image.PreserveAspectCrop
+                                source: "https://i.ytimg.com/vi/" + tile.modelData.id + "/mqdefault.jpg"
+                            }
+                            Repeater {
+                                model: 4
+                                delegate: Shape {
+                                    required property int index
+                                    width: 14
+                                    height: 14
+                                    x: index === 1 || index === 2 ? parent.width - width : 0
+                                    y: index >= 2 ? parent.height - height : 0
+                                    rotation: index * 90
+                                    preferredRendererType: Shape.CurveRenderer
+                                    ShapePath {
+                                        strokeWidth: 0
+                                        fillColor: tile.activeFocus ? Theme.hero : Theme.background
+                                        PathSvg { path: "M 0 0 H 14 A 14 14 0 0 0 0 14 Z" }
+                                    }
+                                }
+                            }
+                        }
+
+                        AppText {
+                            Layout.fillWidth: true
+                            text: tile.modelData.title
+                            font.weight: Font.DemiBold
+                            elide: Text.ElideRight
+                            wrapMode: Text.Wrap
+                            maximumLineCount: 2
+                        }
+
+                        AppText {
+                            Layout.fillWidth: true
+                            text: tile.modelData.channel
+                            color: Theme.mutedForeground
+                            font.pixelSize: 12
+                            elide: Text.ElideRight
+                        }
+                    }
+
+                    onClicked: root.error = root.openLink("https://www.youtube.com/watch?v=" + modelData.id)
                 }
-
-                contentItem: ColumnLayout {
-                    spacing: 6
-
-                    Image {
-                        Layout.fillWidth: true
-                        Layout.preferredHeight: width * 9 / 16
-                        asynchronous: true
-                        fillMode: Image.PreserveAspectCrop
-                        source: "https://i.ytimg.com/vi/" + tile.modelData.id + "/mqdefault.jpg"
-                    }
-
-                    AppText {
-                        Layout.fillWidth: true
-                        text: tile.modelData.title
-                        font.weight: Font.DemiBold
-                        elide: Text.ElideRight
-                        wrapMode: Text.Wrap
-                        maximumLineCount: 2
-                    }
-
-                    AppText {
-                        Layout.fillWidth: true
-                        text: tile.modelData.channel
-                        color: Theme.mutedForeground
-                        font.pixelSize: 12
-                        elide: Text.ElideRight
-                    }
-                }
-
-                onClicked: root.error = root.openLink("https://www.youtube.com/watch?v=" + modelData.id)
             }
             footer: Item {
                 width: results.width

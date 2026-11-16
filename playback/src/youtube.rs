@@ -52,6 +52,32 @@ fn api_key() -> Option<String> {
         .ok()
         .map(|key| key.trim().to_owned())
         .filter(|key| !key.is_empty())
+        .or_else(|| {
+            let settings = std::fs::read_to_string(".env.local").ok()?;
+            key_from_settings(&settings, "SORI_YOUTUBE_API_KEY")
+                .or_else(|| key_from_settings(&settings, "VITE_YOUTUBE_API_KEY"))
+        })
+}
+
+fn key_from_settings(settings: &str, name: &str) -> Option<String> {
+    settings.lines().rev().find_map(|line| {
+        let line = line.trim();
+        let (key, value) = line
+            .strip_prefix("export ")
+            .unwrap_or(line)
+            .split_once('=')?;
+        let value = value.trim();
+        let value = value
+            .strip_prefix('"')
+            .and_then(|value| value.strip_suffix('"'))
+            .or_else(|| {
+                value
+                    .strip_prefix('\'')
+                    .and_then(|value| value.strip_suffix('\''))
+            })
+            .unwrap_or(value);
+        (key.trim() == name && !value.is_empty()).then(|| value.to_owned())
+    })
 }
 
 fn valid_id(id: &str) -> bool {
