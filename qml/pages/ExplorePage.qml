@@ -9,6 +9,9 @@ import "../components"
 Item {
     id: root
 
+    required property var searchCache
+    readonly property int cacheLifetime: 24 * 60 * 60 * 1000
+    readonly property int paginationDistance: 500
     property bool discovery: false
     property Component leadingContent
     property int discoveryIndex: 0
@@ -19,6 +22,7 @@ Item {
     property string nextPage: ""
     property string error: ""
     property bool loadingMore: false
+    property bool paginationFailed: false
     property string linkError: ""
     readonly property string statusText: error || (!YouTube.configured
         ? "Set SORI_YOUTUBE_API_KEY in .env.local to search YouTube from Sori."
@@ -41,7 +45,10 @@ Item {
         discoveryIndex = (discoveryIndex + 1) % discoveryQueries.length
     }
 
-    Component.onCompleted: if (discovery && YouTube.configured) refreshDiscovery()
+    Component.onCompleted: {
+        if (discovery && YouTube.configured)
+            Qt.callLater(refreshDiscovery)
+    }
 
     function showLinkForm() {
         linkError = ""
@@ -56,6 +63,26 @@ Item {
         return Qt.openUrlExternally(url) ? "" : "Could not open your browser."
     }
 
+    function freshCacheEntries() {
+        try {
+            return JSON.parse(searchCache.firstPages).filter(entry => entry.expiresAt > Date.now()
+                                                             && Array.isArray(entry.videos))
+        } catch (error) {
+            return []
+        }
+    }
+
+    function loadMoreNearEnd() {
+        if (!visible || request || !nextPage || !results.footerItem)
+            return
+        if (results.footerItem.y - (results.contentY + results.height) > paginationDistance) {
+            paginationFailed = false
+            return
+        }
+        if (!paginationFailed)
+            browse(currentQuery, nextPage)
+    }
+
     function browse(query, pageToken) {
         const term = query.trim()
         if (!term || !YouTube.configured || (request && term === currentQuery))
@@ -64,9 +91,17 @@ Item {
         currentQuery = term
         loadingMore = !!pageToken
         if (!loadingMore) {
+            paginationFailed = false
             search.text = term
             videos = []
             nextPage = ""
+            results.positionViewAtBeginning()
+            const cached = freshCacheEntries().find(entry => entry.query === term)
+            if (cached) {
+                videos = cached.videos
+                nextPage = cached.nextPage
+                return
+            }
         }
         request = YouTube.search(term, pageToken || "")
     }
@@ -77,13 +112,27 @@ Item {
         function onSearchFinished(request, result) {
             if (request !== root.request)
                 return
-            root.request = 0
+            const wasLoadingMore = root.loadingMore
+            root.loadingMore = false
             root.error = result.error ?? ""
+            root.paginationFailed = wasLoadingMore && !!root.error
             if (!root.error) {
                 const loaded = new Set(root.videos.map(video => video.id))
                 root.videos = root.videos.concat(result.videos.filter(video => !loaded.has(video.id)))
-                root.nextPage = result.nextPage
+                root.nextPage = wasLoadingMore && result.nextPage === root.nextPage
+                    ? "" : result.nextPage
+                if (!wasLoadingMore) {
+                    const entries = root.freshCacheEntries().filter(entry => entry.query !== root.currentQuery)
+                    entries.unshift({
+                        query: root.currentQuery,
+                        expiresAt: Date.now() + root.cacheLifetime,
+                        videos: result.videos,
+                        nextPage: root.nextPage
+                    })
+                    root.searchCache.firstPages = JSON.stringify(entries.slice(0, 30))
+                }
             }
+            root.request = 0
         }
     }
 
@@ -188,6 +237,24 @@ Item {
             Layout.fillHeight: true
             clip: true
             model: root.videos
+            onContentYChanged: {
+                if (moving || resultsScrollBar.pressed)
+                    root.loadMoreNearEnd()
+            }
+
+            WheelHandler {
+                acceptedDevices: PointerDevice.Mouse
+                onWheel: event => {
+                    if (event.angleDelta.y === 0) {
+                        event.accepted = false
+                        return
+                    }
+                    const distance = event.pixelDelta.y || event.angleDelta.y
+                    results.flick(0, distance * 7)
+                    if (distance < 0)
+                        root.loadMoreNearEnd()
+                }
+            }
             readonly property int columns: Math.min(4, Math.max(1, Math.floor(width / (root.discovery ? 330 : 290))))
             cellWidth: Math.floor(width / columns)
             readonly property real tileWidth: cellWidth - Theme.dashboardColumnGap
@@ -196,6 +263,7 @@ Item {
             cellHeight: Math.ceil(tileWidth * 9 / 16) + titleHeight
                 + Theme.videoChannelHeight + Theme.controlGap + Theme.dashboardRowGap
             ScrollBar.vertical: ScrollBar {
+                id: resultsScrollBar
                 parent: root.discovery ? root : results
                 anchors.top: parent.top
                 anchors.bottom: parent.bottom
@@ -356,6 +424,7 @@ Item {
 
                         AppText {
                             Layout.fillWidth: true
+                            id: videoTitle
                             text: tile.modelData.title
                             Layout.topMargin: Theme.controlGap
                             Layout.preferredHeight: results.titleHeight
@@ -366,6 +435,18 @@ Item {
                             elide: Text.ElideRight
                             wrapMode: Text.Wrap
                             maximumLineCount: 2
+
+                            ToolTip {
+                                delay: 1500
+                                visible: (tile.hovered || tile.visualFocus) && videoTitle.truncated
+                                width: Math.min(tile.width, titleTip.implicitWidth + leftPadding + rightPadding)
+
+                                contentItem: AppText {
+                                    id: titleTip
+                                    text: videoTitle.text
+                                    wrapMode: Text.Wrap
+                                }
+                            }
                         }
 
                         AppText {
@@ -382,17 +463,15 @@ Item {
             }
             footer: Item {
                 width: results.width
-                height: (root.nextPage ? loadMore.implicitHeight : 0)
+                height: (loadingLabel.visible ? loadingLabel.implicitHeight : 0)
                     + (root.discovery ? Theme.dashboardBottomPadding : 0)
 
-                AppButton {
-                    id: loadMore
+                AppText {
+                    id: loadingLabel
                     anchors.horizontalCenter: parent.horizontalCenter
-                    visible: !!root.nextPage
-                    text: root.request ? "Loading…" : "Load more"
-                    variant: "outline"
-                    enabled: !root.request
-                    onClicked: root.browse(root.currentQuery, root.nextPage)
+                    visible: root.loadingMore
+                    text: "Loading more videos…"
+                    color: Theme.mutedForeground
                 }
             }
         }

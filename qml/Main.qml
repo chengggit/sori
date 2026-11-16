@@ -1,4 +1,5 @@
 import QtQuick
+import QtCore
 import QtQuick.Controls
 import QtQuick.Dialogs
 import QtQuick.Layouts
@@ -376,12 +377,14 @@ ApplicationWindow {
 
                 HomePage {
                     id: homePage
+                    searchCache: youtubeSearchCache
                     onOpenLibraryRequested: root.navigate("library")
                     onOpenVideoRequested: videoPicker.open()
                     onResumeVideoRequested: id => homePage.resumeError = root.openSavedVideo(id)
                 }
                 ExplorePage {
                     id: explorePage
+                    searchCache: youtubeSearchCache
                 }
                 LibraryPage {
                     renderHost: root.renderHost
@@ -435,6 +438,12 @@ ApplicationWindow {
                 onBackRequested: root.goBack("home")
             }
         }
+    }
+
+    Settings {
+        id: youtubeSearchCache
+        category: "YouTubeSearch"
+        property string firstPages: "[]"
     }
 
     SettingsSheet {
