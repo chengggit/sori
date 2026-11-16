@@ -13,6 +13,7 @@ ApplicationWindow {
 
     required property var renderHost
     required property string dataDirectory
+    required property string kiwiDirectory
     required property string startupPath
     readonly property var player: Player
     readonly property var subtitles: Subtitles
@@ -90,13 +91,14 @@ ApplicationWindow {
 
     Component.onCompleted: {
         Library.initialize(dataDirectory)
+        Analysis.initialize(kiwiDirectory)
         wakeControls()
         if (startupPath) {
             navigate("watch")
             player.open(startupPath)
         }
     }
-    onPageChanged: if (page !== "reader") readerPage.flushProgress()
+    onPageChanged: if (page !== "reader") readerPage.leave()
     onClosing: readerPage.flushProgress()
 
     Connections {

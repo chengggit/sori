@@ -117,11 +117,14 @@ pub unsafe extern "C" fn sori_mpv_player_free(player: *mut mpv_handle) {
     mpv_terminate_destroy(player);
 }
 
+mod analysis_model;
 mod controls;
 mod db;
 mod documents;
 mod library_model;
+mod nlp;
 mod progress;
+mod reader;
 mod subtitles;
 
 mod player_model;
@@ -133,4 +136,5 @@ pub extern "C" fn sori_qt_register_models() {
     player_model::Player::register();
     subtitle_model::Subtitles::register();
     library_model::Library::register();
+    analysis_model::Analysis::register();
 }

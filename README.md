@@ -57,8 +57,13 @@ it and resume from its saved scroll position. Sori uses the same local SQLite
 database as the earlier desktop app, under `com.sori.app/library.sqlite3` in
 your user data directory (`$XDG_DATA_HOME` or `~/.local/share` on Linux).
 
+Run `node scripts/setup-kiwi.mjs` once to prepare the pinned Kiwi library and
+model. Click a word in Reader to see its morphemes and sentence context. The
+analysis runs locally. To distribute a build, place the prepared `kiwi`
+directory beside the executable.
+
 Watch supports local playback and subtitles. Discovery, video library
-integration, Kiwi lookup, saved words, and history are still being ported.
+integration, saved words, and history are still being ported.
 
 [Inter license](assets/OFL-Inter.txt), [Noto Sans KR license](assets/OFL-NotoSansKR.txt),
 and [Lucide license](assets/LUCIDE-LICENSE.txt).

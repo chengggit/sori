@@ -1,6 +1,7 @@
 /build/
 /target/
 /playback/target/
+/resources/kiwi/
 /AGENTS.md
 .DS_Store
 .env

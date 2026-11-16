@@ -1,6 +1,7 @@
 #include "videoitem.h"
 
 #include <QCommandLineParser>
+#include <QDir>
 #include <QFontDatabase>
 #include <QGuiApplication>
 #include <QQmlApplicationEngine>
@@ -54,9 +55,12 @@ int main(int argc, char **argv)
     sori_qt_register_models();
     qmlRegisterType<VideoItem>("Sori", 1, 0, "VideoSurface");
     QQmlApplicationEngine engine;
+    auto kiwiDirectory = app.applicationDirPath() + QStringLiteral("/kiwi");
+    if (!QDir(kiwiDirectory).exists()) kiwiDirectory = QStringLiteral(SORI_KIWI_DIR);
     engine.setInitialProperties({{"renderHost", QVariant::fromValue(&renderHost)},
                                  {"dataDirectory", QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation)
                                      + QStringLiteral("/com.sori.app")},
+                                 {"kiwiDirectory", kiwiDirectory},
                                  {"startupPath", parser.positionalArguments().value(0)}});
     engine.load(QUrl("qrc:/qml/Main.qml"));
     if (engine.rootObjects().isEmpty()) return 1;

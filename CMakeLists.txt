@@ -15,6 +15,7 @@ add_executable(sori
     src/main.cpp
     src/videoitem.cpp src/videoitem.h
 )
+target_compile_definitions(sori PRIVATE SORI_KIWI_DIR="${CMAKE_CURRENT_SOURCE_DIR}/resources/kiwi")
 option(SORI_QML_PREVIEW "Enable QML live preview for local development" OFF)
 if(SORI_QML_PREVIEW)
     if(Qt6_VERSION VERSION_LESS 6.12)
@@ -44,6 +45,7 @@ add_custom_command(OUTPUT "${PLAYBACK_LIB}"
         "${PLAYBACK_DIR}/Cargo.toml" "${PLAYBACK_DIR}/Cargo.lock" "${PLAYBACK_DIR}/src/lib.rs" "${PLAYBACK_DIR}/src/subtitles.rs" "${PLAYBACK_DIR}/src/controls.rs"
         "${PLAYBACK_DIR}/src/db.rs" "${PLAYBACK_DIR}/src/schema.sql" "${PLAYBACK_DIR}/src/documents.rs"
         "${PLAYBACK_DIR}/src/progress.rs" "${PLAYBACK_DIR}/src/library_model.rs"
+        "${PLAYBACK_DIR}/src/nlp.rs" "${PLAYBACK_DIR}/src/reader.rs" "${PLAYBACK_DIR}/src/analysis_model.rs"
     VERBATIM
 )
 add_custom_target(sori-qt-playback DEPENDS "${PLAYBACK_LIB}")
@@ -60,6 +62,7 @@ qt_add_resources(sori "watch" PREFIX "/" FILES
     qml/components/EmptyState.qml
     qml/components/Icon.qml
     qml/components/PageHeader.qml
+    qml/components/WordAnalysis.qml
     qml/icons/arrow-left.svg
     qml/icons/book-open.svg
     qml/icons/bookmark.svg

@@ -19,7 +19,7 @@ Item {
     readonly property real scrollRange: Math.max(0, viewport.contentHeight - viewport.height)
 
     function openDocument(id, title) {
-        flushProgress()
+        leave()
         const document = Library.readDocument(id)
         restoring = true
         documentId = id
@@ -29,6 +29,16 @@ Item {
         restorePosition = document.position ?? 0
         passage.text = document.content ?? ""
         Qt.callLater(restoreProgress)
+    }
+
+    function leave() {
+        flushProgress()
+        analysis.close()
+    }
+
+    function analyzeSelection() {
+        if (passage.selectedText.trim())
+            analysis.lookup(passage.text, passage.selectionStart, passage.selectionEnd)
     }
 
     function restoreProgress() {
@@ -49,6 +59,13 @@ Item {
     }
 
     onActiveChanged: if (active) Qt.callLater(restoreProgress)
+
+    WordAnalysis {
+        id: analysis
+        parent: Overlay.overlay
+        x: parent.width - width - 20
+        y: 76
+    }
 
     Timer {
         id: saveProgress
@@ -109,6 +126,17 @@ Item {
                     font.pixelSize: 19
                     background: null
                     Accessible.name: "Document text"
+
+                    Keys.onReturnPressed: root.analyzeSelection()
+                    TapHandler {
+                        onSingleTapped: (eventPoint, button) => {
+                            if (button === Qt.LeftButton) {
+                                passage.cursorPosition = passage.positionAt(eventPoint.position.x, eventPoint.position.y)
+                                passage.selectWord()
+                                root.analyzeSelection()
+                            }
+                        }
+                    }
                 }
             }
         }

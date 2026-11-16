@@ -352,6 +352,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "kiwi-rs"
+version = "2026.10.17"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "05424ee80ed77ab1a8ecf4cafc27f6216f4cb9380e04c590b8809e933f73048e"
+dependencies = [
+ "regex",
+]
+
+[[package]]
 name = "libc"
 version = "0.2.191"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -634,6 +643,7 @@ checksum = "149309498a5f7334b12ddae0cad8aba81ce785fe91755068867e017cf98fee46"
 name = "sori-qt-playback"
 version = "0.1.0"
 dependencies = [
+ "kiwi-rs",
  "libmpv2-sys",
  "qtbridge",
  "regex",
