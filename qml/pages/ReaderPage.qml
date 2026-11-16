@@ -2,7 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import sori_qt_playback
-import "../Theme.js" as Theme
+import "../style"
 import "../components"
 
 Item {
@@ -119,6 +119,7 @@ Item {
                     width: Math.min(viewport.width - 64, 760)
                     padding: 0
                     readOnly: true
+                    renderType: Theme.nativeText ? TextEdit.NativeRendering : TextEdit.QtRendering
                     selectByMouse: true
                     textFormat: TextEdit.PlainText
                     wrapMode: TextEdit.Wrap

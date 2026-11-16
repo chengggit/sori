@@ -3,7 +3,7 @@ import QtQuick.Controls
 import QtQuick.Dialogs as Native
 import QtQuick.Layouts
 import sori_qt_playback
-import "../Theme.js" as Theme
+import "../style"
 import "../components"
 
 Item {

@@ -1,6 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
-import "../Theme.js" as Theme
+import "../style"
 
 Rectangle {
     id: root
@@ -104,7 +104,7 @@ Rectangle {
                     anchors.fill: parent
                     radius: 10
                     color: linkItem.active ? Theme.accentSoft
-                        : linkMouse.containsMouse ? "#f1f4ec" : "transparent"
+                        : linkMouse.containsMouse ? Theme.hero : "transparent"
                 }
 
                 Icon {

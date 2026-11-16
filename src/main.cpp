@@ -33,6 +33,7 @@ int main(int argc, char **argv)
     QGuiApplication app(argc, argv);
     // Qt initializes the system locale. libmpv requires C numeric formatting.
     std::setlocale(LC_NUMERIC, "C");
+    app.setOrganizationName(QStringLiteral("Sori"));
     app.setApplicationName(QStringLiteral("Sori"));
     QCommandLineParser parser;
     parser.setApplicationDescription(QStringLiteral("A local-first Korean immersion app"));

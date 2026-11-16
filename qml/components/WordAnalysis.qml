@@ -2,7 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import sori_qt_playback
-import "../Theme.js" as Theme
+import "../style"
 
 Popup {
     id: root

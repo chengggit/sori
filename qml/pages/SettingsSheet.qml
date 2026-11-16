@@ -1,18 +1,13 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import "../Theme.js" as Theme
+import "../style"
 import "../components"
 
 Popup {
     id: root
 
-    property string appearance: "system"
-    required property bool nativeText
-    signal nativeTextRequested(bool enabled)
-
     width: Math.min(420, parent ? parent.width - 40 : 420)
-    height: Math.min(520, parent ? parent.height - 40 : 520)
     x: parent ? Math.round((parent.width - width) / 2) : 0
     y: parent ? Math.round((parent.height - height) / 2) : 0
     modal: true
@@ -37,11 +32,6 @@ Popup {
                 Layout.fillWidth: true
                 spacing: 4
                 AppText { text: "Settings"; font.pixelSize: 19; font.weight: Font.DemiBold }
-                AppText {
-                    text: "Customize appearance and reading."
-                    color: Theme.mutedForeground
-                    font.pixelSize: 13
-                }
             }
             AppButton {
                 text: ""
@@ -72,8 +62,8 @@ Popup {
                         required property var modelData
                         text: modelData.label
                         small: true
-                        variant: root.appearance === modelData.value ? "secondary" : "outline"
-                        onClicked: root.appearance = modelData.value
+                        variant: Theme.appearance === modelData.value ? "secondary" : "outline"
+                        onClicked: Theme.appearance = modelData.value
                     }
                 }
             }
@@ -83,17 +73,9 @@ Popup {
             AppText { text: "Text rendering"; font.weight: Font.DemiBold; font.pixelSize: 13 }
             CheckBox {
                 text: "Use native text rendering"
-                checked: root.nativeText
-                onToggled: root.nativeTextRequested(checked)
+                checked: Theme.nativeText
+                onToggled: Theme.nativeText = checked
             }
-            AppText {
-                Layout.fillWidth: true
-                text: "Dictionary and embedded lookup preferences will move here with the reader frontend."
-                color: Theme.mutedForeground
-                font.pixelSize: 12
-                wrapMode: Text.Wrap
-            }
-            Item { Layout.fillHeight: true }
         }
     }
 }

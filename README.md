@@ -73,6 +73,9 @@ notes, and tags. You can save words offline with an optional custom meaning.
 Select **Look up on Wiktionary** in the analysis panel to fetch Korean-to-English
 definitions and save one with the word. Naver opens in your browser.
 
+Settings remembers the appearance mode and the Reader and Watch text renderer
+across launches.
+
 Online discovery is still being ported.
 
 [Inter license](assets/OFL-Inter.txt), [Noto Sans KR license](assets/OFL-NotoSansKR.txt),

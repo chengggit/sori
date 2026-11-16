@@ -1,5 +1,5 @@
 import QtQuick
-import "../Theme.js" as Theme
+import "../style"
 
 Text {
     property bool korean: false

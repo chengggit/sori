@@ -6,7 +6,7 @@ import Sori 1.0
 import sori_qt_playback
 import "components"
 import "pages"
-import "Theme.js" as Theme
+import "style"
 
 ApplicationWindow {
     id: root
@@ -32,9 +32,7 @@ ApplicationWindow {
     property bool controlsAwake: true
     property bool captionsVisible: true
     property bool followPlayback: true
-    property bool nativeText: true
     property int previousVisibility: Window.Windowed
-    property string appearance: "system"
     property var pageStack: []
     property var currentVideo: null
     property bool videoReady: false
@@ -49,6 +47,16 @@ ApplicationWindow {
     title: pageTitle === "Home" ? "Sori" : pageTitle + " · Sori"
     color: page === "watch" ? Theme.darkBackground : Theme.background
     font.family: "Inter"
+    palette.window: Theme.background
+    palette.base: Theme.card
+    palette.alternateBase: Theme.sidebar
+    palette.text: Theme.foreground
+    palette.windowText: Theme.foreground
+    palette.button: Theme.card
+    palette.buttonText: Theme.foreground
+    palette.highlight: Theme.accent
+    palette.highlightedText: Theme.onAccent
+    palette.mid: Theme.border
 
     function navigate(nextPage, pushHistory) {
         if (nextPage === page)
@@ -403,10 +411,10 @@ ApplicationWindow {
                 controlsAwake: root.controlsAwake
                 captionsVisible: root.captionsVisible
                 followPlayback: root.followPlayback
-                nativeText: root.nativeText
+                nativeText: Theme.nativeText
                 libraryError: root.videoError
                 videoId: root.currentVideo?.id ?? 0
-                onNativeTextRequested: enabled => root.nativeText = enabled
+                onNativeTextRequested: enabled => Theme.nativeText = enabled
                 onWakeControlsRequested: root.wakeControls()
                 onToggleFullscreenRequested: root.toggleFullscreen()
                 onCaptionsToggleRequested: root.captionsVisible = !root.captionsVisible
@@ -421,9 +429,5 @@ ApplicationWindow {
     SettingsSheet {
         id: settingsSheet
         parent: root.contentItem
-        appearance: root.appearance
-        nativeText: root.nativeText
-        onAppearanceChanged: root.appearance = appearance
-        onNativeTextRequested: enabled => root.nativeText = enabled
     }
 }

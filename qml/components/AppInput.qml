@@ -1,6 +1,6 @@
 import QtQuick
 import QtQuick.Controls
-import "../Theme.js" as Theme
+import "../style"
 
 TextField {
     id: control
@@ -13,7 +13,7 @@ TextField {
     color: Theme.foreground
     placeholderTextColor: Theme.mutedForeground
     selectionColor: Theme.accent
-    selectedTextColor: "#ffffff"
+    selectedTextColor: Theme.onAccent
     font.family: "Inter"
     font.pixelSize: 13
 

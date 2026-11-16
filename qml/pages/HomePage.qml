@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick.Layouts
 import sori_qt_playback
-import "../Theme.js" as Theme
+import "../style"
 import "../components"
 
 Item {
@@ -90,7 +90,7 @@ Item {
                         id: chipLabel
                         anchors.centerIn: parent
                         text: modelData
-                        color: modelData === "All" ? "#ffffff" : Theme.foreground
+                        color: modelData === "All" ? Theme.onAccent : Theme.foreground
                         font.pixelSize: 12
                     }
                 }

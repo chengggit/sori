@@ -2,7 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import Sori 1.0
-import "../Theme.js" as Theme
+import "../style"
 import "../components"
 
 Item {

@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import "../Theme.js" as Theme
+import "../style"
 
 Button {
     id: control
@@ -24,11 +24,11 @@ Button {
             visible: control.iconName !== ""
             name: control.iconName
             size: control.small ? 14 : 16
-            color: control.variant === "default" ? "#ffffff" : Theme.foreground
+            color: control.variant === "default" ? Theme.onAccent : Theme.foreground
         }
         AppText {
             text: control.text
-            color: control.variant === "default" ? "#ffffff" : Theme.foreground
+            color: control.variant === "default" ? Theme.onAccent : Theme.foreground
             font.pixelSize: control.small ? 12 : 13
             font.weight: Font.Medium
         }
@@ -38,11 +38,11 @@ Button {
         radius: Theme.radiusSmall
         color: {
             if (!control.enabled)
-                return control.variant === "default" ? "#a8b0a2" : "#f1f3ed"
+                return control.variant === "default" ? Theme.disabledAccent : Theme.sidebar
             if (control.variant === "default")
-                return control.down ? Theme.accentHover : control.hovered ? "#4d693a" : Theme.accent
+                return control.down ? Theme.accentPressed : control.hovered ? Theme.accentHover : Theme.accent
             if (control.variant === "secondary")
-                return control.down ? Theme.accentSoftHover : control.hovered ? "#e0e9d8" : Theme.accentSoft
+                return control.down || control.hovered ? Theme.accentSoftHover : Theme.accentSoft
             if (control.variant === "ghost")
                 return control.hovered || control.down ? Theme.accentSoft : "transparent"
             return control.hovered || control.down ? Theme.hero : Theme.card

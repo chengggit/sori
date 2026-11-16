@@ -55,7 +55,8 @@ add_dependencies(sori sori-qt-playback)
 target_link_libraries(sori PRIVATE "${PLAYBACK_LIB}" Qt6::Quick Qt6::OpenGL Qt6::Test PkgConfig::MPV)
 qt_add_resources(sori "watch" PREFIX "/" FILES
     qml/Main.qml
-    qml/Theme.js
+    qml/style/Theme.qml
+    qml/style/qmldir
     qml/components/AppButton.qml
     qml/components/AppInput.qml
     qml/components/AppSidebar.qml

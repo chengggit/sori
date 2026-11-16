@@ -3,7 +3,7 @@ pragma ComponentBehavior: Bound
 import QtQuick
 import QtQuick.Effects
 import QtQuick.VectorImage
-import "../Theme.js" as Theme
+import "../style"
 
 Item {
     id: root

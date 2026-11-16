@@ -1,7 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
-import "../Theme.js" as Theme
+import "../style"
 
 Dialog {
     id: root
