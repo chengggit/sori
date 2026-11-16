@@ -10,6 +10,38 @@ pub struct WordAnalysis {
     pub normalized_form: String,
 }
 
+#[derive(Serialize)]
+pub struct WordRange {
+    start: usize,
+    end: usize,
+}
+
+pub fn word_ranges(analyzer: &KoreanAnalyzer, text: String) -> Result<Vec<WordRange>, String> {
+    let tokens = analyzer.analyze(text)?;
+    let mut ranges = Vec::new();
+    for group in
+        tokens.chunk_by(|a, b| a.sentence_index == b.sentence_index && a.word_index == b.word_index)
+    {
+        let mut words = group
+            .iter()
+            .filter(|token| token.surface.chars().any(char::is_alphanumeric));
+        if let Some(first) = words.next() {
+            let range = words.fold(
+                WordRange {
+                    start: first.start,
+                    end: first.end,
+                },
+                |range, token| WordRange {
+                    start: range.start.min(token.start),
+                    end: range.end.max(token.end),
+                },
+            );
+            ranges.push(range);
+        }
+    }
+    Ok(ranges)
+}
+
 fn dictionary_form(tokens: &[KoreanToken]) -> String {
     let mut form = String::new();
     let mut last_tag = "";
