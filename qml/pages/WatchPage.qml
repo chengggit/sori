@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Effects
 import QtQuick.Layouts
 import Sori 1.0
 import "../style"
@@ -63,8 +64,8 @@ Item {
     component PlaybackButton: Button {
         id: button
         property string iconName: ""
-        implicitWidth: 36
-        implicitHeight: 34
+        implicitWidth: 30
+        implicitHeight: 30
         hoverEnabled: true
         background: Rectangle {
             radius: 6
@@ -75,7 +76,7 @@ Item {
                 anchors.centerIn: parent
                 visible: button.iconName !== ""
                 name: button.iconName
-                size: 16
+                size: 14
                 color: "white"
             }
             WatchText {
@@ -120,6 +121,14 @@ Item {
     }
 
     Rectangle {
+        id: stageMask
+        anchors.fill: stage
+        radius: 14
+        visible: false
+        layer.enabled: !root.fullScreen
+    }
+
+    Rectangle {
         id: stage
         width: height * 16 / 9
         height: root.fullScreen ? Math.min(root.height, root.width * 9 / 16)
@@ -128,6 +137,11 @@ Item {
         y: root.fullScreen ? Math.round((root.height - height) / 2) : watchHeader.height + 24
         color: "#000000"
         clip: true
+        layer.enabled: !root.fullScreen
+        layer.effect: MultiEffect {
+            maskEnabled: true
+            maskSource: stageMask
+        }
 
         VideoSurface {
             objectName: "videoSurface"
@@ -170,7 +184,7 @@ Item {
             visible: root.player.loaded && root.captionsVisible && (primary.text !== "" || secondary.text !== "")
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.bottom: parent.bottom
-            anchors.bottomMargin: root.showControls ? controls.height + 15 : 15
+            anchors.bottomMargin: root.showControls ? controls.height + controls.anchors.bottomMargin + 8 : 15
             width: Math.min(stage.width - 28, Math.max(primary.implicitWidth, secondary.implicitWidth) + 24)
             height: lines.implicitHeight + 10
             color: "#d9000000"
@@ -233,9 +247,11 @@ Item {
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.bottom: parent.bottom
-            height: 66
+            anchors.margins: 8
+            height: 60
             visible: root.showControls
             color: "#bb000000"
+            radius: 10
 
             HoverHandler {
                 id: controlHover
@@ -245,8 +261,8 @@ Item {
             ColumnLayout {
                 anchors.fill: parent
                 anchors.margins: 5
-                anchors.leftMargin: 20
-                anchors.rightMargin: 20
+                anchors.leftMargin: 12
+                anchors.rightMargin: 12
                 spacing: 2
 
                 Slider {
@@ -341,7 +357,7 @@ Item {
             id: trackMenu
             objectName: "subtitleSettings"
             x: stage.width - width - 8
-            y: Math.max(0, stage.height - controls.height - height - 14)
+            y: Math.max(0, controls.y - height - 6)
             width: 280
             padding: 10
             focus: true
