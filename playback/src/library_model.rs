@@ -1,4 +1,4 @@
-use crate::{db::Database, documents, progress, video_library, vocabulary};
+use crate::{db::Database, documents, progress, video_library, vocabulary, youtube};
 use qtbridge::{qobject, QmlObject};
 use rusqlite::Connection;
 use serde_json::{json, Value};
@@ -15,6 +15,7 @@ pub struct Library {
     documents: Vec<Value>,
     videos: Vec<Value>,
     vocabulary: Vec<Value>,
+    youtube_history: Vec<Value>,
     pending_thumbnails: HashSet<i64>,
     last_thumbnail_attempt: HashMap<i64, Instant>,
     error: String,
@@ -42,6 +43,15 @@ impl Library {
     #[qsignal]
     fn videos_changed(&mut self);
 
+    qproperty!(
+        "youtubeHistory",
+        Member = youtube_history,
+        Notify = youtube_history_changed
+    );
+
+    #[qsignal]
+    fn youtube_history_changed(&mut self);
+
     #[qsignal]
     fn vocabulary_changed(&mut self);
 
@@ -65,6 +75,7 @@ impl Library {
                 self.database = Some(database);
                 self.refresh();
                 self.refresh_videos();
+                self.refresh_youtube_history();
                 self.refresh_vocabulary();
             }
             Err(error) => {
@@ -184,6 +195,26 @@ impl Library {
             self.ensure_video_thumbnail(id);
         }
         error
+    }
+
+    #[qslot]
+    fn save_youtube_progress(
+        &mut self,
+        id: String,
+        title: String,
+        channel: String,
+        seconds: f64,
+        duration: f64,
+    ) -> String {
+        match self.connection().and_then(|connection| {
+            youtube::save_watch_progress(&connection, &id, &title, &channel, seconds, duration)
+        }) {
+            Ok(()) => {
+                self.refresh_youtube_history();
+                String::new()
+            }
+            Err(error) => error,
+        }
     }
 
     #[qslot]
@@ -381,6 +412,16 @@ impl Library {
                 String::new()
             }
             Err(error) => error,
+        }
+    }
+
+    fn refresh_youtube_history(&mut self) {
+        if let Ok(entries) = self
+            .connection()
+            .and_then(|connection| youtube::watch_history(&connection))
+        {
+            self.youtube_history = entries;
+            self.youtube_history_changed();
         }
     }
 

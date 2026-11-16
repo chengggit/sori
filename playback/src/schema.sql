@@ -52,6 +52,15 @@ CREATE TABLE IF NOT EXISTS local_watch_history (
     watched_at INTEGER NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS youtube_watch_history (
+    video_id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    channel TEXT NOT NULL,
+    seconds REAL NOT NULL CHECK (seconds >= 0),
+    duration REAL NOT NULL CHECK (duration >= 0),
+    watched_at INTEGER NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS video_vocabulary (
     vocabulary_id INTEGER PRIMARY KEY REFERENCES vocabulary(id) ON DELETE CASCADE,
     video_id INTEGER REFERENCES videos(id) ON DELETE CASCADE,

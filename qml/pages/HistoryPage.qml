@@ -10,7 +10,7 @@ Item {
 
     property string error: ""
     signal openLibraryRequested()
-    signal openWatchRequested(real id)
+    signal openWatchRequested(var entry)
 
     ColumnLayout {
         anchors.fill: parent
@@ -32,7 +32,8 @@ Item {
             visible: count > 0
             clip: true
             spacing: 8
-            model: Library.recentVideos
+            model: Library.recentVideos.concat(Library.youtubeHistory)
+                .sort((a, b) => (b.watchedAt ?? 0) - (a.watchedAt ?? 0))
             ScrollBar.vertical: ScrollBar {}
 
             delegate: Rectangle {
@@ -69,7 +70,7 @@ Item {
                         text: row.modelData.seconds > 0 ? "Resume" : "Watch again"
                         variant: "outline"
                         small: true
-                        onClicked: root.openWatchRequested(row.modelData.id)
+                        onClicked: root.openWatchRequested(row.modelData)
                     }
                 }
             }
@@ -81,7 +82,7 @@ Item {
             visible: history.count === 0
             iconName: "history"
             title: "No watch history yet"
-            message: "Videos you watch from your library will appear here."
+            message: "Local and YouTube videos you watch in Sori will appear here."
             actionText: "Open Library"
             onActionRequested: root.openLibraryRequested()
         }

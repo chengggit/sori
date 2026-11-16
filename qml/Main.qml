@@ -12,6 +12,7 @@ import "style"
 ApplicationWindow {
     id: root
 
+    property bool youtubeEmbeddingAvailable: false
     required property var renderHost
     required property string dataDirectory
     required property string kiwiDirectory
@@ -19,7 +20,7 @@ ApplicationWindow {
     readonly property var player: Player
     readonly property var subtitles: Subtitles
     readonly property bool fullScreen: visibility === Window.FullScreen
-    readonly property bool watchShortcutsEnabled: page === "watch" && player.loaded
+    readonly property bool watchShortcutsEnabled: page === "watch" && !currentVideo?.youtubeId && player.loaded
         && !watchPage.trackMenu.opened && !watchPage.analysisOpened && !settingsSheet.visible
     readonly property string pageTitle: page === "watch" ? "Watch"
         : page === "library" ? "My Library"
@@ -124,20 +125,53 @@ ApplicationWindow {
         return ""
     }
 
+    function openYouTube(url, title, channel) {
+        if (player.loading)
+            return
+        const canonical = YouTube.resolveLink(url)
+        if (!canonical)
+            return
+        if (page === "watch")
+            saveVideoProgress()
+        const id = canonical.slice(-11)
+        const previous = Library.youtubeHistory.find(entry => entry.youtubeId === id)
+        beginVideo({
+            youtubeId: id,
+            youtubeUrl: canonical,
+            title: title || previous?.title || "YouTube video",
+            channel: channel || previous?.channel || "",
+            seconds: previous?.seconds ?? 0
+        })
+    }
+
+    function openHistoryVideo(entry) {
+        if (entry.youtubeId) {
+            openYouTube("https://www.youtube.com/watch?v=" + entry.youtubeId, entry.title, entry.channel)
+            return ""
+        }
+        return openSavedVideo(entry.id)
+    }
+
     function beginVideo(video) {
         currentVideo = video
         videoReady = false
         awaitingVideoPosition = (video.seconds ?? 0) > 0
         videoError = ""
         navigate("watch")
-        player.open(video.path)
+        if (video.youtubeId)
+            player.pause()
+        else
+            player.open(video.path)
         wakeControls()
     }
 
     function saveVideoProgress() {
         videoProgressTimer.stop()
-        if (videoReady && !awaitingVideoPosition && currentVideo?.id)
-            videoError = Library.saveVideoProgress(currentVideo.id, player.ended ? 0 : player.position, player.duration)
+        if (!videoReady || !player.loaded || awaitingVideoPosition)
+            return
+        const seconds = player.ended ? 0 : player.position
+        if (currentVideo?.id)
+            videoError = Library.saveVideoProgress(currentVideo.id, seconds, player.duration)
     }
 
     function attachSubtitles(url) {
@@ -378,13 +412,15 @@ ApplicationWindow {
                 HomePage {
                     id: homePage
                     searchCache: youtubeSearchCache
+                    onOpenYouTubeRequested: (url, title, channel) => root.openYouTube(url, title, channel)
                     onOpenLibraryRequested: root.navigate("library")
                     onOpenVideoRequested: videoPicker.open()
-                    onResumeVideoRequested: id => homePage.resumeError = root.openSavedVideo(id)
+                    onResumeVideoRequested: entry => homePage.resumeError = root.openHistoryVideo(entry)
                 }
                 ExplorePage {
                     id: explorePage
                     searchCache: youtubeSearchCache
+                    onOpenYouTubeRequested: (url, title, channel) => root.openYouTube(url, title, channel)
                 }
                 LibraryPage {
                     renderHost: root.renderHost
@@ -402,7 +438,7 @@ ApplicationWindow {
                 VocabularyPage {}
                 HistoryPage {
                     onOpenLibraryRequested: root.navigate("library")
-                    onOpenWatchRequested: id => error = root.openSavedVideo(id)
+                    onOpenWatchRequested: entry => error = root.openHistoryVideo(entry)
                 }
             }
         }
@@ -427,6 +463,7 @@ ApplicationWindow {
                 captionsVisible: root.captionsVisible
                 nativeText: Theme.nativeText
                 libraryError: root.videoError
+                visible: !root.currentVideo?.youtubeId
                 videoId: root.currentVideo?.id ?? 0
                 backLabel: root.pageStack[root.pageStack.length - 1] === "library" ? "My Library" : "Back"
                 onNativeTextRequested: enabled => Theme.nativeText = enabled
@@ -436,6 +473,21 @@ ApplicationWindow {
                 onOpenVideoRequested: videoPicker.open()
                 onOpenSubtitlesRequested: subtitlePicker.open()
                 onBackRequested: root.goBack("home")
+            }
+
+            Loader {
+                anchors.fill: parent
+                active: parent.visible && !!root.currentVideo?.youtubeId
+                sourceComponent: YouTubeWatchPage {
+                    video: root.currentVideo
+                    embeddingAvailable: root.youtubeEmbeddingAvailable
+                    onBackRequested: root.goBack("home")
+                    onCheckpoint: (entry, seconds, duration) => {
+                        root.videoError = Library.saveYoutubeProgress(entry.youtubeId, entry.title,
+                                                                      entry.channel, seconds, duration)
+                    }
+                    saveError: root.videoError
+                }
             }
         }
     }

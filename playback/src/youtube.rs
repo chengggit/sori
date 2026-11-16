@@ -1,5 +1,6 @@
 use qtbridge::{qobject, QmlObject};
 use reqwest::blocking::Client;
+use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::io::Read;
@@ -29,7 +30,7 @@ impl YouTube {
     #[qslot]
     fn resolve_link(&self, link: String) -> String {
         video_id(&link)
-            .map(|id| format!("https://www.youtube.com/watch?v={id}"))
+            .and_then(|id| watch_url(&id))
             .unwrap_or_default()
     }
 
@@ -119,6 +120,63 @@ fn valid_id(id: &str) -> bool {
         && id
             .bytes()
             .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
+}
+
+pub fn watch_url(id: &str) -> Option<String> {
+    valid_id(id).then(|| format!("https://www.youtube.com/watch?v={id}"))
+}
+
+pub fn watch_history(connection: &Connection) -> Result<Vec<Value>, String> {
+    let mut statement = connection
+        .prepare(
+            "SELECT video_id, title, channel, seconds, duration, watched_at
+                  FROM youtube_watch_history ORDER BY watched_at DESC, rowid DESC",
+        )
+        .map_err(|error| error.to_string())?;
+    let entries = statement
+        .query_map([], |row| {
+            let id: String = row.get(0)?;
+            Ok(json!({
+                "youtubeId": id,
+                "title": row.get::<_, String>(1)?,
+                "channel": row.get::<_, String>(2)?,
+                "seconds": row.get::<_, f64>(3)?,
+                "duration": row.get::<_, f64>(4)?,
+                "watchedAt": row.get::<_, i64>(5)?,
+                "thumbnailUrl": format!("https://i.ytimg.com/vi/{id}/mqdefault.jpg"),
+            }))
+        })
+        .map_err(|error| error.to_string())?;
+    entries
+        .collect::<Result<_, _>>()
+        .map_err(|error| error.to_string())
+}
+
+pub fn save_watch_progress(
+    connection: &Connection,
+    id: &str,
+    title: &str,
+    channel: &str,
+    seconds: f64,
+    duration: f64,
+) -> Result<(), String> {
+    if !valid_id(id) || !seconds.is_finite() || seconds < 0.0 {
+        return Err("Invalid YouTube playback position.".into());
+    }
+    let duration = if duration.is_finite() {
+        duration.max(0.0)
+    } else {
+        0.0
+    };
+    connection.execute(
+        "INSERT INTO youtube_watch_history (video_id, title, channel, seconds, duration, watched_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, unixepoch())
+         ON CONFLICT(video_id) DO UPDATE SET title = excluded.title, channel = excluded.channel,
+             seconds = excluded.seconds, watched_at = excluded.watched_at,
+             duration = CASE WHEN excluded.duration > 0 THEN excluded.duration ELSE duration END",
+        params![id, title, channel, seconds, duration],
+    ).map_err(|error| error.to_string())?;
+    Ok(())
 }
 
 fn video_id(link: &str) -> Option<String> {
@@ -214,9 +272,8 @@ fn parse_search(body: &[u8]) -> Result<SearchPage, String> {
 }
 
 fn search(query: &str, page: &str) -> Result<SearchPage, String> {
-    let key = api_key().ok_or(
-        "Set SORI_YOUTUBE_API_KEY in .env.local to search YouTube from Sori.",
-    )?;
+    let key =
+        api_key().ok_or("Set SORI_YOUTUBE_API_KEY in .env.local to search YouTube from Sori.")?;
     let query = query.trim();
     if query.is_empty() || query.chars().count() > 250 {
         return Err("Enter a search of up to 250 characters.".into());
@@ -274,9 +331,7 @@ fn search(query: &str, page: &str) -> Result<SearchPage, String> {
             (429, _) | (_, Some("rateLimitExceeded" | "userRateLimitExceeded")) => {
                 "YouTube is limiting requests. Try again shortly."
             }
-            (400, Some("keyInvalid" | "API_KEY_INVALID")) => {
-                "The YouTube API key is not valid."
-            }
+            (400, Some("keyInvalid" | "API_KEY_INVALID")) => "The YouTube API key is not valid.",
             (403, Some("accessNotConfigured")) => {
                 "The YouTube Data API is not enabled for this key."
             }
@@ -306,6 +361,24 @@ mod tests {
         }
         assert!(video_id("https://youtube.com.example.org/watch?v=dQw4w9WgXcQ").is_none());
         assert!(video_id("https://www.youtube.com/embed/bad").is_none());
+    }
+
+    #[test]
+    fn updates_youtube_history_and_keeps_known_duration() {
+        let connection = Connection::open_in_memory().unwrap();
+        connection
+            .execute_batch(include_str!("schema.sql"))
+            .unwrap();
+        let id = "jNQXAC9IVRw";
+        save_watch_progress(&connection, id, "Video", "Channel", 5.0, 19.0).unwrap();
+        save_watch_progress(&connection, id, "Video", "Channel", 7.0, 0.0).unwrap();
+        assert!(save_watch_progress(&connection, id, "", "", f64::NAN, 0.0).is_err());
+        assert!(save_watch_progress(&connection, "bad", "", "", 0.0, 0.0).is_err());
+        let entries = watch_history(&connection).unwrap();
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0]["youtubeId"], id);
+        assert_eq!(entries[0]["seconds"], 7.0);
+        assert_eq!(entries[0]["duration"], 19.0);
     }
 
     #[test]

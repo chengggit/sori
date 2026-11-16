@@ -10,9 +10,13 @@ ExplorePage {
 
     signal openLibraryRequested()
     signal openVideoRequested()
-    signal resumeVideoRequested(real id)
+    signal resumeVideoRequested(var entry)
     property string resumeError: ""
-    readonly property var recentVideo: Library.recentVideos[0] ?? null
+    readonly property var recentVideo: {
+        const local = Library.recentVideos[0] ?? null
+        const youtube = Library.youtubeHistory.find(entry => entry.seconds > 0)
+        return youtube && (!local || youtube.watchedAt > (local.watchedAt ?? 0)) ? youtube : local
+    }
     readonly property real resumeSeconds: recentVideo?.seconds ?? 0
     readonly property real resumeDuration: recentVideo?.duration ?? 0
     readonly property real resumeProgress: resumeDuration > 0
@@ -122,7 +126,7 @@ ExplorePage {
 
                         AppText {
                             Layout.fillWidth: true
-                            text: "Local video"
+                            text: home.recentVideo?.youtubeId ? (home.recentVideo.channel || "YouTube") : "Local video"
                             font.pixelSize: 13
                             color: Theme.mutedForeground
                             elide: Text.ElideRight
@@ -165,7 +169,7 @@ ExplorePage {
                         text: home.recentVideo?.seconds > 0 ? "Resume" : "Watch again"
                         iconName: "play"
                         variant: "primary"
-                        onClicked: home.resumeVideoRequested(home.recentVideo.id)
+                        onClicked: home.resumeVideoRequested(home.recentVideo)
                     }
                 }
             }
