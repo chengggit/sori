@@ -109,6 +109,8 @@ qt_add_resources(sori "watch" PREFIX "/" FILES
     qml/icons/search.svg
     qml/icons/settings.svg
     qml/icons/upload.svg
+    qml/icons/volume.svg
+    qml/icons/volume-x.svg
     qml/icons/x.svg
     qml/pages/ExplorePage.qml
     qml/pages/HistoryPage.qml
