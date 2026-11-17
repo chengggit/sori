@@ -61,7 +61,12 @@ Item {
                 clip: true
                 spacing: 16
                 model: root.entries
-                ScrollBar.vertical: AppScrollBar {}
+                ScrollBar.vertical: AppScrollBar {
+                    parent: root
+                    anchors.top: parent.top
+                    anchors.bottom: parent.bottom
+                    anchors.right: parent.right
+                }
 
                 delegate: ItemDelegate {
                     id: row
