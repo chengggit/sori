@@ -11,6 +11,7 @@ pub struct Analysis {
     initialization_error: String,
     request: i32,
     dictionary_request: i32,
+    passage_request: i32,
 }
 
 #[qobject(Singleton, ConvertToCamelCase)]
@@ -48,6 +49,27 @@ impl Analysis {
                 .map(|analysis| json!(analysis))
                 .unwrap_or_else(|error| json!({ "error": error }));
             let _ = handle.invoke_mut(move |model| model.finished(request, &result));
+        });
+        request
+    }
+
+    #[qsignal]
+    fn passage_finished(&mut self, request: i32, result: &Value);
+
+    #[qslot]
+    fn tokenize_passage(&mut self, text: String) -> i32 {
+        self.passage_request = self.passage_request.wrapping_add(1).max(1);
+        let request = self.passage_request;
+        let analyzer = self.analyzer.clone();
+        let error = self.initialization_error.clone();
+        let handle = self.get_thread_handle();
+        std::thread::spawn(move || {
+            let result = analyzer
+                .ok_or(error)
+                .and_then(|analyzer| reader::word_ranges(&analyzer, text))
+                .map(|ranges| json!(ranges))
+                .unwrap_or_else(|error| json!({ "error": error }));
+            let _ = handle.invoke_mut(move |model| model.passage_finished(request, &result));
         });
         request
     }

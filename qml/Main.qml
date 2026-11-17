@@ -381,10 +381,11 @@ ApplicationWindow {
             PageHeader {
                 Layout.fillWidth: true
                 title: root.page === "reader" ? readerPage.documentTitle : root.pageTitle
-                backLabel: root.page === "reader" ? "My Library" : ""
+                backLabel: root.page === "reader" ? "Library" : ""
                 searchVisible: root.page === "home"
                 searchEnabled: YouTube.configured
-                maximumContentWidth: root.page === "home" ? Theme.dashboardWidth : 0
+                maximumContentWidth: root.page === "home" ? Theme.dashboardWidth
+                    : root.page === "reader" ? Theme.readerHeaderWidth : 0
                 placeholder: "Search YouTube for Korean videos"
                 onBackRequested: root.goBack("library")
                 onSearchAccepted: query => {
@@ -434,6 +435,7 @@ ApplicationWindow {
                 }
                 ReaderPage {
                     id: readerPage
+                    renderHost: root.renderHost
                     active: root.page === "reader"
                 }
                 VocabularyPage {}

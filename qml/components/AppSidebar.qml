@@ -60,7 +60,7 @@ Rectangle {
             Rectangle {
                 anchors.fill: parent
                 radius: 8
-                color: brandToggle.containsMouse ? Theme.accentSoft : "transparent"
+                color: brandToggle.containsMouse ? Theme.neutralHover : "transparent"
             }
             Icon {
                 anchors.centerIn: parent
@@ -102,7 +102,8 @@ Rectangle {
                 Rectangle {
                     anchors.fill: parent
                     radius: 14
-                    color: linkItem.active || linkMouse.containsMouse ? Theme.sidebarSelection : "transparent"
+                    color: linkItem.active ? Theme.sidebarSelection
+                        : linkMouse.containsMouse ? Theme.neutralHover : "transparent"
                 }
 
                 Icon {
@@ -159,7 +160,7 @@ Rectangle {
         Rectangle {
             anchors.fill: parent
             radius: 14
-            color: settingsMouse.containsMouse ? Theme.accentSoft : "transparent"
+            color: settingsMouse.containsMouse ? Theme.neutralHover : "transparent"
             border.width: 0
             border.color: Theme.border
         }

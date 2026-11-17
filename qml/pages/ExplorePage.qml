@@ -77,6 +77,18 @@ Item {
             browse(currentQuery, nextPage)
     }
 
+    function showFirstPage(firstPage) {
+        videos = firstPage.videos
+        nextPage = firstPage.nextPage
+        // Wait for Continue Watching and the grid to lay out the first page together.
+        Qt.callLater(positionAtTop)
+    }
+
+    function positionAtTop() {
+        results.forceLayout()
+        results.positionViewAtBeginning()
+    }
+
     function browse(query, pageToken) {
         const term = query.trim()
         if (!term || !YouTube.configured || (request && term === currentQuery))
@@ -89,11 +101,9 @@ Item {
             search.text = term
             videos = []
             nextPage = ""
-            results.positionViewAtBeginning()
             const cached = freshCacheEntries().find(entry => entry.query === term)
             if (cached) {
-                videos = cached.videos
-                nextPage = cached.nextPage
+                showFirstPage(cached)
                 return
             }
         }
@@ -111,11 +121,12 @@ Item {
             root.error = result.error ?? ""
             root.paginationFailed = wasLoadingMore && !!root.error
             if (!root.error) {
-                const loaded = new Set(root.videos.map(video => video.id))
-                root.videos = root.videos.concat(result.videos.filter(video => !loaded.has(video.id)))
-                root.nextPage = wasLoadingMore && result.nextPage === root.nextPage
-                    ? "" : result.nextPage
-                if (!wasLoadingMore) {
+                if (wasLoadingMore) {
+                    const loaded = new Set(root.videos.map(video => video.id))
+                    root.videos = root.videos.concat(result.videos.filter(video => !loaded.has(video.id)))
+                    root.nextPage = result.nextPage === root.nextPage ? "" : result.nextPage
+                } else {
+                    root.showFirstPage(result)
                     const entries = root.freshCacheEntries().filter(entry => entry.query !== root.currentQuery)
                     entries.unshift({
                         query: root.currentQuery,

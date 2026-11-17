@@ -4,6 +4,8 @@
 #include <QUrl>
 #include <atomic>
 
+class QQuickTextDocument;
+
 class RenderHost : public QObject
 {
     Q_OBJECT
@@ -11,6 +13,7 @@ public:
     RenderHost();
     Q_INVOKABLE QString localPath(const QUrl &url) const { return url.toLocalFile(); }
     Q_INVOKABLE void checkFrame();
+    Q_INVOKABLE void setReadingLineHeight(QQuickTextDocument *document, int pixels);
     void frameRendered();
 
     void *nativeDisplay = nullptr;

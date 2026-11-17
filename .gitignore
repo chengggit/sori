@@ -3,6 +3,7 @@
 /playback/target/
 /resources/kiwi/
 /AGENTS.md
+docs/
 .DS_Store
 .env
 .env.*
