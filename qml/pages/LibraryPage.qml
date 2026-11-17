@@ -13,29 +13,35 @@ Item {
     property string error: ""
     property var selectedDocument: null
     readonly property var matchingItems: {
-        const query = search.text.trim().toLowerCase()
-        return Library.documents.map(item => ({ id: item.id, title: item.title, video: false }))
-            .concat(Library.videos.map(item => ({ id: item.id, title: item.title, video: true })))
-            .filter(item => item.title.toLowerCase().includes(query))
+        const query = search.text.trim().toLowerCase();
+        return Library.documents.map(item => ({
+                    id: item.id,
+                    title: item.title,
+                    video: false
+                })).concat(Library.videos.map(item => ({
+                    id: item.id,
+                    title: item.title,
+                    video: true
+                }))).filter(item => item.title.toLowerCase().includes(query));
     }
 
     signal openReaderRequested(real documentId, string title)
     signal openWatchRequested(real videoId)
-    signal importVideoRequested()
+    signal importVideoRequested
 
     function importText() {
-        selectedDocument = null
-        editor.showEditor(true, "", "")
+        selectedDocument = null;
+        editor.showEditor(true, "", "");
     }
 
     function editDocument(document) {
-        const result = Library.readDocument(document.id)
+        const result = Library.readDocument(document.id);
         if (result.error) {
-            error = result.error
-            return
+            error = result.error;
+            return;
         }
-        selectedDocument = document
-        editor.showEditor(false, document.title, result.content)
+        selectedDocument = document;
+        editor.showEditor(false, document.title, result.content);
     }
 
     DocumentEditor {
@@ -43,14 +49,12 @@ Item {
         parent: Overlay.overlay
         onChooseFileRequested: textPicker.open()
         onSaveRequested: (title, content) => {
-            error = importing
-                ? Library.addDocument(title, content)
-                : Library.updateDocument(root.selectedDocument.id, title, content)
+            error = importing ? Library.addDocument(title, content) : Library.updateDocument(root.selectedDocument.id, title, content);
             if (!error) {
                 if (importing)
-                    search.clear()
-                root.error = ""
-                close()
+                    search.clear();
+                root.error = "";
+                close();
             }
         }
     }
@@ -60,11 +64,11 @@ Item {
         title: "Import a text file"
         nameFilters: ["Text files (*.txt *.TXT)", "All files (*)"]
         onAccepted: {
-            editor.error = Library.importDocument(root.renderHost.localPath(selectedFile))
+            editor.error = Library.importDocument(root.renderHost.localPath(selectedFile));
             if (!editor.error) {
-                search.clear()
-                root.error = ""
-                editor.close()
+                search.clear();
+                root.error = "";
+                editor.close();
             }
         }
     }
@@ -102,9 +106,7 @@ Item {
                 }
 
                 AppText {
-                    text: root.selectedDocument?.video
-                        ? "Remove “" + root.selectedDocument.title + "” from your library? The video file stays on disk."
-                        : "Delete “" + (root.selectedDocument?.title ?? "") + "” from your library?"
+                    text: root.selectedDocument?.video ? "Remove “" + root.selectedDocument.title + "” from your library? The video file stays on disk." : "Delete “" + (root.selectedDocument?.title ?? "") + "” from your library?"
                     Layout.fillWidth: true
                     wrapMode: Text.Wrap
                     color: Theme.mutedForeground
@@ -121,7 +123,9 @@ Item {
                 anchors.margins: 20
                 spacing: 8
 
-                Item { Layout.fillWidth: true }
+                Item {
+                    Layout.fillWidth: true
+                }
 
                 AppButton {
                     text: "Cancel"
@@ -135,10 +139,8 @@ Item {
                     variant: "primary"
                     small: true
                     onClicked: {
-                        root.error = root.selectedDocument.video
-                            ? Library.removeVideo(root.selectedDocument.id)
-                            : Library.removeDocument(root.selectedDocument.id)
-                        confirmRemoval.close()
+                        root.error = root.selectedDocument.video ? Library.removeVideo(root.selectedDocument.id) : Library.removeDocument(root.selectedDocument.id);
+                        confirmRemoval.close();
                     }
                 }
             }
@@ -160,14 +162,21 @@ Item {
                 placeholderText: "Search your library"
                 iconName: "search"
             }
-            Item { Layout.fillWidth: true }
+            Item {
+                Layout.fillWidth: true
+            }
             AppButton {
                 text: "Import text"
                 iconName: "plus"
-                contentColorOverride: Theme.foreground
+                variant: "outline"
                 onClicked: root.importText()
             }
-            AppButton { text: "Import video"; iconName: "film"; variant: "outline"; onClicked: root.importVideoRequested() }
+            AppButton {
+                text: "Import video"
+                iconName: "film"
+                variant: "outline"
+                onClicked: root.importVideoRequested()
+            }
         }
 
         AppText {
@@ -198,9 +207,7 @@ Item {
                 border.color: Theme.border
 
                 TapHandler {
-                    onTapped: row.modelData.video
-                        ? root.openWatchRequested(row.modelData.id)
-                        : root.openReaderRequested(row.modelData.id, row.modelData.title)
+                    onTapped: row.modelData.video ? root.openWatchRequested(row.modelData.id) : root.openReaderRequested(row.modelData.id, row.modelData.title)
                 }
 
                 HoverHandler {
@@ -213,7 +220,10 @@ Item {
                     anchors.rightMargin: 14
                     spacing: 10
 
-                    Icon { name: row.modelData.video ? "film" : "file-text"; color: Theme.accent }
+                    Icon {
+                        name: row.modelData.video ? "film" : "file-text"
+                        color: Theme.accent
+                    }
                     AppText {
                         Layout.fillWidth: true
                         text: row.modelData.title
@@ -231,8 +241,8 @@ Item {
                         variant: "ghost"
                         small: true
                         onClicked: {
-                            root.selectedDocument = row.modelData
-                            confirmRemoval.open()
+                            root.selectedDocument = row.modelData;
+                            confirmRemoval.open();
                         }
                     }
                 }
