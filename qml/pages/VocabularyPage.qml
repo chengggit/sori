@@ -69,7 +69,7 @@ Item {
             model: root.matchingEntries
             clip: true
             spacing: 10
-            ScrollBar.vertical: ScrollBar {}
+            ScrollBar.vertical: AppScrollBar {}
 
             delegate: Rectangle {
                 id: card
