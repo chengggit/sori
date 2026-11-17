@@ -90,6 +90,7 @@ qt_add_resources(sori "watch" PREFIX "/" FILES
     qml/icons/chevron-down.svg
     qml/icons/clock.svg
     qml/icons/compass.svg
+    qml/icons/ellipsis-vertical.svg
     qml/icons/file-text.svg
     qml/icons/film.svg
     qml/icons/folder-open.svg
@@ -108,6 +109,7 @@ qt_add_resources(sori "watch" PREFIX "/" FILES
     qml/icons/refresh.svg
     qml/icons/search.svg
     qml/icons/settings.svg
+    qml/icons/trash.svg
     qml/icons/upload.svg
     qml/icons/volume.svg
     qml/icons/volume-x.svg
