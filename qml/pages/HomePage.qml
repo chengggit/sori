@@ -66,7 +66,9 @@ ExplorePage {
                     spacing: Theme.dashboardColumnGap
 
                     Item {
-                        Layout.preferredWidth: Math.min(Theme.resumeThumbnailWidth, parent.width * 0.28)
+                        // Keep the thumbnail at 16:9 even when the card gets narrower.
+                        Layout.preferredWidth: Math.min(Theme.resumeThumbnailWidth, parent.height * 16 / 9)
+                        Layout.minimumWidth: Layout.preferredWidth
                         Layout.fillHeight: true
 
                         Rectangle {
