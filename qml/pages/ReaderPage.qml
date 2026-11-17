@@ -115,9 +115,26 @@ Item {
         analysis.close()
     }
 
+    function dismissAnalysis() {
+        const position = passage.positionAt(0, Math.max(0, viewport.contentY - passage.y))
+        const offset = passage.positionToRectangle(position).y - viewport.contentY
+        analysis.close()
+        passage.deselect()
+        Qt.callLater(() => keepTextPosition(position, offset))
+    }
+
+    function keepTextPosition(position, offset) {
+        if (active && !restoring)
+            viewport.contentY = Math.max(0, Math.min(scrollRange, passage.positionToRectangle(position).y - offset))
+    }
+
     function analyzeSelection() {
-        if (passage.selectedText.trim())
-            analysis.lookup(passage.text, passage.selectionStart, passage.selectionEnd)
+        if (!passage.selectedText.trim())
+            return
+        const position = passage.selectionStart
+        const offset = passage.positionToRectangle(position).y - viewport.contentY
+        analysis.lookup(passage.text, position, passage.selectionEnd)
+        Qt.callLater(() => keepTextPosition(position, offset))
     }
 
     function restoreProgress() {
@@ -166,12 +183,21 @@ Item {
         }
     }
 
-    WordAnalysis {
+    ReaderAnalysis {
         id: analysis
-        parent: Overlay.overlay
-        sourceId: root.documentId
-        x: parent.width - width - 20
-        y: 76
+        documentId: root.documentId
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        width: visible ? Math.min(Theme.readerAnalysisWidth, root.width * 0.45) : 0
+        visible: opened
+        onDismissRequested: root.dismissAnalysis()
+    }
+
+    Shortcut {
+        enabled: root.active && analysis.opened && !analysis.editing
+        sequence: "Escape"
+        onActivated: root.dismissAnalysis()
     }
 
     Timer {
@@ -181,7 +207,10 @@ Item {
     }
 
     ColumnLayout {
-        anchors.fill: parent
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        anchors.left: parent.left
+        anchors.right: analysis.left
         spacing: 10
 
         AppText {

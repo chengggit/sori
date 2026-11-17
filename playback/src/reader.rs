@@ -8,6 +8,8 @@ pub struct WordAnalysis {
     pub context: String,
     pub morphemes: Vec<KoreanToken>,
     pub normalized_form: String,
+    pub lookup_terms: Vec<String>,
+    pub parts: Vec<WordPart>,
 }
 
 #[derive(Serialize)]
@@ -40,6 +42,117 @@ pub fn word_ranges(analyzer: &KoreanAnalyzer, text: String) -> Result<Vec<WordRa
         }
     }
     Ok(ranges)
+}
+
+#[derive(Debug, Serialize)]
+pub struct WordPart {
+    pub term: String,
+    pub label: &'static str,
+    pub explanation: Option<&'static str>,
+}
+
+fn grammar_explanation(tag: &str, form: &str) -> Option<&'static str> {
+    Some(match (tag, form) {
+        ("EP", "었" | "았" | "였") => "Past tense / completed state",
+        ("EP", "겠") => "Intention, prediction, or supposition",
+        ("EP", "시" | "으시") => "Honorific marker for the subject",
+        ("EF", "다" | "ㄴ다" | "는다") => "Plain-style statement ending",
+        ("EF", "어요" | "아요" | "여요") => "Polite conversational ending",
+        ("EF", "습니다" | "ㅂ니다") => "Formal polite statement ending",
+        ("JKS", "이" | "가") => "Subject marker",
+        ("JKO", "을" | "를") => "Object marker",
+        ("JKG", "의") => "Possession or relation marker",
+        ("JX", "은" | "는") => "Topic or contrast marker",
+        ("JX", "도") => "Also / too",
+        ("JX", "만") => "Only",
+        ("ETN", "기") => "Turns the action into a noun",
+        ("ETN", "음" | "ㅁ") => "Turns the action or state into a noun",
+        ("XSV", "하") => "Forms a verb meaning to do the preceding action",
+        ("XSV", "되") => "Forms a verb meaning to become or be acted on",
+        ("XSA", "하") => "Forms an adjective from the preceding noun or root",
+        _ => return None,
+    })
+}
+
+fn word_breakdown(tokens: &[KoreanToken]) -> Vec<WordPart> {
+    let mut parts = Vec::<WordPart>::new();
+    for token in tokens {
+        let tag = token.tag.split('-').next().unwrap_or_default();
+        if matches!(tag, "XSV" | "XSA") && token.form == "하" {
+            if let Some(previous) = parts
+                .last_mut()
+                .filter(|part| matches!(part.label, "Noun" | "Proper noun" | "Root"))
+            {
+                previous.term.push_str("하다");
+                previous.label = if tag == "XSV" { "Verb" } else { "Adjective" };
+                continue;
+            }
+        }
+
+        let label = match tag {
+            "NNG" => "Noun",
+            "NNP" => "Proper noun",
+            "NNB" => "Dependent noun",
+            "NP" => "Pronoun",
+            "NR" => "Numeral",
+            "VV" => "Verb",
+            "VA" => "Adjective",
+            "VX" => "Auxiliary",
+            "VCP" | "VCN" => "Copula",
+            "MM" => "Determiner",
+            "MAG" | "MAJ" => "Adverb",
+            "IC" => "Interjection",
+            "XR" => "Root",
+            "XPN" => "Prefix",
+            "XSN" => "Noun suffix",
+            "XSV" => "Verb suffix",
+            "XSA" => "Adjective suffix",
+            "SL" => "Foreign word",
+            "SH" => "Hanja",
+            "SN" => "Number",
+            tag if tag.starts_with('J') => "Particle",
+            tag if tag.starts_with('E') => "Ending",
+            tag if tag.starts_with('S') => continue,
+            _ => "Morpheme",
+        };
+        let term = if tag.starts_with(['J', 'E']) || matches!(tag, "XSN" | "XSV" | "XSA") {
+            format!("-{}", token.form)
+        } else if matches!(tag, "VV" | "VA" | "VX" | "VCP" | "VCN") {
+            format!("{}다", token.form)
+        } else {
+            token.form.clone()
+        };
+        parts.push(WordPart {
+            term,
+            label,
+            explanation: grammar_explanation(tag, &token.form),
+        });
+    }
+    parts
+}
+
+fn lookup_terms(word: &str, normalized: &str, tokens: &[KoreanToken]) -> Vec<String> {
+    let base: String = tokens
+        .iter()
+        .take_while(|token| !token.tag.starts_with(['J', 'E']))
+        .position(|token| token.tag.starts_with("XSV") && token.form == "되")
+        .map(|position| {
+            tokens[..position]
+                .iter()
+                .map(|token| token.form.as_str())
+                .collect()
+        })
+        .unwrap_or_default();
+    let mut candidates = Vec::new();
+    for term in [word.trim(), normalized, &base] {
+        if !term.is_empty()
+            && term.chars().count() <= 100
+            && !candidates.iter().any(|candidate| candidate == term)
+        {
+            candidates.push(term.to_owned());
+        }
+    }
+    candidates
 }
 
 fn dictionary_form(tokens: &[KoreanToken]) -> String {
@@ -139,10 +252,13 @@ pub fn analyze(
             token
         })
         .collect();
+    let normalized_form = dictionary_form(&morphemes);
     Ok(WordAnalysis {
+        lookup_terms: lookup_terms(&word, &normalized_form, &morphemes),
+        parts: word_breakdown(&morphemes),
         word,
         context,
-        normalized_form: dictionary_form(&morphemes),
+        normalized_form,
         morphemes,
     })
 }

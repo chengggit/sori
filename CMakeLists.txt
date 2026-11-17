@@ -73,6 +73,8 @@ qt_add_resources(sori "watch" PREFIX "/" FILES
     qml/components/PageHeader.qml
     qml/components/VocabularyEditor.qml
     qml/components/WordAnalysis.qml
+    qml/components/ReaderAnalysis.qml
+    qml/components/ReaderDefinitions.qml
     qml/icons/arrow-left.svg
     qml/icons/book-open.svg
     qml/icons/bookmark.svg
