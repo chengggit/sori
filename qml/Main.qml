@@ -135,13 +135,17 @@ ApplicationWindow {
             saveVideoProgress()
         const id = canonical.slice(-11)
         const previous = Library.youtubeHistory.find(entry => entry.youtubeId === id)
+        const knownTitle = title || previous?.title || ""
+        const knownChannel = channel || previous?.channel || ""
         beginVideo({
             youtubeId: id,
             youtubeUrl: canonical,
-            title: title || previous?.title || "YouTube video",
-            channel: channel || previous?.channel || "",
+            title: knownTitle || "YouTube video",
+            channel: knownChannel,
             seconds: previous?.seconds ?? 0
         })
+        if (!knownTitle || knownTitle === "YouTube video" || !knownChannel)
+            Library.ensureYoutubeMetadata(id)
     }
 
     function openHistoryVideo(entry) {
@@ -267,6 +271,19 @@ ApplicationWindow {
                 root.awaitingVideoPosition = false
             if (!videoProgressTimer.running)
                 videoProgressTimer.start()
+        }
+    }
+
+    Connections {
+        target: Library
+        function onYoutubeMetadataChanged(id, title, channel) {
+            const video = root.currentVideo
+            if (video?.youtubeId !== id)
+                return
+            root.currentVideo = Object.assign({}, video, {
+                title: title || video.title,
+                channel: channel || video.channel
+            })
         }
     }
 

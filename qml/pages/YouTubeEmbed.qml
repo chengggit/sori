@@ -5,6 +5,7 @@ WebEngineView {
     id: embed
 
     property var video: null
+    property string loadedVideoId: ""
     property string playbackError: ""
     readonly property string appOrigin: "https://com.sori.app"
     signal checkpoint(var entry, real seconds, real duration)
@@ -14,8 +15,9 @@ WebEngineView {
     settings.playbackRequiresUserGesture: true
 
     onVideoChanged: {
-        if (!video || !/^[A-Za-z0-9_-]{11}$/.test(video.youtubeId))
+        if (!video || video.youtubeId === loadedVideoId || !/^[A-Za-z0-9_-]{11}$/.test(video.youtubeId))
             return
+        loadedVideoId = video.youtubeId
         playbackError = ""
         const start = Math.max(0, Math.floor(video.seconds || 0))
         const playerUrl = "https://www.youtube.com/embed/" + video.youtubeId

@@ -22,13 +22,17 @@ ExplorePage {
     readonly property real resumeProgress: resumeDuration > 0
         ? Math.min(1, Math.max(0, resumeSeconds / resumeDuration)) : 0
 
-    function requestThumbnail() {
+    function requestRecentDetails() {
         if (recentVideo?.id)
             Library.ensureVideoThumbnail(recentVideo.id)
+        if (recentVideo?.youtubeId) {
+            Library.ensureYoutubeMetadata(recentVideo.youtubeId)
+            Library.ensureYoutubeDuration(recentVideo.youtubeId)
+        }
     }
 
-    Component.onCompleted: requestThumbnail()
-    onRecentVideoChanged: requestThumbnail()
+    Component.onCompleted: requestRecentDetails()
+    onRecentVideoChanged: requestRecentDetails()
 
     discovery: true
     leadingContent: Rectangle {

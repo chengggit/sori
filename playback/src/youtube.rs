@@ -1,4 +1,5 @@
 use qtbridge::{qobject, QmlObject};
+use regex::Regex;
 use reqwest::blocking::Client;
 use rusqlite::{params, Connection};
 use serde::{Deserialize, Serialize};
@@ -24,7 +25,7 @@ impl YouTube {
     fn search_finished(&mut self, request: i32, result: &Value);
 
     fn configured(&self) -> bool {
-        api_key().is_some()
+        has_api_key()
     }
 
     #[qslot]
@@ -47,6 +48,10 @@ impl YouTube {
         });
         request
     }
+}
+
+pub fn has_api_key() -> bool {
+    api_key().is_some()
 }
 
 fn api_key() -> Option<String> {
@@ -124,6 +129,186 @@ fn valid_id(id: &str) -> bool {
 
 pub fn watch_url(id: &str) -> Option<String> {
     valid_id(id).then(|| format!("https://www.youtube.com/watch?v={id}"))
+}
+
+fn client() -> Result<&'static Client, String> {
+    CLIENT
+        .get_or_init(|| {
+            Client::builder()
+                .user_agent("Sori/0.1 (Korean immersion desktop app)")
+                .timeout(Duration::from_secs(15))
+                .redirect(reqwest::redirect::Policy::none())
+                .build()
+                .map_err(|error| error.to_string())
+        })
+        .as_ref()
+        .map_err(Clone::clone)
+}
+
+#[derive(Deserialize)]
+struct OEmbedResponse {
+    #[serde(default)]
+    title: String,
+    #[serde(default)]
+    author_name: String,
+}
+
+pub struct Metadata {
+    pub title: String,
+    pub channel: String,
+}
+
+pub fn fetch_metadata(id: &str) -> Result<Metadata, String> {
+    if !valid_id(id) {
+        return Err("Invalid YouTube video ID.".into());
+    }
+    let mut url = Url::parse("https://www.youtube.com/oembed").expect("constant oEmbed URL");
+    url.query_pairs_mut().extend_pairs([
+        ("url", format!("https://www.youtube.com/watch?v={id}")),
+        ("format", "json".to_owned()),
+    ]);
+    let response = client()?
+        .get(url)
+        .send()
+        .map_err(|_| "Could not reach YouTube.".to_string())?;
+    let status = response.status();
+    const MAX_METADATA_BYTES: usize = 64 * 1024;
+    let mut body = Vec::new();
+    response
+        .take(MAX_METADATA_BYTES as u64 + 1)
+        .read_to_end(&mut body)
+        .map_err(|_| "Could not read the YouTube response.".to_string())?;
+    if !status.is_success() || body.len() > MAX_METADATA_BYTES {
+        return Err("YouTube did not return video details.".into());
+    }
+    parse_metadata(&body)
+}
+
+fn parse_metadata(body: &[u8]) -> Result<Metadata, String> {
+    let response: OEmbedResponse = serde_json::from_slice(body)
+        .map_err(|_| "Could not read the YouTube video details.".to_string())?;
+    let title = decode_title(response.title.trim());
+    if title.is_empty() {
+        return Err("YouTube did not return a video title.".into());
+    }
+    Ok(Metadata {
+        title,
+        channel: decode_title(response.author_name.trim()),
+    })
+}
+
+pub fn update_metadata(
+    connection: &Connection,
+    id: &str,
+    title: &str,
+    channel: &str,
+) -> Result<(), String> {
+    if !valid_id(id) {
+        return Err("Invalid YouTube video ID.".into());
+    }
+    connection
+        .execute(
+            "UPDATE youtube_watch_history SET title = ?2, channel = ?3 WHERE video_id = ?1",
+            params![id, title.trim(), channel.trim()],
+        )
+        .map_err(|error| error.to_string())?;
+    Ok(())
+}
+
+static DURATION_PATTERN: OnceLock<Regex> = OnceLock::new();
+
+#[derive(Deserialize)]
+struct VideosResponse {
+    #[serde(default)]
+    items: Vec<VideoResource>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct VideoResource {
+    #[serde(default)]
+    content_details: Option<ContentDetails>,
+}
+
+#[derive(Deserialize)]
+struct ContentDetails {
+    #[serde(default)]
+    duration: String,
+}
+
+pub fn fetch_duration(id: &str) -> Result<f64, String> {
+    if !valid_id(id) {
+        return Err("Invalid YouTube video ID.".into());
+    }
+    let key = api_key()
+        .ok_or("Set SORI_YOUTUBE_API_KEY in .env.local to load YouTube durations.")?;
+    let mut url = Url::parse("https://www.googleapis.com/youtube/v3/videos")
+        .expect("constant videos URL");
+    url.query_pairs_mut().extend_pairs([
+        ("part", "contentDetails".to_owned()),
+        ("id", id.to_owned()),
+        ("key", key),
+    ]);
+
+    let response = client()?
+        .get(url)
+        .send()
+        .map_err(|_| "Could not reach YouTube.".to_string())?;
+    let status = response.status();
+    const MAX_DURATION_BYTES: usize = 64 * 1024;
+    let mut body = Vec::new();
+    response
+        .take(MAX_DURATION_BYTES as u64 + 1)
+        .read_to_end(&mut body)
+        .map_err(|_| "Could not read the YouTube response.".to_string())?;
+    if !status.is_success() || body.len() > MAX_DURATION_BYTES {
+        return Err("YouTube did not return the video duration.".into());
+    }
+    parse_duration_response(&body)
+}
+
+fn parse_duration_response(body: &[u8]) -> Result<f64, String> {
+    let response: VideosResponse = serde_json::from_slice(body)
+        .map_err(|_| "Could not read the YouTube video details.".to_string())?;
+    response
+        .items
+        .first()
+        .and_then(|item| item.content_details.as_ref())
+        .and_then(|details| parse_iso_duration(&details.duration))
+        .ok_or_else(|| "YouTube did not return the video duration.".to_string())
+}
+
+fn parse_iso_duration(text: &str) -> Option<f64> {
+    let pattern = DURATION_PATTERN.get_or_init(|| {
+        Regex::new(r"^P(?:(\d+)D)?T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$")
+            .expect("constant duration pattern")
+    });
+    let captures = pattern.captures(text.trim())?;
+    let part = |index: usize| {
+        captures
+            .get(index)
+            .and_then(|value| value.as_str().parse::<f64>().ok())
+            .unwrap_or(0.0)
+    };
+    let seconds = part(1) * 86_400.0 + part(2) * 3_600.0 + part(3) * 60.0 + part(4);
+    (seconds.is_finite() && seconds > 0.0).then_some(seconds)
+}
+
+pub fn update_duration(connection: &Connection, id: &str, duration: f64) -> Result<(), String> {
+    if !valid_id(id) {
+        return Err("Invalid YouTube video ID.".into());
+    }
+    if !duration.is_finite() || duration <= 0.0 {
+        return Err("Invalid YouTube video duration.".into());
+    }
+    connection
+        .execute(
+            "UPDATE youtube_watch_history SET duration = ?2
+             WHERE video_id = ?1 AND seconds <= ?2",
+            params![id, duration],
+        )
+        .map_err(|error| error.to_string())?;
+    Ok(())
 }
 
 pub fn watch_history(connection: &Connection) -> Result<Vec<Value>, String> {
@@ -279,17 +464,7 @@ fn search(query: &str, page: &str) -> Result<SearchPage, String> {
         return Err("Enter a search of up to 250 characters.".into());
     }
 
-    let client = CLIENT
-        .get_or_init(|| {
-            Client::builder()
-                .user_agent("Sori/0.1 (Korean immersion desktop app)")
-                .timeout(Duration::from_secs(15))
-                .redirect(reqwest::redirect::Policy::none())
-                .build()
-                .map_err(|error| error.to_string())
-        })
-        .as_ref()
-        .map_err(Clone::clone)?;
+    let client = client()?;
     let mut url =
         Url::parse("https://www.googleapis.com/youtube/v3/search").expect("constant search URL");
     url.query_pairs_mut().extend_pairs([
@@ -379,6 +554,56 @@ mod tests {
         assert_eq!(entries[0]["youtubeId"], id);
         assert_eq!(entries[0]["seconds"], 7.0);
         assert_eq!(entries[0]["duration"], 19.0);
+    }
+
+    #[test]
+    fn updates_metadata_without_touching_progress() {
+        let connection = Connection::open_in_memory().unwrap();
+        connection
+            .execute_batch(include_str!("schema.sql"))
+            .unwrap();
+        let id = "jNQXAC9IVRw";
+        save_watch_progress(&connection, id, "YouTube video", "", 7.0, 19.0).unwrap();
+        update_metadata(&connection, id, "정말 좋은 영상", "테스트 채널").unwrap();
+        let entries = watch_history(&connection).unwrap();
+        assert_eq!(entries[0]["title"], "정말 좋은 영상");
+        assert_eq!(entries[0]["channel"], "테스트 채널");
+        assert_eq!(entries[0]["seconds"], 7.0);
+        assert_eq!(entries[0]["duration"], 19.0);
+    }
+
+    #[test]
+    fn parses_oembed_metadata() {
+        let metadata = parse_metadata(
+            br#"{"title":"One &amp; Two","author_name":"Channel","other":"ignored"}"#,
+        )
+        .unwrap();
+        assert_eq!(metadata.title, "One & Two");
+        assert_eq!(metadata.channel, "Channel");
+        assert!(parse_metadata(br#"{"title":"","author_name":"Channel"}"#).is_err());
+    }
+
+    #[test]
+    fn parses_and_updates_durations() {
+        assert_eq!(parse_iso_duration("PT14M5S"), Some(845.0));
+        assert_eq!(parse_iso_duration("PT1H2M3S"), Some(3723.0));
+        assert_eq!(parse_iso_duration("P1DT1S"), Some(86_401.0));
+        assert_eq!(parse_iso_duration("PT0S"), None);
+        assert_eq!(parse_iso_duration("14:05"), None);
+
+        let body = br#"{"items":[{"contentDetails":{"duration":"PT14M5S"}}]}"#;
+        assert_eq!(parse_duration_response(body).unwrap(), 845.0);
+        assert!(parse_duration_response(br#"{"items":[]}"#).is_err());
+
+        let connection = Connection::open_in_memory().unwrap();
+        connection
+            .execute_batch(include_str!("schema.sql"))
+            .unwrap();
+        let id = "jNQXAC9IVRw";
+        save_watch_progress(&connection, id, "Video", "Channel", 7.0, 0.0).unwrap();
+        update_duration(&connection, id, 845.0).unwrap();
+        assert_eq!(watch_history(&connection).unwrap()[0]["duration"], 845.0);
+        assert!(update_duration(&connection, id, f64::NAN).is_err());
     }
 
     #[test]
