@@ -191,9 +191,14 @@ Item {
     }
 
     Shortcut {
-        enabled: root.active && analysis.opened && !analysis.editing
+        enabled: root.active && analysis.opened
         sequence: "Escape"
-        onActivated: root.dismissAnalysis()
+        onActivated: {
+            if (analysis.editing)
+                analysis.closeSaveEditor()
+            else
+                root.dismissAnalysis()
+        }
     }
 
     Timer {

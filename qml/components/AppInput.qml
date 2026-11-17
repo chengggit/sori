@@ -6,6 +6,7 @@ TextField {
     id: control
 
     property string iconName: ""
+    property color surfaceColor: Theme.card
 
     implicitHeight: Theme.inputHeight
     leftPadding: iconName === "" ? 12 : 36
@@ -19,7 +20,7 @@ TextField {
 
     background: Rectangle {
         radius: Theme.radius
-        color: Theme.card
+        color: control.surfaceColor
         border.width: control.activeFocus ? 2 : 1
         border.color: control.activeFocus ? Theme.accent : Theme.border
 

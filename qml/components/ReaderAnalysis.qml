@@ -9,7 +9,7 @@ Rectangle {
 
     required property real documentId
     readonly property bool opened: selectedWord !== ""
-    readonly property bool editing: editor.opened
+    property bool editing: false
     property string selectedWord: ""
     property var result: null
     property int request: 0
@@ -61,7 +61,7 @@ Rectangle {
         queuedTerms = []
         candidateIndex = 0
         sourceToggle.checked = false
-        editor.close()
+        editing = false
     }
 
     function queueTerm(term) {
@@ -105,6 +105,14 @@ Rectangle {
             const definition = chosenDefinition ?? wholeLookup?.definitions?.[0]
             editor.openDraft(documentId, result, definition)
         }
+        editing = true
+        editorScroll.contentItem.contentY = 0
+        editor.focusWord()
+    }
+
+    function closeSaveEditor() {
+        editing = false
+        saveButton.forceActiveFocus(Qt.TabFocusReason)
     }
 
     Connections {
@@ -141,13 +149,6 @@ Rectangle {
             }
             root.startLookups()
         }
-    }
-
-    VocabularyEditor {
-        id: editor
-        parent: Overlay.overlay
-        allowRemoval: true
-        onChanged: root.refreshSavedWord()
     }
 
     Rectangle {
@@ -236,10 +237,10 @@ Rectangle {
                         AppButton {
                             id: saveButton
                             enabled: !!root.result?.word && root.documentId > 0
-                            iconName: "bookmark"
+                            iconName: root.savedWord?.id ? "bookmark-filled" : "bookmark"
                             iconSize: 20
                             anchors.verticalCenter: parent.verticalCenter
-                            variant: root.savedWord?.id ? "secondary" : "ghost"
+                            variant: "ghost"
                             small: true
                             Accessible.name: root.savedWord?.id ? "View saved word" : "Save word"
                             onClicked: root.openSaveEditor()
@@ -380,7 +381,7 @@ Rectangle {
         }
 
         Rectangle {
-            visible: root.sources.length > 0
+            visible: !root.editing && root.sources.length > 0
             Layout.fillWidth: true
             Layout.preferredHeight: 1
             color: Theme.border
@@ -388,7 +389,7 @@ Rectangle {
 
         Button {
             id: sourceToggle
-            visible: root.sources.length > 0
+            visible: !root.editing && root.sources.length > 0
             checkable: true
             flat: true
             text: checked ? "▾ Sources" : "▸ Sources"
@@ -445,6 +446,53 @@ Rectangle {
                         required property var modelData
                         text: modelData.term
                         destination: modelData.url
+                    }
+                }
+            }
+        }
+        Rectangle {
+            visible: root.editing
+            Layout.fillWidth: true
+            Layout.preferredHeight: Math.min(root.height * 0.8, editorColumn.implicitHeight + 40)
+            color: Theme.card
+            radius: Theme.radius
+            border.color: Theme.border
+
+            ScrollView {
+                id: editorScroll
+                anchors.fill: parent
+                anchors.margins: 20
+                contentWidth: availableWidth
+                clip: true
+
+                ColumnLayout {
+                    id: editorColumn
+                    width: editorScroll.availableWidth
+                    spacing: 16
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        AppText {
+                            Layout.fillWidth: true
+                            text: root.savedWord?.id ? "Saved word" : "Save word"
+                            font.pixelSize: 16
+                            font.weight: Font.DemiBold
+                        }
+                        AppButton {
+                            iconName: "x"
+                            variant: "ghost"
+                            small: true
+                            Accessible.name: "Close save panel"
+                            onClicked: root.closeSaveEditor()
+                        }
+                    }
+
+                    VocabularyForm {
+                        id: editor
+                        Layout.fillWidth: true
+                        panelMode: true
+                        onChanged: root.refreshSavedWord()
+                        onCloseRequested: root.closeSaveEditor()
                     }
                 }
             }
