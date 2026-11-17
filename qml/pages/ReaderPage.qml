@@ -240,7 +240,7 @@ Item {
                     saveProgress.start()
                 }
             }
-            ScrollBar.vertical: ScrollBar {}
+            ScrollBar.vertical: AppScrollBar {}
 
             TextArea {
                 id: passage

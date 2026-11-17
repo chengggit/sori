@@ -127,7 +127,7 @@ Popup {
             }
         }
 
-        ScrollView {
+        AppScrollView {
             Layout.fillWidth: true
             Layout.fillHeight: true
             contentWidth: availableWidth

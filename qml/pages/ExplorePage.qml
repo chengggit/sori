@@ -271,7 +271,7 @@ Item {
             readonly property int titleHeight: 2 * Theme.videoTitleLineHeight
             cellHeight: Math.ceil(tileWidth * 9 / 16) + titleHeight
                 + Theme.videoChannelHeight + Theme.controlGap + Theme.dashboardRowGap
-            ScrollBar.vertical: ScrollBar {
+            ScrollBar.vertical: AppScrollBar {
                 id: resultsScrollBar
                 parent: root.discovery ? root : results
                 anchors.top: parent.top

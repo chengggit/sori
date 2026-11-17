@@ -10,6 +10,8 @@ Rectangle {
     required property real documentId
     readonly property bool opened: selectedWord !== ""
     property bool editing: false
+    readonly property var dictionaryProvider: DictionaryTabs.enabled[tabs.currentIndex - 1]
+    readonly property bool showingAnalysis: !dictionaryProvider
     property string selectedWord: ""
     property var result: null
     property int request: 0
@@ -49,6 +51,7 @@ Rectangle {
     function close() {
         reset()
         selectedWord = ""
+        tabs.currentIndex = 0
     }
 
     function reset() {
@@ -174,24 +177,62 @@ Rectangle {
                 color: Theme.border
             }
 
-            Rectangle {
+            TabBar {
+                id: tabs
                 anchors.left: parent.left
                 anchors.leftMargin: 12
+                anchors.right: closeAnalysisButton.left
                 anchors.bottom: parent.bottom
-                width: 144
-                height: 36
-                radius: Theme.radiusSmall
-                color: Theme.card
-                border.color: Theme.border
+                height: 38
+                padding: 0
+                spacing: 4
+                background: null
+                readonly property int tabCount: DictionaryTabs.enabled.length + 1
+                readonly property real tabWidth: Math.max(92, (root.width - 16 - Theme.iconButtonSize
+                    - spacing * (tabCount - 1)) / tabCount)
 
-                AppText {
-                    anchors.centerIn: parent
-                    text: "Analysis"
-                    font.weight: Font.Medium
+                Repeater {
+                    model: [{ label: "Analysis" }].concat(DictionaryTabs.enabled)
+
+                    delegate: TabButton {
+                        id: tab
+                        required property var modelData
+                        text: modelData.label
+                        width: tabs.tabWidth
+                        implicitHeight: tabs.height
+                        padding: 6
+                        hoverEnabled: true
+
+                        background: Rectangle {
+                            topLeftRadius: Theme.radius
+                            topRightRadius: Theme.radius
+                            color: tab.checked ? Theme.card : tab.hovered ? Theme.neutralHover : "transparent"
+                            border.color: tab.visualFocus ? Theme.accent : Theme.border
+                            border.width: tab.checked || tab.visualFocus ? 1 : 0
+
+                            Rectangle {
+                                visible: tab.checked
+                                anchors.bottom: parent.bottom
+                                x: 1
+                                width: parent.width - 2
+                                height: 1
+                                color: Theme.card
+                            }
+                        }
+
+                        contentItem: AppText {
+                            text: tab.text
+                            color: tab.checked ? Theme.foreground : Theme.mutedForeground
+                            horizontalAlignment: Text.AlignHCenter
+                            verticalAlignment: Text.AlignVCenter
+                            elide: Text.ElideRight
+                        }
+                    }
                 }
             }
 
             AppButton {
+                id: closeAnalysisButton
                 anchors.right: parent.right
                 anchors.verticalCenter: parent.verticalCenter
                 anchors.rightMargin: 4
@@ -204,8 +245,70 @@ Rectangle {
             }
         }
 
-        ScrollView {
+        Row {
+            Layout.fillWidth: true
+            Layout.leftMargin: 20
+            Layout.rightMargin: 20
+            Layout.topMargin: 12
+            spacing: 6
+            AppText {
+                text: root.selectedWord
+                korean: true
+                font.pixelSize: 20
+                font.weight: Font.DemiBold
+                width: Math.max(0, Math.min(implicitWidth, root.width - 46 - saveButton.implicitWidth))
+                anchors.verticalCenter: parent.verticalCenter
+                wrapMode: Text.Wrap
+            }
+
+            AppButton {
+                id: saveButton
+                enabled: !!root.result?.word && root.documentId > 0
+                iconName: root.savedWord?.id ? "bookmark-filled" : "bookmark"
+                iconSize: 20
+                anchors.verticalCenter: parent.verticalCenter
+                variant: "ghost"
+                small: true
+                Accessible.name: root.savedWord?.id ? "View saved word" : "Save word"
+                onClicked: root.openSaveEditor()
+            }
+        }
+
+        Repeater {
+            model: root.opened ? DictionaryTabs.enabled : []
+
+            delegate: DictionaryLookupView {
+                id: dictionaryPage
+
+                required property var modelData
+                readonly property bool current: root.dictionaryProvider?.template === modelData.template
+                property string lookupWord: ""
+
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                visible: current
+                keepLoaded: true
+                lookupUrl: lookupWord
+                    ? Analysis.dictionaryLookupUrl(modelData.template, encodeURIComponent(lookupWord)) : ""
+
+                function updateLookup() {
+                    if (current)
+                        lookupWord = root.selectedWord.trim()
+                }
+
+                Component.onCompleted: updateLookup()
+                onCurrentChanged: updateLookup()
+
+                Connections {
+                    target: root
+                    function onSelectedWordChanged() { dictionaryPage.updateLookup() }
+                }
+            }
+        }
+
+        AppScrollView {
             id: body
+            visible: root.showingAnalysis
             Layout.fillWidth: true
             Layout.fillHeight: true
             contentWidth: availableWidth
@@ -220,33 +323,6 @@ Rectangle {
                     Layout.fillWidth: true
                     Layout.margins: 20
                     spacing: 12
-
-                    Row {
-                        Layout.fillWidth: true
-                        spacing: 6
-                        AppText {
-                            text: root.selectedWord
-                            korean: true
-                            font.pixelSize: 20
-                            font.weight: Font.DemiBold
-                            width: Math.max(0, Math.min(implicitWidth, body.availableWidth - 46 - saveButton.implicitWidth))
-                            anchors.verticalCenter: parent.verticalCenter
-                            wrapMode: Text.Wrap
-                        }
-
-                        AppButton {
-                            id: saveButton
-                            enabled: !!root.result?.word && root.documentId > 0
-                            iconName: root.savedWord?.id ? "bookmark-filled" : "bookmark"
-                            iconSize: 20
-                            anchors.verticalCenter: parent.verticalCenter
-                            variant: "ghost"
-                            small: true
-                            Accessible.name: root.savedWord?.id ? "View saved word" : "Save word"
-                            onClicked: root.openSaveEditor()
-                        }
-
-                    }
 
                     AppText {
                         visible: root.request !== 0 || !!root.result?.error
@@ -381,7 +457,7 @@ Rectangle {
         }
 
         Rectangle {
-            visible: !root.editing && root.sources.length > 0
+            visible: root.showingAnalysis && !root.editing && root.sources.length > 0
             Layout.fillWidth: true
             Layout.preferredHeight: 1
             color: Theme.border
@@ -389,7 +465,7 @@ Rectangle {
 
         Button {
             id: sourceToggle
-            visible: !root.editing && root.sources.length > 0
+            visible: root.showingAnalysis && !root.editing && root.sources.length > 0
             checkable: true
             flat: true
             text: checked ? "▾ Sources" : "▸ Sources"
@@ -411,7 +487,7 @@ Rectangle {
             }
         }
 
-        ScrollView {
+        AppScrollView {
             id: sourceDetails
             visible: sourceToggle.visible && sourceToggle.checked
             clip: true
@@ -458,7 +534,7 @@ Rectangle {
             radius: Theme.radius
             border.color: Theme.border
 
-            ScrollView {
+            AppScrollView {
                 id: editorScroll
                 anchors.fill: parent
                 anchors.margins: 20

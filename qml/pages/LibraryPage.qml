@@ -124,7 +124,7 @@ Item {
             clip: true
             spacing: 8
             model: root.matchingItems
-            ScrollBar.vertical: ScrollBar {}
+            ScrollBar.vertical: AppScrollBar {}
 
             delegate: Rectangle {
                 id: row

@@ -20,7 +20,7 @@ Dialog {
             Layout.fillWidth: true
             Layout.fillHeight: true
             clip: true
-            ScrollBar.vertical: ScrollBar {}
+            ScrollBar.vertical: AppScrollBar {}
 
             delegate: RowLayout {
                 required property var modelData

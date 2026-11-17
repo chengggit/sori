@@ -20,46 +20,24 @@ Dialog {
     height: Math.min(680, parent.height - 32)
 
     contentItem: ColumnLayout {
-        RowLayout {
+        TabBar {
+            id: tabs
             Layout.fillWidth: true
-            TabBar {
-                id: tabs
-                Layout.fillWidth: true
 
-                Repeater {
-                    model: DictionaryTabs.enabled
-                    delegate: TabButton {
-                        required property var modelData
-                        text: modelData.label
-                        width: implicitWidth
-                    }
+            Repeater {
+                model: DictionaryTabs.enabled
+                delegate: TabButton {
+                    required property var modelData
+                    text: modelData.label
+                    width: implicitWidth
                 }
             }
-
-            AppButton {
-                text: "Open in browser"
-                enabled: !!root.lookupUrl
-                variant: "outline"
-                onClicked: Qt.openUrlExternally(root.lookupUrl)
-            }
         }
 
-        Loader {
-            id: web
+        DictionaryLookupView {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            visible: status === Loader.Ready
-            active: root.visible && DictionaryTabs.webEngineAvailable && !!root.lookupUrl
-            source: "DictionaryWebView.qml"
-            onLoaded: item.url = Qt.binding(() => root.lookupUrl)
-        }
-
-        AppText {
-            visible: web.status !== Loader.Ready && !!root.lookupUrl
-            text: "You can open this dictionary in your browser."
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            wrapMode: Text.Wrap
+            lookupUrl: root.lookupUrl
         }
     }
 }

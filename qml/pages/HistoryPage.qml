@@ -34,7 +34,7 @@ Item {
             spacing: 8
             model: Library.recentVideos.concat(Library.youtubeHistory)
                 .sort((a, b) => (b.watchedAt ?? 0) - (a.watchedAt ?? 0))
-            ScrollBar.vertical: ScrollBar {}
+            ScrollBar.vertical: AppScrollBar {}
 
             delegate: Rectangle {
                 id: row

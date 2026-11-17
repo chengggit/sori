@@ -58,6 +58,12 @@ QtObject {
     readonly property int readerUnderlineOffset: 4
     readonly property int readerPadding: 24
 
+    readonly property int scrollBarThickness: 4
+    readonly property int scrollBarHideDelay: 650
+    readonly property color scrollBarColor: "#6e6e6e"
+    readonly property real scrollBarOpacity: 0.36
+    readonly property real scrollBarActiveOpacity: 0.56
+
     readonly property int radiusSmall: 8
     readonly property int radius: 12
     readonly property int radiusLarge: 20

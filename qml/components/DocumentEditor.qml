@@ -44,7 +44,7 @@ Dialog {
             Accessible.name: "Document title"
         }
 
-        ScrollView {
+        AppScrollView {
             Layout.fillWidth: true
             Layout.fillHeight: true
             contentWidth: availableWidth
