@@ -8,6 +8,7 @@ Button {
 
     property string variant: "default"
     property string iconName: ""
+    property int iconSize: small ? 14 : Theme.iconSize
     property bool small: false
     property bool compact: false
     readonly property bool iconOnly: text === "" && iconName !== ""
@@ -32,7 +33,7 @@ Button {
             Icon {
                 visible: control.iconName !== ""
                 name: control.iconName
-                size: control.small ? 14 : Theme.iconSize
+                size: control.iconSize
                 color: control.contentColor
             }
             AppText {
@@ -57,8 +58,8 @@ Button {
             if (control.variant === "secondary")
                 return control.down || control.hovered ? Theme.accentSoftHover : Theme.accentSoft
             if (control.variant === "ghost")
-                return control.hovered || control.down ? Theme.accentSoft : "transparent"
-            return control.hovered || control.down ? Theme.hero : Theme.card
+                return control.hovered || control.down ? Theme.neutralHover : "transparent"
+            return control.hovered || control.down ? Theme.neutralHover : Theme.card
         }
         border.width: control.variant === "outline" ? 1 : 0
         border.color: Theme.border

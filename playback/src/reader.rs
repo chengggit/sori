@@ -8,6 +8,168 @@ pub struct WordAnalysis {
     pub context: String,
     pub morphemes: Vec<KoreanToken>,
     pub normalized_form: String,
+    pub lookup_terms: Vec<String>,
+    pub parts: Vec<WordPart>,
+}
+
+#[derive(Serialize)]
+pub struct WordRange {
+    start: usize,
+    end: usize,
+}
+
+pub fn word_ranges(analyzer: &KoreanAnalyzer, text: String) -> Result<Vec<WordRange>, String> {
+    let original: Vec<u16> = text.encode_utf16().collect();
+    let tokens = analyzer.analyze(text)?;
+    let mut ranges = Vec::new();
+    for group in
+        tokens.chunk_by(|a, b| a.sentence_index == b.sentence_index && a.word_index == b.word_index)
+    {
+        let start = group.iter().map(|token| token.start).min().unwrap();
+        let end = group.iter().map(|token| token.end).max().unwrap();
+        let mut offset = start;
+        // Kiwi can group Latin text or punctuation with Korean within one written word.
+        for run in original[start..end].chunk_by(|a, b| is_hangul(*a) == is_hangul(*b)) {
+            let end = offset + run.len();
+            if is_hangul(run[0]) {
+                ranges.push(WordRange {
+                    start: attached_number_start(&original, offset),
+                    end,
+                });
+            }
+            offset = end;
+        }
+    }
+    Ok(ranges)
+}
+
+fn attached_number_start(text: &[u16], end: usize) -> usize {
+    let digit = |unit| matches!(unit, 0x30..=0x39);
+    let mut start = end;
+    while start > 0 && digit(text[start - 1]) {
+        start -= 1;
+        // A grouping comma or decimal point belongs to the number between digits.
+        if start >= 2 && matches!(text[start - 1], 0x2c | 0x2e) && digit(text[start - 2]) {
+            start -= 1;
+        }
+    }
+    start
+}
+
+fn is_hangul(unit: u16) -> bool {
+    matches!(unit, 0x1100..=0x11ff | 0x3131..=0x318e | 0xa960..=0xa97c
+        | 0xac00..=0xd7a3 | 0xd7b0..=0xd7c6 | 0xd7cb..=0xd7fb)
+}
+
+#[derive(Debug, Serialize)]
+pub struct WordPart {
+    pub term: String,
+    pub label: &'static str,
+    pub explanation: Option<&'static str>,
+}
+
+fn grammar_explanation(tag: &str, form: &str) -> Option<&'static str> {
+    Some(match (tag, form) {
+        ("EP", "었" | "았" | "였") => "Past tense / completed state",
+        ("EP", "겠") => "Intention, prediction, or supposition",
+        ("EP", "시" | "으시") => "Honorific marker for the subject",
+        ("EF", "다" | "ㄴ다" | "는다") => "Plain-style statement ending",
+        ("EF", "어요" | "아요" | "여요") => "Polite conversational ending",
+        ("EF", "습니다" | "ㅂ니다") => "Formal polite statement ending",
+        ("JKS", "이" | "가") => "Subject marker",
+        ("JKO", "을" | "를") => "Object marker",
+        ("JKG", "의") => "Possession or relation marker",
+        ("JX", "은" | "는") => "Topic or contrast marker",
+        ("JX", "도") => "Also / too",
+        ("JX", "만") => "Only",
+        ("ETN", "기") => "Turns the action into a noun",
+        ("ETN", "음" | "ㅁ") => "Turns the action or state into a noun",
+        ("XSV", "하") => "Forms a verb meaning to do the preceding action",
+        ("XSV", "되") => "Forms a verb meaning to become or be acted on",
+        ("XSA", "하") => "Forms an adjective from the preceding noun or root",
+        _ => return None,
+    })
+}
+
+fn word_breakdown(tokens: &[KoreanToken]) -> Vec<WordPart> {
+    let mut parts = Vec::<WordPart>::new();
+    for token in tokens {
+        let tag = token.tag.split('-').next().unwrap_or_default();
+        if matches!(tag, "XSV" | "XSA") && token.form == "하" {
+            if let Some(previous) = parts
+                .last_mut()
+                .filter(|part| matches!(part.label, "Noun" | "Proper noun" | "Root"))
+            {
+                previous.term.push_str("하다");
+                previous.label = if tag == "XSV" { "Verb" } else { "Adjective" };
+                continue;
+            }
+        }
+
+        let label = match tag {
+            "NNG" => "Noun",
+            "NNP" => "Proper noun",
+            "NNB" => "Dependent noun",
+            "NP" => "Pronoun",
+            "NR" => "Numeral",
+            "VV" => "Verb",
+            "VA" => "Adjective",
+            "VX" => "Auxiliary",
+            "VCP" | "VCN" => "Copula",
+            "MM" => "Determiner",
+            "MAG" | "MAJ" => "Adverb",
+            "IC" => "Interjection",
+            "XR" => "Root",
+            "XPN" => "Prefix",
+            "XSN" => "Noun suffix",
+            "XSV" => "Verb suffix",
+            "XSA" => "Adjective suffix",
+            "SL" => "Foreign word",
+            "SH" => "Hanja",
+            "SN" => "Number",
+            tag if tag.starts_with('J') => "Particle",
+            tag if tag.starts_with('E') => "Ending",
+            tag if tag.starts_with('S') => continue,
+            _ => "Morpheme",
+        };
+        let term = if tag.starts_with(['J', 'E']) || matches!(tag, "XSN" | "XSV" | "XSA") {
+            format!("-{}", token.form)
+        } else if matches!(tag, "VV" | "VA" | "VX" | "VCP" | "VCN") {
+            format!("{}다", token.form)
+        } else {
+            token.form.clone()
+        };
+        parts.push(WordPart {
+            term,
+            label,
+            explanation: grammar_explanation(tag, &token.form),
+        });
+    }
+    parts
+}
+
+fn lookup_terms(word: &str, normalized: &str, tokens: &[KoreanToken]) -> Vec<String> {
+    let base: String = tokens
+        .iter()
+        .take_while(|token| !token.tag.starts_with(['J', 'E']))
+        .position(|token| token.tag.starts_with("XSV") && token.form == "되")
+        .map(|position| {
+            tokens[..position]
+                .iter()
+                .map(|token| token.form.as_str())
+                .collect()
+        })
+        .unwrap_or_default();
+    let mut candidates = Vec::new();
+    for term in [word.trim(), normalized, &base] {
+        if !term.is_empty()
+            && term.chars().count() <= 100
+            && !candidates.iter().any(|candidate| candidate == term)
+        {
+            candidates.push(term.to_owned());
+        }
+    }
+    candidates
 }
 
 fn dictionary_form(tokens: &[KoreanToken]) -> String {
@@ -107,10 +269,13 @@ pub fn analyze(
             token
         })
         .collect();
+    let normalized_form = dictionary_form(&morphemes);
     Ok(WordAnalysis {
+        lookup_terms: lookup_terms(&word, &normalized_form, &morphemes),
+        parts: word_breakdown(&morphemes),
         word,
         context,
-        normalized_form: dictionary_form(&morphemes),
+        normalized_form,
         morphemes,
     })
 }
@@ -144,5 +309,17 @@ mod tests {
         assert_eq!(result.normalized_form, "가다");
         assert!(result.morphemes.iter().any(|token| token.form == "가"));
         assert!(result.morphemes.len() > 1);
+
+        let mixed = "😀 Hello, 학교에! KAIST는. 3000회, 2년, 3,000회, 1.5년, 20.";
+        let text: Vec<u16> = mixed.encode_utf16().collect();
+        let ranges = word_ranges(&analyzer, mixed.into()).unwrap();
+        let clickable: Vec<_> = ranges
+            .iter()
+            .map(|range| String::from_utf16(&text[range.start..range.end]).unwrap())
+            .collect();
+        assert_eq!(
+            clickable,
+            ["학교에", "는", "3000회", "2년", "3,000회", "1.5년"]
+        );
     }
 }

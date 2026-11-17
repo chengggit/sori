@@ -20,6 +20,7 @@ QtObject {
     // sRGB equivalents of the OKLCH palette in the original Svelte src/routes/layout.css.
     readonly property color background: dark ? "#0a0a0a" : "#f2f4f2"
     readonly property color sidebar: dark ? "#171717" : "#fafbfa"
+    readonly property color neutralHover: dark ? "#262626" : "#f3f3f3"
     readonly property color card: dark ? "#171717" : "#fbfcfb"
     readonly property color foreground: dark ? "#fafafa" : "#0a0a0a"
     readonly property color mutedForeground: dark ? "#a1a1a1" : "#595d59"
@@ -48,6 +49,14 @@ QtObject {
     readonly property color darkBorder: "#303030"
     readonly property color darkMuted: "#bcbcbc"
     readonly property color darkForeground: "#f4f4f4"
+
+    readonly property int readerTextWidth: 768
+    readonly property int readerHeaderWidth: 1088
+    readonly property int readerAnalysisWidth: 500
+    readonly property int readerTextSize: 16
+    readonly property int readerLineHeight: 40
+    readonly property int readerUnderlineOffset: 4
+    readonly property int readerPadding: 24
 
     readonly property int radiusSmall: 8
     readonly property int radius: 12
