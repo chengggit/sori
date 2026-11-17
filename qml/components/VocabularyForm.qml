@@ -94,31 +94,34 @@ ColumnLayout {
     }
 
     AppText { text: root.panelMode ? "Meanings" : "Meaning" }
-    AppInput {
-        visible: !root.panelMode
-        Layout.fillWidth: true
-        text: meaning.text
-        Accessible.name: "Meaning"
-        onTextEdited: meaning.text = text
-    }
-    TextArea {
-        id: meaning
-        visible: root.panelMode
+    AppScrollView {
         Layout.fillWidth: true
         Layout.preferredHeight: 80
-        wrapMode: TextEdit.Wrap
-        textFormat: TextEdit.PlainText
-        color: Theme.foreground
-        placeholderText: "Add a meaning for this word"
-        placeholderTextColor: Theme.mutedForeground
-        padding: 12
-        font.family: "Inter"
-        font.pixelSize: 14
-        Accessible.name: "Meanings"
+        contentWidth: availableWidth
+        clip: true
+        ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+
         background: Rectangle {
-            color: Theme.background
+            color: root.panelMode ? Theme.background : Theme.card
             border.color: meaning.activeFocus ? Theme.accent : Theme.border
             radius: Theme.radiusSmall
+        }
+
+        TextArea {
+            id: meaning
+            wrapMode: TextEdit.Wrap
+            textFormat: TextEdit.PlainText
+            color: Theme.foreground
+            selectionColor: Theme.accent
+            selectedTextColor: Theme.onAccent
+            selectByMouse: true
+            placeholderText: "Add a meaning for this word"
+            placeholderTextColor: Theme.mutedForeground
+            padding: 12
+            font.family: "Inter"
+            font.pixelSize: 14
+            Accessible.name: root.panelMode ? "Meanings" : "Meaning"
+            background: null
         }
     }
 
@@ -150,13 +153,36 @@ ColumnLayout {
             color: Theme.mutedForeground
         }
     }
-    AppInput {
-        id: note
-        surfaceColor: root.panelMode ? Theme.background : Theme.card
+    AppScrollView {
         visible: !root.panelMode || noteToggle.checked
         Layout.fillWidth: true
-        Accessible.name: "Note"
+        Layout.preferredHeight: 64
+        contentWidth: availableWidth
+        clip: true
+        ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+
+        background: Rectangle {
+            color: root.panelMode ? Theme.background : Theme.card
+            radius: Theme.radiusSmall
+            border.color: note.activeFocus ? Theme.accent : Theme.border
+        }
+
+        TextArea {
+            id: note
+            wrapMode: TextEdit.Wrap
+            textFormat: TextEdit.PlainText
+            color: Theme.foreground
+            selectionColor: Theme.accent
+            selectedTextColor: Theme.onAccent
+            selectByMouse: true
+            font.family: "Inter"
+            font.pixelSize: 14
+            padding: 12
+            Accessible.name: "Note"
+            background: null
+        }
     }
+
     AppText {
         visible: text !== ""
         text: root.error
@@ -179,10 +205,10 @@ ColumnLayout {
             }
         }
         Item { Layout.fillWidth: true }
-        AppButton { text: "Cancel"; variant: "ghost"; onClicked: root.closeRequested() }
+        AppButton { text: "Cancel"; variant: "outline"; onClicked: root.closeRequested() }
         AppButton {
             text: root.documentId ? "Save word" : "Save changes"
-            variant: root.panelMode ? "primary" : "default"
+            variant: "primary"
             onClicked: root.save()
         }
     }

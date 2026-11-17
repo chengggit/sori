@@ -27,11 +27,48 @@ Item {
         modal: true
         width: Math.min(380, parent.width - 48)
         title: "Remove saved word?"
-        standardButtons: Dialog.Cancel | Dialog.Yes
+        padding: 20
+        header: null
 
-        contentItem: AppText {
-            text: "Remove “" + (root.selectedEntry?.word ?? "") + "” from Vocabulary?"
-            wrapMode: Text.Wrap
+        background: Rectangle {
+            color: Theme.card
+            radius: Theme.radiusLarge
+            border.width: 1
+            border.color: Theme.border
+        }
+
+        contentItem: ColumnLayout {
+            spacing: 16
+
+            AppText {
+                text: confirmRemoval.title
+                font.pixelSize: 18
+                font.weight: Font.DemiBold
+            }
+
+            AppText {
+                text: "Remove “" + (root.selectedEntry?.word ?? "") + "” from Vocabulary?"
+                Layout.fillWidth: true
+                wrapMode: Text.Wrap
+                color: Theme.mutedForeground
+            }
+
+            RowLayout {
+                Layout.alignment: Qt.AlignRight
+                spacing: Theme.controlGap
+
+                AppButton {
+                    text: "Cancel"
+                    variant: "outline"
+                    onClicked: confirmRemoval.close()
+                }
+
+                AppButton {
+                    text: "Remove"
+                    variant: "primary"
+                    onClicked: confirmRemoval.accept()
+                }
+            }
         }
 
         onAccepted: root.error = Library.removeWord(root.selectedEntry.id)
@@ -246,13 +283,17 @@ Item {
             }
         }
 
-        EmptyState {
+        AppText {
             Layout.fillWidth: true
-            Layout.fillHeight: true
             visible: entries.count === 0
-            iconName: "bookmark"
-            title: search.text.trim() ? "No matching words" : "No saved vocabulary yet"
-            message: search.text.trim() ? "" : "Click a word in Reader or in a subtitle to analyze and save it."
+            text: search.text.trim() ? "No matching words" : "Save a word from Reader or a subtitle to see it here."
+            color: Theme.mutedForeground
+            wrapMode: Text.Wrap
+        }
+
+        Item {
+            visible: entries.count === 0
+            Layout.fillHeight: true
         }
     }
 }

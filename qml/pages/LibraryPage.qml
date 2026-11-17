@@ -251,13 +251,19 @@ Item {
 
         EmptyState {
             Layout.fillWidth: true
-            Layout.fillHeight: true
+            Layout.preferredHeight: 288
+            Layout.alignment: Qt.AlignTop
             visible: documents.count === 0 && Library.error === ""
             iconName: "library"
             title: search.text.trim() ? "No matching items" : "Your library is empty"
             message: search.text.trim() ? "" : "Import a video, a .txt file, or pasted Korean text."
             actionText: search.text.trim() ? "" : "Import text"
             onActionRequested: root.importText()
+        }
+
+        Item {
+            visible: documents.count === 0
+            Layout.fillHeight: true
         }
     }
 }

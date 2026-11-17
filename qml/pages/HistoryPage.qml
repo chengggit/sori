@@ -255,15 +255,40 @@ Item {
                 }
             }
 
-            EmptyState {
+            Rectangle {
                 Layout.fillWidth: true
                 Layout.alignment: Qt.AlignTop
                 visible: history.count === 0 && root.error === ""
-                iconName: "history"
-                title: "No watch history yet"
-                message: "Videos you play in Sori will appear here."
-                actionText: "Explore videos"
-                onActionRequested: root.openExploreRequested()
+                implicitHeight: emptyHistory.implicitHeight + 48
+                radius: Theme.radius
+                color: Theme.card
+                border.color: Theme.border
+
+                ColumnLayout {
+                    id: emptyHistory
+                    anchors.left: parent.left
+                    anchors.right: parent.right
+                    anchors.top: parent.top
+                    anchors.margins: 24
+                    spacing: 4
+
+                    AppText {
+                        text: "No watch history yet"
+                        font.weight: Font.DemiBold
+                    }
+                    AppText {
+                        Layout.fillWidth: true
+                        text: "Videos you play in Sori will appear here."
+                        color: Theme.mutedForeground
+                        wrapMode: Text.Wrap
+                    }
+                    AppButton {
+                        text: "Explore videos"
+                        variant: "outline"
+                        Layout.topMargin: 12
+                        onClicked: root.openExploreRequested()
+                    }
+                }
             }
         }
     }

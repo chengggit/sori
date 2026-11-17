@@ -253,11 +253,27 @@ Popup {
                         Repeater {
                             model: DictionaryTabs.providers
 
-                            delegate: SettingsCheck {
+                            delegate: RowLayout {
                                 required property var modelData
-                                text: modelData.label
-                                checked: DictionaryTabs.enabled.some(provider => provider.template === modelData.template)
-                                onToggled: DictionaryTabs.setEnabled(modelData.template, checked)
+                                required property int index
+                                Layout.fillWidth: true
+                                spacing: Theme.controlGap
+
+                                SettingsCheck {
+                                    text: parent.modelData.label
+                                    checked: DictionaryTabs.enabled.some(provider => provider.template === parent.modelData.template)
+                                    onToggled: DictionaryTabs.setEnabled(parent.modelData.template, checked)
+                                }
+
+                                AppButton {
+                                    visible: parent.index >= 2
+                                    iconName: "x"
+                                    variant: "ghost"
+                                    Layout.preferredWidth: 24
+                                    Layout.preferredHeight: 24
+                                    Accessible.name: "Remove " + parent.modelData.label
+                                    onClicked: DictionaryTabs.remove(parent.modelData.template)
+                                }
                             }
                         }
                     }
