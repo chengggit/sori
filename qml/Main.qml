@@ -482,12 +482,10 @@ ApplicationWindow {
                 fullScreen: root.fullScreen
                 controlsAwake: root.controlsAwake
                 captionsVisible: root.captionsVisible
-                nativeText: Theme.nativeText
                 libraryError: root.videoError
                 visible: !root.currentVideo?.youtubeId
                 videoId: root.currentVideo?.id ?? 0
                 backLabel: root.pageStack[root.pageStack.length - 1] === "library" ? "My Library" : "Back"
-                onNativeTextRequested: enabled => Theme.nativeText = enabled
                 onWakeControlsRequested: root.wakeControls()
                 onToggleFullscreenRequested: root.toggleFullscreen()
                 onCaptionsToggleRequested: root.captionsVisible = !root.captionsVisible

@@ -8,13 +8,11 @@ QtObject {
     readonly property bool dark: preferences.appearance === "dark"
         || (preferences.appearance === "system" && styleHints.colorScheme === Qt.ColorScheme.Dark)
     property alias appearance: preferences.appearance
-    property alias nativeText: preferences.nativeText
 
     property Settings store: Settings {
         id: preferences
         category: "Appearance"
         property string appearance: "system"
-        property bool nativeText: true
     }
 
     // sRGB equivalents of the OKLCH palette in the original Svelte src/routes/layout.css.

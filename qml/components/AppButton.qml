@@ -11,8 +11,10 @@ Button {
     property int iconSize: small ? 14 : Theme.iconSize
     property bool small: false
     property bool compact: false
+    property color contentColorOverride: "transparent"
     readonly property bool iconOnly: text === "" && iconName !== ""
-    readonly property color contentColor: variant === "default" ? Theme.onAccent
+    readonly property color contentColor: contentColorOverride.a > 0 ? contentColorOverride
+        : variant === "default" ? Theme.onAccent
         : variant === "primary" ? Theme.primaryForeground : Theme.foreground
 
     implicitHeight: iconOnly ? Theme.iconButtonSize

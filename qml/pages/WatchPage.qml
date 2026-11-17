@@ -16,7 +16,6 @@ Item {
     required property bool fullScreen
     required property bool controlsAwake
     required property bool captionsVisible
-    required property bool nativeText
     required property string libraryError
     required property real videoId
     required property string backLabel
@@ -26,12 +25,11 @@ Item {
     signal captionsToggleRequested()
     signal openVideoRequested()
     signal openSubtitlesRequested()
-    signal nativeTextRequested(bool enabled)
     signal backRequested()
 
     readonly property var trackMenu: trackMenu
     readonly property bool analysisOpened: wordAnalysis.visible
-    readonly property int textMode: nativeText ? Text.NativeRendering : Text.QtRendering
+    readonly property int textMode: Text.NativeRendering
     property real volumeLevel: 100
     property real previousVolumeLevel: 100
     readonly property bool showControls: player.loaded && (controlsAwake || player.paused
@@ -87,7 +85,7 @@ Item {
                 text: button.text
                 visible: button.iconName === ""
                 color: "white"
-                font.pixelSize: 14
+                font.pixelSize: button.text === "CC" ? 12 : 14
                 font.weight: Font.DemiBold
             }
         }
@@ -220,7 +218,7 @@ Item {
 
                 ShapePath {
                     strokeWidth: 2
-                    strokeColor: Theme.onAccent
+                    strokeColor: Theme.dark ? "#000000" : "#ffffff"
                     fillColor: "transparent"
                     capStyle: ShapePath.RoundCap
                     joinStyle: ShapePath.RoundJoin
@@ -639,12 +637,6 @@ Item {
                     onClicked: root.openSubtitlesRequested()
                 }
 
-                MenuCheck {
-                    Layout.topMargin: 4
-                    text: "Native text rendering"
-                    checked: root.nativeText
-                    onToggled: root.nativeTextRequested(checked)
-                }
             }
         }
     }

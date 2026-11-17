@@ -72,12 +72,6 @@ Popup {
 
             Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Theme.border }
 
-            AppText { text: "Text rendering"; font.weight: Font.DemiBold; font.pixelSize: 13 }
-            CheckBox {
-                text: "Use native text rendering"
-                checked: Theme.nativeText
-                onToggled: Theme.nativeText = checked
-            }
             AppButton {
                 text: "Dictionary tabs"
                 variant: "outline"

@@ -104,7 +104,12 @@ Item {
                 iconName: "search"
             }
             Item { Layout.fillWidth: true }
-            AppButton { text: "Import text"; iconName: "plus"; onClicked: root.importText() }
+            AppButton {
+                text: "Import text"
+                iconName: "plus"
+                contentColorOverride: Theme.foreground
+                onClicked: root.importText()
+            }
             AppButton { text: "Import video"; iconName: "film"; variant: "outline"; onClicked: root.importVideoRequested() }
         }
 
@@ -135,6 +140,16 @@ Item {
                 color: Theme.card
                 border.color: Theme.border
 
+                TapHandler {
+                    onTapped: row.modelData.video
+                        ? root.openWatchRequested(row.modelData.id)
+                        : root.openReaderRequested(row.modelData.id, row.modelData.title)
+                }
+
+                HoverHandler {
+                    cursorShape: Qt.PointingHandCursor
+                }
+
                 RowLayout {
                     anchors.fill: parent
                     anchors.leftMargin: 14
@@ -146,17 +161,6 @@ Item {
                         Layout.fillWidth: true
                         text: row.modelData.title
                         elide: Text.ElideRight
-                    }
-                    AppButton {
-                        text: row.modelData.video ? "Watch" : "Read"
-                        variant: "outline"
-                        small: true
-                        onClicked: {
-                            if (row.modelData.video)
-                                root.openWatchRequested(row.modelData.id)
-                            else
-                                root.openReaderRequested(row.modelData.id, row.modelData.title)
-                        }
                     }
                     AppButton {
                         text: "Edit"
