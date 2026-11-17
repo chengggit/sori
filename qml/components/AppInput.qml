@@ -24,6 +24,10 @@ TextField {
         border.width: control.activeFocus ? 2 : 1
         border.color: control.activeFocus ? Theme.accent : Theme.border
 
+        Behavior on border.color {
+            ColorAnimation { duration: 150; easing.type: Easing.OutCubic }
+        }
+
         Icon {
             visible: control.iconName !== ""
             anchors.left: parent.left

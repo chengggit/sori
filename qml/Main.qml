@@ -135,13 +135,17 @@ ApplicationWindow {
             saveVideoProgress()
         const id = canonical.slice(-11)
         const previous = Library.youtubeHistory.find(entry => entry.youtubeId === id)
+        const knownTitle = title || previous?.title || ""
+        const knownChannel = channel || previous?.channel || ""
         beginVideo({
             youtubeId: id,
             youtubeUrl: canonical,
-            title: title || previous?.title || "YouTube video",
-            channel: channel || previous?.channel || "",
+            title: knownTitle || "YouTube video",
+            channel: knownChannel,
             seconds: previous?.seconds ?? 0
         })
+        if (!knownTitle || knownTitle === "YouTube video" || !knownChannel)
+            Library.ensureYoutubeMetadata(id)
     }
 
     function openHistoryVideo(entry) {
@@ -270,6 +274,19 @@ ApplicationWindow {
         }
     }
 
+    Connections {
+        target: Library
+        function onYoutubeMetadataChanged(id, title, channel) {
+            const video = root.currentVideo
+            if (video?.youtubeId !== id)
+                return
+            root.currentVideo = Object.assign({}, video, {
+                title: title || video.title,
+                channel: channel || video.channel
+            })
+        }
+    }
+
     Timer {
         id: videoProgressTimer
         interval: 3000
@@ -385,7 +402,8 @@ ApplicationWindow {
                 searchVisible: root.page === "home"
                 searchEnabled: YouTube.configured
                 maximumContentWidth: root.page === "home" ? Theme.dashboardWidth
-                    : root.page === "reader" ? Theme.readerHeaderWidth : 0
+                    : root.page === "reader" ? Theme.readerHeaderWidth
+                    : root.page === "history" ? Theme.historyWidth : 0
                 placeholder: "Search YouTube for Korean videos"
                 onBackRequested: root.goBack("library")
                 onSearchAccepted: query => {
@@ -440,7 +458,7 @@ ApplicationWindow {
                 }
                 VocabularyPage {}
                 HistoryPage {
-                    onOpenLibraryRequested: root.navigate("library")
+                    onOpenExploreRequested: root.navigate("explore")
                     onOpenWatchRequested: entry => error = root.openHistoryVideo(entry)
                 }
             }
@@ -464,12 +482,10 @@ ApplicationWindow {
                 fullScreen: root.fullScreen
                 controlsAwake: root.controlsAwake
                 captionsVisible: root.captionsVisible
-                nativeText: Theme.nativeText
                 libraryError: root.videoError
                 visible: !root.currentVideo?.youtubeId
                 videoId: root.currentVideo?.id ?? 0
                 backLabel: root.pageStack[root.pageStack.length - 1] === "library" ? "My Library" : "Back"
-                onNativeTextRequested: enabled => Theme.nativeText = enabled
                 onWakeControlsRequested: root.wakeControls()
                 onToggleFullscreenRequested: root.toggleFullscreen()
                 onCaptionsToggleRequested: root.captionsVisible = !root.captionsVisible

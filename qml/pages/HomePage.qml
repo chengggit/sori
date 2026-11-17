@@ -22,13 +22,17 @@ ExplorePage {
     readonly property real resumeProgress: resumeDuration > 0
         ? Math.min(1, Math.max(0, resumeSeconds / resumeDuration)) : 0
 
-    function requestThumbnail() {
+    function requestRecentDetails() {
         if (recentVideo?.id)
             Library.ensureVideoThumbnail(recentVideo.id)
+        if (recentVideo?.youtubeId) {
+            Library.ensureYoutubeMetadata(recentVideo.youtubeId)
+            Library.ensureYoutubeDuration(recentVideo.youtubeId)
+        }
     }
 
-    Component.onCompleted: requestThumbnail()
-    onRecentVideoChanged: requestThumbnail()
+    Component.onCompleted: requestRecentDetails()
+    onRecentVideoChanged: requestRecentDetails()
 
     discovery: true
     leadingContent: Rectangle {
@@ -62,7 +66,9 @@ ExplorePage {
                     spacing: Theme.dashboardColumnGap
 
                     Item {
-                        Layout.preferredWidth: Math.min(Theme.resumeThumbnailWidth, parent.width * 0.28)
+                        // Keep the thumbnail at 16:9 even when the card gets narrower.
+                        Layout.preferredWidth: Math.min(Theme.resumeThumbnailWidth, parent.height * 16 / 9)
+                        Layout.minimumWidth: Layout.preferredWidth
                         Layout.fillHeight: true
 
                         Rectangle {
@@ -143,7 +149,8 @@ ExplorePage {
                             color: Theme.chip
 
                             Rectangle {
-                                width: parent.width * home.resumeProgress
+                                width: home.resumeProgress > 0
+                                    ? Math.max(parent.height, parent.width * home.resumeProgress) : 0
                                 height: parent.height
                                 radius: parent.radius
                                 color: Theme.dashboardProgress

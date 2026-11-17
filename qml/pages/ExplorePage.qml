@@ -148,6 +148,8 @@ Item {
         width: Math.min(490, parent.width - 48)
         modal: true
         title: "Open a YouTube video"
+        padding: 20
+        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
 
         function submit() {
             const url = YouTube.resolveLink(videoLink.text)
@@ -161,14 +163,65 @@ Item {
             root.openYouTubeRequested(url, "", "")
         }
 
+        background: Rectangle {
+            color: Theme.card
+            radius: Theme.radiusLarge
+            border.width: 1
+            border.color: Theme.border
+        }
+
+        Overlay.modal: Rectangle {
+            color: Qt.rgba(0, 0, 0, Theme.dark ? 0.55 : 0.2)
+        }
+
+        header: Item {
+            implicitWidth: 0
+            implicitHeight: 0
+        }
+
         contentItem: ColumnLayout {
-            spacing: 12
+            spacing: 16
+
+            ColumnLayout {
+                Layout.fillWidth: true
+                spacing: 6
+
+                RowLayout {
+                    Layout.fillWidth: true
+                    spacing: 8
+
+                    AppText {
+                        Layout.fillWidth: true
+                        Layout.alignment: Qt.AlignVCenter
+                        text: pasteDialog.title
+                        font.pixelSize: 16
+                        font.weight: Font.DemiBold
+                    }
+
+                    AppButton {
+                        iconName: "x"
+                        variant: "ghost"
+                        Layout.preferredWidth: 28
+                        Layout.preferredHeight: 28
+                        Layout.alignment: Qt.AlignTop
+                        Accessible.name: "Close"
+                        onClicked: pasteDialog.close()
+                    }
+                }
+
+                AppText {
+                    Layout.fillWidth: true
+                    text: "Paste a video link to watch it in Sori."
+                    color: Theme.mutedForeground
+                    wrapMode: Text.Wrap
+                }
+            }
 
             AppInput {
                 id: videoLink
                 Layout.fillWidth: true
-                placeholderText: "Paste a YouTube link"
-                Accessible.name: "YouTube address"
+                placeholderText: "Paste a YouTube video link"
+                Accessible.name: "YouTube video link"
                 onAccepted: pasteDialog.submit()
             }
 
@@ -180,10 +233,13 @@ Item {
                 wrapMode: Text.Wrap
             }
 
-            RowLayout {
-                Layout.alignment: Qt.AlignRight
-                AppButton { text: "Cancel"; variant: "ghost"; onClicked: pasteDialog.close() }
-                AppButton { text: "Watch"; enabled: !!videoLink.text.trim(); onClicked: pasteDialog.submit() }
+            AppButton {
+                text: "Open video"
+                iconName: "play"
+                variant: "primary"
+                Layout.alignment: Qt.AlignLeft
+                Layout.topMargin: 2
+                onClicked: pasteDialog.submit()
             }
         }
     }
@@ -448,11 +504,22 @@ Item {
                             ToolTip {
                                 delay: 1500
                                 visible: (tile.hovered || tile.visualFocus) && videoTitle.truncated
+                                x: videoTitle.mapToItem(parent, 0, 0).x
+                                y: -implicitHeight - 4
+                                padding: 10
                                 width: Math.min(tile.width, titleTip.implicitWidth + leftPadding + rightPadding)
+
+                                background: Rectangle {
+                                    color: Qt.alpha(Theme.card, 0.75)
+                                    radius: Theme.radiusSmall
+                                    border.width: 1
+                                    border.color: Theme.border
+                                }
 
                                 contentItem: AppText {
                                     id: titleTip
                                     text: videoTitle.text
+                                    font.pixelSize: 13
                                     wrapMode: Text.Wrap
                                 }
                             }
@@ -469,6 +536,7 @@ Item {
 
                     onClicked: root.openYouTubeRequested("https://www.youtube.com/watch?v=" + modelData.id,
                                                          modelData.title, modelData.channel)
+
                 }
             }
             footer: Item {

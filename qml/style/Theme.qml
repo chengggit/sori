@@ -8,13 +8,11 @@ QtObject {
     readonly property bool dark: preferences.appearance === "dark"
         || (preferences.appearance === "system" && styleHints.colorScheme === Qt.ColorScheme.Dark)
     property alias appearance: preferences.appearance
-    property alias nativeText: preferences.nativeText
 
     property Settings store: Settings {
         id: preferences
         category: "Appearance"
         property string appearance: "system"
-        property bool nativeText: true
     }
 
     // sRGB equivalents of the OKLCH palette in the original Svelte src/routes/layout.css.
@@ -74,6 +72,12 @@ QtObject {
     readonly property int iconButtonSize: 36
     readonly property int compactControlHeight: 32
     readonly property int searchInputWidth: 460
+
+    // Watch pages use the original player column width.
+    readonly property int watchWidth: 920
+
+    // History uses the original page's max-w-6xl text width.
+    readonly property int historyWidth: 1088
 
     // Home uses the original dashboard's content width and spacing.
     readonly property int dashboardWidth: 1528

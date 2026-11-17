@@ -8,6 +8,13 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 const THUMBNAIL_RETRY_DELAY: Duration = Duration::from_secs(60);
+const YOUTUBE_RETRY_DELAY: Duration = Duration::from_secs(60);
+
+fn youtube_metadata_missing(entry: &Value) -> bool {
+    let title = entry["title"].as_str().unwrap_or_default().trim();
+    let channel = entry["channel"].as_str().unwrap_or_default().trim();
+    title.is_empty() || title == "YouTube video" || channel.is_empty()
+}
 
 #[derive(Default)]
 pub struct Library {
@@ -17,7 +24,11 @@ pub struct Library {
     vocabulary: Vec<Value>,
     youtube_history: Vec<Value>,
     pending_thumbnails: HashSet<i64>,
+    pending_metadata: HashSet<String>,
+    pending_durations: HashSet<String>,
     last_thumbnail_attempt: HashMap<i64, Instant>,
+    last_metadata_attempt: HashMap<String, Instant>,
+    last_duration_attempt: HashMap<String, Instant>,
     error: String,
 }
 
@@ -51,6 +62,9 @@ impl Library {
 
     #[qsignal]
     fn youtube_history_changed(&mut self);
+
+    #[qsignal]
+    fn youtube_metadata_changed(&mut self, id: &String, title: &String, channel: &String);
 
     #[qsignal]
     fn vocabulary_changed(&mut self);
@@ -215,6 +229,98 @@ impl Library {
             }
             Err(error) => error,
         }
+    }
+
+    #[qslot]
+    fn ensure_youtube_metadata(&mut self, id: String) {
+        let id = id.trim().to_owned();
+        if youtube::watch_url(&id).is_none() || self.pending_metadata.contains(&id) {
+            return;
+        }
+        let known = self
+            .youtube_history
+            .iter()
+            .find(|entry| entry["youtubeId"] == id.as_str());
+        if known.is_some_and(|entry| !youtube_metadata_missing(entry)) {
+            return;
+        }
+        if self
+            .last_metadata_attempt
+            .get(&id)
+            .is_some_and(|attempt| attempt.elapsed() < YOUTUBE_RETRY_DELAY)
+        {
+            return;
+        }
+
+        self.pending_metadata.insert(id.clone());
+        let handle = self.get_thread_handle();
+        std::thread::spawn(move || {
+            let metadata = youtube::fetch_metadata(&id);
+            let _ = handle.invoke_mut(move |model| {
+                model.pending_metadata.remove(&id);
+                model.last_metadata_attempt.insert(id.clone(), Instant::now());
+                let Ok(metadata) = metadata else {
+                    return;
+                };
+                if let Ok(connection) = model.connection() {
+                    let _ = youtube::update_metadata(
+                        &connection,
+                        &id,
+                        &metadata.title,
+                        &metadata.channel,
+                    );
+                }
+                model.refresh_youtube_history();
+                model.youtube_metadata_changed(&id, &metadata.title, &metadata.channel);
+            });
+        });
+    }
+
+    #[qslot]
+    fn ensure_youtube_duration(&mut self, id: String) {
+        let id = id.trim().to_owned();
+        if youtube::watch_url(&id).is_none()
+            || !youtube::has_api_key()
+            || self.pending_durations.contains(&id)
+        {
+            return;
+        }
+        let Some(entry) = self
+            .youtube_history
+            .iter()
+            .find(|entry| entry["youtubeId"] == id.as_str())
+        else {
+            return;
+        };
+        let seconds = entry["seconds"].as_f64().unwrap_or(0.0);
+        let duration = entry["duration"].as_f64().unwrap_or(0.0);
+        if duration > 0.0 && duration >= seconds {
+            return;
+        }
+        if self
+            .last_duration_attempt
+            .get(&id)
+            .is_some_and(|attempt| attempt.elapsed() < YOUTUBE_RETRY_DELAY)
+        {
+            return;
+        }
+
+        self.pending_durations.insert(id.clone());
+        let handle = self.get_thread_handle();
+        std::thread::spawn(move || {
+            let duration = youtube::fetch_duration(&id);
+            let _ = handle.invoke_mut(move |model| {
+                model.pending_durations.remove(&id);
+                model.last_duration_attempt.insert(id.clone(), Instant::now());
+                let Ok(duration) = duration else {
+                    return;
+                };
+                if let Ok(connection) = model.connection() {
+                    let _ = youtube::update_duration(&connection, &id, duration);
+                }
+                model.refresh_youtube_history();
+            });
+        });
     }
 
     #[qslot]
