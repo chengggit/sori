@@ -28,7 +28,7 @@ Item {
     signal backRequested()
 
     readonly property var trackMenu: trackMenu
-    readonly property bool analysisOpened: wordAnalysis.visible
+    readonly property bool analysisOpened: wordAnalysis.visible || subtitleDefinition.visible
     readonly property int textMode: Text.NativeRendering
     property real volumeLevel: 100
     property real previousVolumeLevel: 100
@@ -46,7 +46,13 @@ Item {
 
     function wakeControls() { root.wakeControlsRequested() }
 
-    function closeAnalysis() { wordAnalysis.close() }
+    function closeAnalysis() {
+        wordAnalysis.close()
+        subtitleDefinition.close()
+    }
+
+    onFullScreenChanged: closeAnalysis()
+    onCaptionsVisibleChanged: if (!captionsVisible) subtitleDefinition.close()
 
     WordAnalysis {
         id: wordAnalysis
@@ -54,7 +60,19 @@ Item {
         sourceKind: "local"
         sourceId: root.videoId
         x: parent.width - width - 20
-        y: root.fullScreen ? 20 : 76
+        y: 76
+    }
+
+    SubtitleDefinition {
+        id: subtitleDefinition
+        objectName: "subtitleDefinition"
+        parent: stage
+        videoId: root.videoId
+        width: Math.min(352, root.width - 32)
+        maximumHeight: Math.max(0, Math.min(root.height * 0.45, stage.y + captionBox.y - 28))
+        x: Math.round((stage.width - width) / 2)
+        y: Math.floor(captionBox.y - height - 12)
+        onAboutToHide: primary.deselect()
     }
 
     component WatchText: Text {
@@ -352,6 +370,7 @@ Item {
         }
 
         Rectangle {
+            id: captionBox
             objectName: "captionBox"
             visible: root.player.loaded && root.captionsVisible && (primary.text !== "" || secondary.text !== "")
             anchors.horizontalCenter: parent.horizontalCenter
@@ -379,19 +398,126 @@ Item {
                     font.family: "Noto Sans KR"
                     font.pixelSize: root.fullScreen ? 28 : 21
                     readOnly: true
+                    persistentSelection: root.fullScreen
+                    selectionColor: root.fullScreen ? "transparent" : Theme.accent
+                    selectedTextColor: root.fullScreen ? "#fde68a" : Theme.onAccent
                     renderType: root.textMode
                     horizontalAlignment: Text.AlignHCenter
                     wrapMode: Text.Wrap
                     textFormat: TextEdit.PlainText
                     Accessible.name: "Primary subtitle"
+                    onTextChanged: if (subtitleDefinition.visible) subtitleDefinition.close()
+
+                    // Keep the hovered word separate from the word selected for lookup.
+                    TextEdit {
+                        id: hoverText
+                        anchors.fill: parent
+                        visible: root.fullScreen
+                        enabled: false
+                        text: primary.text
+                        font: primary.font
+                        renderType: primary.renderType
+                        horizontalAlignment: primary.horizontalAlignment
+                        wrapMode: primary.wrapMode
+                        textFormat: TextEdit.PlainText
+                        readOnly: true
+                        persistentSelection: true
+                        color: "transparent"
+                        selectionColor: "transparent"
+                        selectedTextColor: primary.selectedTextColor
+                        Accessible.ignored: true
+
+                        function updateHover() {
+                            if (!visible || !subtitleHover.hovered) {
+                                deselect()
+                                return
+                            }
+                            const point = subtitleHover.point.position
+                            cursorPosition = positionAt(point.x, point.y)
+                            selectWord()
+                            const first = positionToRectangle(selectionStart)
+                            const last = positionToRectangle(selectionEnd)
+                            if (!/[가-힣ㄱ-ㆎᄀ-ᇿ]/.test(selectedText)
+                                    || point.y < first.y || point.y >= last.y + last.height
+                                    || (point.y < first.y + first.height && point.x < first.x)
+                                    || (point.y >= last.y && point.x >= last.x))
+                                deselect()
+                        }
+
+                        onTextChanged: Qt.callLater(updateHover)
+                        onWidthChanged: Qt.callLater(updateHover)
+
+                        FontMetrics {
+                            id: captionMetrics
+                            font: hoverText.font
+                        }
+
+                        Repeater {
+                            model: {
+                                if (!hoverText.selectedText)
+                                    return []
+                                const segments = []
+                                let first = hoverText.positionToRectangle(hoverText.selectionStart)
+                                let previous = first
+                                for (let i = hoverText.selectionStart + 1; i <= hoverText.selectionEnd; i++) {
+                                    const next = hoverText.positionToRectangle(i)
+                                    const wraps = next.y !== previous.y
+                                    if (wraps || i === hoverText.selectionEnd) {
+                                        const edge = wraps ? previous.x
+                                            + captionMetrics.advanceWidth(hoverText.text.slice(i - 1, i)) : next.x
+                                        segments.push({ x: first.x, y: Math.round(first.y + captionMetrics.ascent
+                                            + captionMetrics.underlinePosition + 1), width: Math.max(0, edge - first.x) })
+                                    }
+                                    if (wraps)
+                                        first = next
+                                    previous = next
+                                }
+                                return segments
+                            }
+
+                            Shape {
+                                id: underline
+                                required property var modelData
+                                x: modelData.x
+                                y: modelData.y
+                                width: modelData.width
+                                height: 2
+
+                                ShapePath {
+                                    strokeColor: hoverText.selectedTextColor
+                                    strokeWidth: 2
+                                    strokeStyle: ShapePath.DashLine
+                                    dashPattern: [0.5, 1.8]
+                                    capStyle: ShapePath.RoundCap
+                                    fillColor: "transparent"
+                                    startY: 1
+                                    PathLine { x: underline.width; y: 1 }
+                                }
+                            }
+                        }
+                    }
+
+                    HoverHandler {
+                        id: subtitleHover
+                        enabled: root.fullScreen
+                        cursorShape: hoverText.selectedText ? Qt.PointingHandCursor : Qt.ArrowCursor
+                        onPointChanged: hoverText.updateHover()
+                        onHoveredChanged: hoverText.updateHover()
+                    }
 
                     TapHandler {
                         onSingleTapped: (eventPoint, button) => {
                             primary.cursorPosition = primary.positionAt(eventPoint.position.x, eventPoint.position.y)
                             primary.selectWord()
-                            if (primary.selectedText.trim()) {
+                            if (root.fullScreen && /[가-힣ㄱ-ㆎᄀ-ᇿ]/.test(primary.selectedText)) {
+                                root.player.pause()
+                                subtitleDefinition.lookup(primary.text, primary.selectionStart, primary.selectionEnd)
+                            } else if (!root.fullScreen && primary.selectedText.trim()) {
                                 root.player.pause()
                                 wordAnalysis.lookup(primary.text, primary.selectionStart, primary.selectionEnd)
+                                primary.deselect()
+                            } else {
+                                subtitleDefinition.close()
                                 primary.deselect()
                             }
                         }
