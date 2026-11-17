@@ -6,6 +6,10 @@ edition = "2021"
 [lib]
 crate-type = ["staticlib"]
 
+[profile.release-with-debug]
+inherits = "release"
+debug = 2
+
 [dependencies]
 kiwi-rs = "=2026.10.17"
 libmpv2-sys = "=4.0.1"

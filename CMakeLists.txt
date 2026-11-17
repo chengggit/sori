@@ -2,7 +2,12 @@ cmake_minimum_required(VERSION 3.21)
 project(Sori LANGUAGES CXX)
 
 find_package(Qt6 6.10 REQUIRED COMPONENTS Quick OpenGL Test)
-find_package(Qt6 6.10 QUIET OPTIONAL_COMPONENTS WebEngineQuick)
+option(SORI_REQUIRE_WEBENGINE "Require embedded YouTube and dictionary support" OFF)
+if(SORI_REQUIRE_WEBENGINE)
+    find_package(Qt6 6.10 REQUIRED COMPONENTS WebEngineQuick)
+else()
+    find_package(Qt6 6.10 QUIET OPTIONAL_COMPONENTS WebEngineQuick)
+endif()
 find_package(PkgConfig REQUIRED)
 find_program(CARGO_EXECUTABLE cargo REQUIRED)
 pkg_check_modules(MPV REQUIRED IMPORTED_TARGET mpv)
@@ -37,10 +42,12 @@ if(SORI_QML_PREVIEW)
 endif()
 set(PLAYBACK_DIR "${CMAKE_CURRENT_SOURCE_DIR}/playback")
 set(PLAYBACK_TARGET "${CMAKE_CURRENT_BINARY_DIR}/cargo")
-set(PLAYBACK_LIB "${PLAYBACK_TARGET}/release/${CMAKE_STATIC_LIBRARY_PREFIX}sori_qt_playback${CMAKE_STATIC_LIBRARY_SUFFIX}")
+set(PLAYBACK_PROFILE "$<IF:$<CONFIG:Debug>,dev,$<IF:$<CONFIG:RelWithDebInfo>,release-with-debug,release>>")
+set(PLAYBACK_PROFILE_DIR "$<IF:$<CONFIG:Debug>,debug,$<IF:$<CONFIG:RelWithDebInfo>,release-with-debug,release>>")
+set(PLAYBACK_LIB "${PLAYBACK_TARGET}/${PLAYBACK_PROFILE_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}sori_qt_playback${CMAKE_STATIC_LIBRARY_SUFFIX}")
 add_custom_command(OUTPUT "${PLAYBACK_LIB}"
     COMMAND "${CMAKE_COMMAND}" -E env "QMAKE=${SORI_QMAKE}"
-        "${CARGO_EXECUTABLE}" build --release --locked
+        "${CARGO_EXECUTABLE}" build --profile "${PLAYBACK_PROFILE}" --locked
         --manifest-path "${PLAYBACK_DIR}/Cargo.toml" --target-dir "${PLAYBACK_TARGET}"
     DEPENDS "${SORI_QMAKE}" "${PLAYBACK_DIR}/src/player_model.rs" "${PLAYBACK_DIR}/src/subtitle_model.rs"
         "${PLAYBACK_DIR}/Cargo.toml" "${PLAYBACK_DIR}/Cargo.lock" "${PLAYBACK_DIR}/src/lib.rs" "${PLAYBACK_DIR}/src/subtitles.rs" "${PLAYBACK_DIR}/src/controls.rs"
@@ -54,6 +61,13 @@ add_custom_command(OUTPUT "${PLAYBACK_LIB}"
 )
 add_custom_target(sori-qt-playback DEPENDS "${PLAYBACK_LIB}")
 add_dependencies(sori sori-qt-playback)
+
+enable_testing()
+add_test(NAME rust
+    COMMAND "${CMAKE_COMMAND}" -E env "QMAKE=${SORI_QMAKE}"
+        "${CARGO_EXECUTABLE}" test --locked
+        --manifest-path "${PLAYBACK_DIR}/Cargo.toml" --target-dir "${PLAYBACK_TARGET}"
+)
 target_link_libraries(sori PRIVATE "${PLAYBACK_LIB}" Qt6::Quick Qt6::OpenGL Qt6::Test PkgConfig::MPV)
 if(TARGET Qt6::WebEngineQuick)
     target_link_libraries(sori PRIVATE Qt6::WebEngineQuick)

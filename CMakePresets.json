@@ -1,0 +1,38 @@
+{
+  "version": 3,
+  "cmakeMinimumRequired": { "major": 3, "minor": 21, "patch": 0 },
+  "configurePresets": [
+    {
+      "name": "dev",
+      "displayName": "Development with WebEngine",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build/development",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_EXPORT_COMPILE_COMMANDS": true,
+        "SORI_REQUIRE_WEBENGINE": true
+      }
+    },
+    {
+      "name": "release",
+      "displayName": "Release with WebEngine",
+      "generator": "Unix Makefiles",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "SORI_REQUIRE_WEBENGINE": true
+      }
+    }
+  ],
+  "buildPresets": [
+    { "name": "dev", "configurePreset": "dev" },
+    { "name": "release", "configurePreset": "release" }
+  ],
+  "testPresets": [
+    {
+      "name": "dev",
+      "configurePreset": "dev",
+      "output": { "outputOnFailure": true }
+    }
+  ]
+}

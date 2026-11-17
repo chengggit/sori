@@ -297,7 +297,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "requires native Kiwi resources from node scripts/setup-kiwi.mjs"]
+    #[ignore = "requires native Kiwi resources from cmake -P scripts/setup-kiwi.cmake"]
     fn analyzes_selection_with_original_sentence_and_contracted_morphemes() {
         let analyzer = KoreanAnalyzer::start(
             std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../resources/kiwi"),

@@ -94,7 +94,7 @@ fn load(resources: &Path) -> Result<Kiwi, String> {
     let models = resources.join("models/cong/base");
     if !library.is_file() || !models.join("sj.morph").is_file() {
         return Err(
-            "Kiwi resources are missing. Run node scripts/setup-kiwi.mjs and restart Sori.".into(),
+            "Kiwi resources are missing. Run cmake -P scripts/setup-kiwi.cmake and restart Sori.".into(),
         );
     }
     let builder = BuilderConfig::default()
@@ -158,11 +158,11 @@ mod tests {
         assert!(analyzer
             .analyze("한국어".into())
             .unwrap_err()
-            .contains("setup-kiwi.mjs"));
+            .contains("setup-kiwi.cmake"));
     }
 
     #[test]
-    #[ignore = "requires native Kiwi resources from node scripts/setup-kiwi.mjs"]
+    #[ignore = "requires native Kiwi resources from cmake -P scripts/setup-kiwi.cmake"]
     fn analyzes_korean_offline_with_utf16_offsets() {
         let resources = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../resources/kiwi");
         let analyzer = KoreanAnalyzer::start(resources).unwrap();
