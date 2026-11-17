@@ -402,7 +402,8 @@ ApplicationWindow {
                 searchVisible: root.page === "home"
                 searchEnabled: YouTube.configured
                 maximumContentWidth: root.page === "home" ? Theme.dashboardWidth
-                    : root.page === "reader" ? Theme.readerHeaderWidth : 0
+                    : root.page === "reader" ? Theme.readerHeaderWidth
+                    : root.page === "history" ? Theme.historyWidth : 0
                 placeholder: "Search YouTube for Korean videos"
                 onBackRequested: root.goBack("library")
                 onSearchAccepted: query => {
@@ -457,7 +458,7 @@ ApplicationWindow {
                 }
                 VocabularyPage {}
                 HistoryPage {
-                    onOpenLibraryRequested: root.navigate("library")
+                    onOpenExploreRequested: root.navigate("explore")
                     onOpenWatchRequested: entry => error = root.openHistoryVideo(entry)
                 }
             }
