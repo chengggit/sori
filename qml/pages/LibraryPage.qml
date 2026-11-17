@@ -76,16 +76,73 @@ Item {
         modal: true
         width: Math.min(380, parent.width - 48)
         title: root.selectedDocument?.video ? "Remove video?" : "Delete document?"
-        standardButtons: Dialog.Cancel | Dialog.Yes
-        contentItem: AppText {
-            text: root.selectedDocument?.video
-                ? "Remove “" + root.selectedDocument.title + "” from your library? The video file stays on disk."
-                : "Delete “" + (root.selectedDocument?.title ?? "") + "” from your library?"
-            wrapMode: Text.Wrap
+        standardButtons: Dialog.NoButton
+        padding: 0
+
+        background: Rectangle {
+            color: Theme.card
+            radius: Theme.radiusLarge
+            border.width: 1
+            border.color: Theme.border
         }
-        onAccepted: root.error = root.selectedDocument.video
-            ? Library.removeVideo(root.selectedDocument.id)
-            : Library.removeDocument(root.selectedDocument.id)
+
+        header: Item {
+            implicitHeight: headerContent.implicitHeight + 40
+
+            ColumnLayout {
+                id: headerContent
+                anchors.fill: parent
+                anchors.margins: 20
+                spacing: 6
+
+                AppText {
+                    text: confirmRemoval.title
+                    font.pixelSize: 18
+                    font.weight: Font.DemiBold
+                }
+
+                AppText {
+                    text: root.selectedDocument?.video
+                        ? "Remove “" + root.selectedDocument.title + "” from your library? The video file stays on disk."
+                        : "Delete “" + (root.selectedDocument?.title ?? "") + "” from your library?"
+                    Layout.fillWidth: true
+                    wrapMode: Text.Wrap
+                    color: Theme.mutedForeground
+                }
+            }
+        }
+
+        contentItem: Item {
+            implicitHeight: actionsContent.implicitHeight + 40
+
+            RowLayout {
+                id: actionsContent
+                anchors.fill: parent
+                anchors.margins: 20
+                spacing: 8
+
+                Item { Layout.fillWidth: true }
+
+                AppButton {
+                    text: "Cancel"
+                    variant: "outline"
+                    small: true
+                    onClicked: confirmRemoval.close()
+                }
+
+                AppButton {
+                    text: root.selectedDocument?.video ? "Remove" : "Delete"
+                    variant: "primary"
+                    small: true
+                    onClicked: {
+                        root.error = root.selectedDocument.video
+                            ? Library.removeVideo(root.selectedDocument.id)
+                            : Library.removeDocument(root.selectedDocument.id)
+                        confirmRemoval.close()
+                    }
+                }
+            }
+        }
     }
 
     ColumnLayout {
