@@ -58,7 +58,8 @@ Button {
             if (control.variant === "secondary")
                 return control.down || control.hovered ? Theme.accentSoftHover : Theme.accentSoft
             if (control.variant === "ghost")
-                return control.hovered || control.down ? Theme.neutralHover : "transparent"
+                return control.hovered || control.down ? Theme.neutralHover
+                    : Qt.alpha(Theme.neutralHover, 0)
             return control.hovered || control.down ? Theme.neutralHover : Theme.card
         }
         border.width: control.variant === "outline" ? 1 : 0
