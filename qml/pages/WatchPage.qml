@@ -90,33 +90,23 @@ Item {
         }
     }
 
-    Rectangle {
+    Item {
         id: watchHeader
         visible: !root.fullScreen
-        width: parent.width
-        height: 56
-        color: Theme.background
+        anchors.top: parent.top
+        anchors.topMargin: 24
+        anchors.horizontalCenter: parent.horizontalCenter
+        width: Math.min(root.width - 48, Theme.watchWidth)
+        height: backButton.implicitHeight
 
-        Rectangle {
-            anchors.bottom: parent.bottom
-            width: parent.width
-            height: 1
-            color: Theme.border
-        }
-
-        Item {
-            anchors.horizontalCenter: parent.horizontalCenter
-            width: Math.min(parent.width - 48, 1088)
-            height: parent.height
-
-            AppButton {
-                anchors.verticalCenter: parent.verticalCenter
-                text: root.backLabel
-                iconName: "arrow-left"
-                variant: "ghost"
-                small: true
-                onClicked: root.backRequested()
-            }
+        AppButton {
+            id: backButton
+            anchors.left: parent.left
+            anchors.verticalCenter: parent.verticalCenter
+            text: root.backLabel
+            iconName: "arrow-left"
+            variant: "ghost"
+            onClicked: root.backRequested()
         }
     }
 
@@ -132,9 +122,11 @@ Item {
         id: stage
         width: height * 16 / 9
         height: root.fullScreen ? Math.min(root.height, root.width * 9 / 16)
-            : Math.min(root.height - 218, 517, (root.width - 48) * 9 / 16)
+            : Math.min(root.height - 218,
+                Math.min(root.width - 48, Theme.watchWidth) * 9 / 16)
         x: Math.round((root.width - width) / 2)
-        y: root.fullScreen ? Math.round((root.height - height) / 2) : watchHeader.height + 24
+        y: root.fullScreen ? Math.round((root.height - height) / 2)
+            : watchHeader.y + watchHeader.height + 16
         color: "#000000"
         clip: true
         layer.enabled: !root.fullScreen
@@ -427,7 +419,7 @@ Item {
 
     ColumnLayout {
         visible: !root.fullScreen && root.player.loaded
-        width: Math.min(root.width - 48, 1088)
+        width: Math.min(root.width - 48, Theme.watchWidth)
         anchors.horizontalCenter: parent.horizontalCenter
         y: stage.y + stage.height + 16
         spacing: 20

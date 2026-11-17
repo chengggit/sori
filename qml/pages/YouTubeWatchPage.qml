@@ -18,7 +18,7 @@ Item {
         anchors.top: parent.top
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.margins: 24
-        width: Math.min(parent.width - 2 * anchors.margins, 920)
+        width: Math.min(parent.width - 2 * anchors.margins, Theme.watchWidth)
         spacing: 16
 
         RowLayout {

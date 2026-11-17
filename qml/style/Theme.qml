@@ -75,6 +75,9 @@ QtObject {
     readonly property int compactControlHeight: 32
     readonly property int searchInputWidth: 460
 
+    // Watch pages use the original player column width.
+    readonly property int watchWidth: 920
+
     // History uses the original page's max-w-6xl text width.
     readonly property int historyWidth: 1088
 
