@@ -204,12 +204,23 @@ Item {
                                 ToolTip {
                                     delay: 1500
                                     visible: (row.hovered || row.visualFocus) && titleText.truncated
+                                    x: titleText.mapToItem(parent, 0, 0).x
+                                    y: -implicitHeight - 4
+                                    padding: 10
                                     width: Math.min(row.width - row.thumbnailWidth - 16,
                                         titleTip.implicitWidth + leftPadding + rightPadding)
+
+                                    background: Rectangle {
+                                        color: Qt.alpha(Theme.card, 0.75)
+                                        radius: Theme.radiusSmall
+                                        border.width: 1
+                                        border.color: Theme.border
+                                    }
 
                                     contentItem: AppText {
                                         id: titleTip
                                         text: titleText.text
+                                        font.pixelSize: 13
                                         wrapMode: Text.Wrap
                                     }
                                 }

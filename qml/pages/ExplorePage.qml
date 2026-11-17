@@ -504,11 +504,22 @@ Item {
                             ToolTip {
                                 delay: 1500
                                 visible: (tile.hovered || tile.visualFocus) && videoTitle.truncated
+                                x: videoTitle.mapToItem(parent, 0, 0).x
+                                y: -implicitHeight - 4
+                                padding: 10
                                 width: Math.min(tile.width, titleTip.implicitWidth + leftPadding + rightPadding)
+
+                                background: Rectangle {
+                                    color: Qt.alpha(Theme.card, 0.75)
+                                    radius: Theme.radiusSmall
+                                    border.width: 1
+                                    border.color: Theme.border
+                                }
 
                                 contentItem: AppText {
                                     id: titleTip
                                     text: videoTitle.text
+                                    font.pixelSize: 13
                                     wrapMode: Text.Wrap
                                 }
                             }
@@ -525,6 +536,7 @@ Item {
 
                     onClicked: root.openYouTubeRequested("https://www.youtube.com/watch?v=" + modelData.id,
                                                          modelData.title, modelData.channel)
+
                 }
             }
             footer: Item {
