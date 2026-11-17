@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Layouts
+import QtQuick.Shapes
 import "../components"
 import "../style"
 
@@ -42,11 +43,10 @@ Item {
 
         Rectangle {
             id: playerFrame
-            readonly property int inset: Math.ceil(radius / 3)
-            readonly property real playerWidth: content.width - 2 * inset
+            readonly property real playerWidth: content.width
 
             Layout.fillWidth: true
-            Layout.preferredHeight: Math.max(200, playerWidth * 9 / 16) + 2 * inset
+            Layout.preferredHeight: Math.max(200, playerWidth * 9 / 16)
             visible: embed.active && embed.status !== Loader.Error
             radius: Theme.radius
             color: "black"
@@ -55,11 +55,29 @@ Item {
                 id: embed
                 objectName: "youtubePlayerLoader"
                 anchors.fill: parent
-                anchors.margins: playerFrame.inset
                 active: root.embeddingAvailable && playerFrame.playerWidth >= 200
                 source: "YouTubeEmbed.qml"
 
                 onLoaded: item.video = Qt.binding(() => root.video)
+            }
+
+            Repeater {
+                model: 4
+                delegate: Shape {
+                    id: corner
+                    required property int index
+                    width: playerFrame.radius
+                    height: width
+                    x: index === 1 || index === 2 ? playerFrame.width - width : 0
+                    y: index >= 2 ? playerFrame.height - height : 0
+                    rotation: index * 90
+                    preferredRendererType: Shape.CurveRenderer
+                    ShapePath {
+                        strokeWidth: 0
+                        fillColor: Theme.background
+                        PathSvg { path: "M 0 0 H %1 A %1 %1 0 0 0 0 %1 Z".arg(corner.width) }
+                    }
+                }
             }
         }
 
