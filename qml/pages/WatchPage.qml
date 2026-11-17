@@ -300,18 +300,24 @@ Item {
         y: root.fullScreen ? Math.round((root.height - height) / 2)
             : watchHeader.y + watchHeader.height + 16
         color: "#000000"
+        radius: root.fullScreen ? 0 : stageMask.radius
         clip: true
-        layer.enabled: !root.fullScreen
-        layer.smooth: true
-        layer.effect: MultiEffect {
-            maskEnabled: true
-            maskSource: stageMask
-        }
 
-        VideoSurface {
-            objectName: "videoSurface"
+        Item {
             anchors.fill: parent
-            host: root.renderHost
+            // Mask the video surface while keeping text and controls at screen resolution.
+            layer.enabled: !root.fullScreen
+            layer.smooth: true
+            layer.effect: MultiEffect {
+                maskEnabled: true
+                maskSource: stageMask
+            }
+
+            VideoSurface {
+                objectName: "videoSurface"
+                anchors.fill: parent
+                host: root.renderHost
+            }
         }
 
         HoverHandler { onPointChanged: root.wakeControls() }
@@ -321,6 +327,7 @@ Item {
             anchors.fill: parent
             visible: !root.player.loaded || root.player.error !== ""
             color: "#000000"
+            radius: stage.radius
             Column {
                 anchors.centerIn: parent
                 width: parent.width - 40
@@ -493,14 +500,34 @@ Item {
                             root.wakeControls()
                         }
                     }
-                    WatchText {
-                        text: root.player.formatTime(timeline.value) + " / " + root.player.formatTime(root.player.duration)
-                        color: "#eeeeee"
-                        font.pixelSize: 13
-                        // Keep changing timestamp digits from shifting the controls beside it.
+                    RowLayout {
                         Layout.preferredWidth: 128
                         Layout.minimumWidth: Layout.preferredWidth
                         Layout.maximumWidth: Layout.preferredWidth
+                        spacing: 0
+
+                        WatchText {
+                            id: elapsedTime
+                            Layout.preferredWidth: timeSlot.advanceWidth
+                            horizontalAlignment: Text.AlignRight
+                            text: root.player.formatTime(timeline.value)
+                            color: "#eeeeee"
+                            font.pixelSize: 13
+                            font.features: ({ "tnum": 1 })
+                        }
+
+                        TextMetrics {
+                            id: timeSlot
+                            font: elapsedTime.font
+                            text: root.player.formatTime(root.player.duration).replace(/[0-9]/g, "8")
+                        }
+
+                        WatchText {
+                            Layout.fillWidth: true
+                            text: " / " + root.player.formatTime(root.player.duration)
+                            color: "#eeeeee"
+                            font: elapsedTime.font
+                        }
                     }
                     PlaybackButton {
                         iconName: root.volumeLevel <= 0 ? "volume-x" : "volume"

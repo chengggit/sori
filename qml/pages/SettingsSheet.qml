@@ -12,7 +12,8 @@ Popup {
     property string dictionaryError: ""
 
     width: Math.min(510, parent ? parent.width - 40 : 510)
-    height: Math.min(520, parent ? parent.height - 32 : 520)
+    implicitHeight: header.implicitHeight + 40 + 1 + settingsScroll.contentHeight
+    height: Math.min(implicitHeight, 520, parent ? parent.height - 32 : 520)
     x: parent ? Math.round((parent.width - width) / 2) : 0
     y: parent ? Math.round((parent.height - height) / 2) : 0
     modal: true
@@ -41,6 +42,7 @@ Popup {
         id: check
 
         Layout.fillWidth: true
+        Layout.preferredHeight: 24
         spacing: 8
         padding: 0
         hoverEnabled: true
@@ -50,6 +52,7 @@ Popup {
             text: check.text
             font.pixelSize: 14
             verticalAlignment: Text.AlignVCenter
+            elide: Text.ElideRight
         }
 
         indicator: Rectangle {
@@ -90,6 +93,7 @@ Popup {
         spacing: 0
 
         RowLayout {
+            id: header
             Layout.fillWidth: true
             Layout.margins: 20
             spacing: 12
@@ -99,15 +103,17 @@ Popup {
                 spacing: 4
 
                 AppText {
+                    Layout.fillWidth: true
                     text: "Settings"
                     font.pixelSize: 18
                     font.weight: Font.DemiBold
                 }
 
                 AppText {
+                    Layout.fillWidth: true
                     text: "Customize appearance and dictionary lookups."
                     color: Theme.mutedForeground
-                    font.pixelSize: 14
+                    wrapMode: Text.Wrap
                 }
             }
 
@@ -115,159 +121,197 @@ Popup {
                 text: ""
                 iconName: "x"
                 variant: "ghost"
-                implicitWidth: 30
-                implicitHeight: 30
+                Layout.alignment: Qt.AlignTop
+                Layout.preferredWidth: 30
+                Layout.preferredHeight: 30
+                Accessible.name: "Close settings"
                 onClicked: root.close()
             }
         }
 
         Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Theme.border }
 
-        ColumnLayout {
+        AppScrollView {
+            id: settingsScroll
             Layout.fillWidth: true
             Layout.fillHeight: true
-            Layout.margins: 20
-            spacing: 12
+            contentWidth: availableWidth
+            contentHeight: form.implicitHeight + 40
+            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+            clip: true
 
-            AppText {
-                text: "Appearance"
-                font.pixelSize: 14
-                font.weight: Font.DemiBold
-            }
+            ColumnLayout {
+                id: form
+                x: 20
+                y: 20
+                width: settingsScroll.availableWidth - 40
+                spacing: 20
 
-            ComboBox {
-                id: appearance
-                Layout.fillWidth: true
-                model: [
-                    { value: "system", label: "System" },
-                    { value: "light", label: "Light" },
-                    { value: "dark", label: "Dark" }
-                ]
-                currentIndex: model.findIndex(entry => entry.value === Theme.appearance)
-                onActivated: index => Theme.appearance = model[index].value
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 8
 
-                contentItem: AppText {
-                    leftPadding: 12
-                    rightPadding: 36
-                    text: appearance.currentText
-                    verticalAlignment: Text.AlignVCenter
-                }
-
-                indicator: Icon {
-                    x: appearance.width - width - 12
-                    y: (appearance.height - height) / 2
-                    name: "chevron-down"
-                    size: 14
-                    color: Theme.mutedForeground
-                }
-
-                background: Rectangle {
-                    radius: Theme.radiusSmall
-                    color: Theme.neutralHover
-                    border.width: appearance.activeFocus ? 2 : 1
-                    border.color: appearance.activeFocus ? Theme.accent : Theme.border
-                }
-
-                popup: Popup {
-                    y: appearance.height + 4
-                    width: appearance.width
-                    padding: 4
-
-                    background: Rectangle {
-                        color: Theme.card
-                        radius: Theme.radiusSmall
-                        border.width: 1
-                        border.color: Theme.border
+                    AppText {
+                        text: "Appearance"
+                        font.weight: Font.DemiBold
                     }
 
-                    contentItem: ListView {
-                        implicitHeight: contentHeight
-                        model: appearance.delegateModel
-                        currentIndex: appearance.highlightedIndex
-                        clip: true
+                    ComboBox {
+                        id: appearance
+                        Layout.fillWidth: true
+                        implicitHeight: Theme.inputHeight
+                        leftPadding: 12
+                        rightPadding: 36
+                        topPadding: 0
+                        bottomPadding: 0
+                        Accessible.name: "Appearance"
+                        model: [
+                            { value: "system", label: "System" },
+                            { value: "light", label: "Light" },
+                            { value: "dark", label: "Dark" }
+                        ]
+                        textRole: "label"
+                        valueRole: "value"
+                        currentIndex: Math.max(0, model.findIndex(entry => entry.value === Theme.appearance))
+                        onActivated: index => Theme.appearance = model[index].value
+
+                        contentItem: AppText {
+                            text: appearance.displayText
+                            font.pixelSize: 13
+                            verticalAlignment: Text.AlignVCenter
+                        }
+
+                        indicator: Icon {
+                            x: appearance.width - width - 12
+                            y: (appearance.height - height) / 2
+                            name: "chevron-down"
+                            size: 14
+                            color: Theme.mutedForeground
+                        }
+
+                        background: Rectangle {
+                            radius: Theme.radius
+                            color: Theme.card
+                            border.width: appearance.activeFocus ? 2 : 1
+                            border.color: appearance.activeFocus ? Theme.accent : Theme.border
+                        }
 
                         delegate: ItemDelegate {
-                            width: ListView.view.width
+                            required property int index
+                            width: appearance.width - appearance.popup.leftPadding - appearance.popup.rightPadding
+                            implicitHeight: Theme.compactControlHeight
+                            padding: 8
+                            highlighted: appearance.highlightedIndex === index
+                            hoverEnabled: true
+
                             contentItem: AppText {
-                                text: modelData.label
-                                leftPadding: 8
+                                text: appearance.textAt(index)
+                                font.pixelSize: 13
                                 verticalAlignment: Text.AlignVCenter
                             }
                             background: Rectangle {
-                                radius: 6
-                                color: parent.highlighted ? Theme.neutralHover : "transparent"
+                                radius: Theme.radiusSmall
+                                color: parent.highlighted || parent.hovered ? Theme.neutralHover : "transparent"
+                            }
+                        }
+
+                        popup: Popup {
+                            y: appearance.height + 4
+                            width: appearance.width
+                            padding: 4
+
+                            background: Rectangle {
+                                color: Theme.card
+                                radius: Theme.radius
+                                border.width: 1
+                                border.color: Theme.border
+                            }
+
+                            contentItem: ListView {
+                                implicitHeight: contentHeight
+                                model: appearance.delegateModel
+                                currentIndex: appearance.highlightedIndex
+                                clip: true
                             }
                         }
                     }
                 }
-            }
 
-            AppText {
-                text: "Embedded lookup tabs"
-                font.pixelSize: 14
-                font.weight: Font.DemiBold
-                Layout.topMargin: 4
-            }
-
-            Repeater {
-                model: DictionaryTabs.providers
-
-                delegate: SettingsCheck {
-                    required property var modelData
-                    text: modelData.label
-                    checked: DictionaryTabs.enabled.some(provider => provider.template === modelData.template)
-                    onToggled: DictionaryTabs.setEnabled(modelData.template, checked)
-                }
-            }
-
-            RowLayout {
-                Layout.fillWidth: true
-                spacing: 8
-
-                AppInput {
-                    id: labelField
-                    Layout.preferredWidth: 120
-                    placeholderText: "Name"
-                    Accessible.name: placeholderText
-                }
-
-                AppInput {
-                    id: urlField
+                ColumnLayout {
                     Layout.fillWidth: true
-                    placeholderText: "HTTPS URL with {word}"
-                    Accessible.name: placeholderText
-                    onAccepted: root.addDictionary()
+                    spacing: 8
+
+                    AppText {
+                        text: "Embedded lookup tabs"
+                        font.weight: Font.DemiBold
+                    }
+
+                    ColumnLayout {
+                        Layout.fillWidth: true
+                        spacing: 4
+
+                        Repeater {
+                            model: DictionaryTabs.providers
+
+                            delegate: SettingsCheck {
+                                required property var modelData
+                                text: modelData.label
+                                checked: DictionaryTabs.enabled.some(provider => provider.template === modelData.template)
+                                onToggled: DictionaryTabs.setEnabled(modelData.template, checked)
+                            }
+                        }
+                    }
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        Layout.topMargin: 4
+                        spacing: Theme.controlGap
+
+                        AppInput {
+                            id: labelField
+                            Layout.preferredWidth: 120
+                            placeholderText: "Name"
+                            Accessible.name: placeholderText
+                        }
+
+                        AppInput {
+                            id: urlField
+                            Layout.fillWidth: true
+                            placeholderText: "HTTPS URL with {word}"
+                            Accessible.name: placeholderText
+                            onAccepted: root.addDictionary()
+                        }
+
+                        AppButton {
+                            text: ""
+                            iconName: "plus"
+                            variant: "outline"
+                            Layout.preferredWidth: Theme.inputHeight
+                            Layout.preferredHeight: Theme.inputHeight
+                            Accessible.name: "Add dictionary"
+                            enabled: !!labelField.text.trim() && !!urlField.text.trim()
+                            onClicked: root.addDictionary()
+                        }
+                    }
+
+                    AppText {
+                        visible: !!root.dictionaryError
+                        text: root.dictionaryError
+                        color: Theme.destructive
+                        font.pixelSize: 12
+                        wrapMode: Text.Wrap
+                        Layout.fillWidth: true
+                    }
+
+                    AppText {
+                        text: "Use {word} for the selected word. HTTPS URLs are supported."
+                        color: Theme.mutedForeground
+                        font.pixelSize: 12
+                        wrapMode: Text.Wrap
+                        Layout.fillWidth: true
+                    }
                 }
-
-                AppButton {
-                    text: ""
-                    iconName: "plus"
-                    variant: "outline"
-                    implicitWidth: Theme.iconButtonSize
-                    Accessible.name: "Add dictionary"
-                    enabled: !!labelField.text.trim() && !!urlField.text.trim()
-                    onClicked: root.addDictionary()
-                }
             }
-
-            AppText {
-                visible: !!root.dictionaryError
-                text: root.dictionaryError
-                color: Theme.destructive
-                font.pixelSize: 12
-                wrapMode: Text.Wrap
-                Layout.fillWidth: true
-            }
-
-            AppText {
-                text: "Use {word} for the selected word. HTTPS URLs are supported."
-                color: Theme.mutedForeground
-                font.pixelSize: 12
-                wrapMode: Text.Wrap
-                Layout.fillWidth: true
-            }
-
-            Item { Layout.fillHeight: true }
         }
     }
 }

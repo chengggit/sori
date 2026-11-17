@@ -16,6 +16,15 @@ Dialog {
     width: Math.min(560, parent.width - 48)
     height: Math.min(520, parent.height - 48)
     modal: true
+    padding: 20
+    header: null
+
+    background: Rectangle {
+        color: Theme.card
+        radius: Theme.radiusLarge
+        border.width: 1
+        border.color: Theme.border
+    }
 
     function showEditor(importing, title, content) {
         root.importing = importing
@@ -27,21 +36,40 @@ Dialog {
     }
 
     contentItem: ColumnLayout {
-        spacing: 12
+        spacing: 6
+
+        AppText {
+            text: root.title
+            font.pixelSize: 18
+            font.weight: Font.DemiBold
+            Layout.bottomMargin: 8
+        }
 
         AppButton {
             visible: root.importing
             text: "Choose a .txt file"
             iconName: "folder-open"
             variant: "outline"
+            Layout.bottomMargin: 8
             onClicked: root.chooseFileRequested()
+        }
+
+        AppText {
+            text: "Title"
+            font.weight: Font.Medium
         }
 
         AppInput {
             id: titleInput
             Layout.fillWidth: true
+            Layout.bottomMargin: 8
             placeholderText: "Title"
             Accessible.name: "Document title"
+        }
+
+        AppText {
+            text: "Text"
+            font.weight: Font.Medium
         }
 
         AppScrollView {
@@ -49,22 +77,31 @@ Dialog {
             Layout.fillHeight: true
             contentWidth: availableWidth
             clip: true
+            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+
+            background: Rectangle {
+                radius: Theme.radius
+                color: Theme.card
+                border.width: body.activeFocus ? 2 : 1
+                border.color: body.activeFocus ? Theme.accent : Theme.border
+            }
 
             TextArea {
                 id: body
                 placeholderText: "Paste or type Korean text"
                 textFormat: TextEdit.PlainText
                 wrapMode: TextEdit.Wrap
+                padding: 12
+                rightPadding: 16
+                selectByMouse: true
                 color: Theme.foreground
+                placeholderTextColor: Theme.mutedForeground
+                selectionColor: Theme.accent
+                selectedTextColor: Theme.onAccent
                 font.family: "Noto Sans KR"
                 font.pixelSize: 15
                 Accessible.name: "Document text"
-
-                background: Rectangle {
-                    radius: Theme.radiusSmall
-                    color: Theme.card
-                    border.color: Theme.border
-                }
+                background: null
             }
         }
 
@@ -78,10 +115,13 @@ Dialog {
 
         RowLayout {
             Layout.alignment: Qt.AlignRight
+            Layout.topMargin: 8
+            spacing: Theme.controlGap
 
-            AppButton { text: "Cancel"; variant: "ghost"; onClicked: root.close() }
+            AppButton { text: "Cancel"; variant: "outline"; onClicked: root.close() }
             AppButton {
                 text: root.importing ? "Import text" : "Save changes"
+                variant: "primary"
                 enabled: body.text.trim() !== "" && (root.importing || titleInput.text.trim() !== "")
                 onClicked: root.saveRequested(titleInput.text, body.text)
             }

@@ -12,7 +12,8 @@ Button {
     property bool small: false
     property bool compact: false
     readonly property bool iconOnly: text === "" && iconName !== ""
-    readonly property color contentColor: variant === "default" ? Theme.onAccent
+    readonly property color contentColor: !enabled && variant === "primary" ? Theme.mutedForeground
+        : variant === "default" ? Theme.onAccent
         : variant === "primary" ? Theme.primaryForeground : Theme.foreground
 
     implicitHeight: iconOnly ? Theme.iconButtonSize
@@ -50,7 +51,8 @@ Button {
         radius: control.variant === "primary" ? Theme.radius : Theme.radiusSmall
         color: {
             if (!control.enabled)
-                return control.variant === "default" ? Theme.disabledAccent : Theme.sidebar
+                return control.variant === "default" ? Theme.disabledAccent
+                    : control.variant === "primary" ? Theme.neutralHover : Theme.sidebar
             if (control.variant === "default")
                 return control.down ? Theme.accentPressed : control.hovered ? Theme.accentHover : Theme.accent
             if (control.variant === "primary")
