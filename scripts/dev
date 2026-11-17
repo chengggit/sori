@@ -1,0 +1,32 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$project_dir"
+
+command="${1:-build}"
+if (( $# > 0 )); then
+    shift
+fi
+
+case "$command" in
+    build|run)
+        cmake --preset dev
+        cmake --build --preset dev --parallel
+        if [[ "$command" == run ]]; then
+            exec "$project_dir/build/development/sori" "$@"
+        fi
+        ;;
+    test)
+        cmake --preset dev
+        ctest --preset dev "$@"
+        ;;
+    release)
+        cmake --preset release
+        cmake --build --preset release --parallel "$@"
+        ;;
+    *)
+        echo "Usage: ./scripts/dev {build|run [video]|test|release}" >&2
+        exit 2
+        ;;
+esac
