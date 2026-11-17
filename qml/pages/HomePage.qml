@@ -147,7 +147,8 @@ ExplorePage {
                             color: Theme.chip
 
                             Rectangle {
-                                width: parent.width * home.resumeProgress
+                                width: home.resumeProgress > 0
+                                    ? Math.max(parent.height, parent.width * home.resumeProgress) : 0
                                 height: parent.height
                                 radius: parent.radius
                                 color: Theme.dashboardProgress
