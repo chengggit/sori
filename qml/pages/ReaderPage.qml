@@ -81,14 +81,10 @@ Item {
         passageRequest = Analysis.tokenizePassage(passage.text.slice(start, end))
     }
 
-    function selectAt(position, range) {
-        range = range ?? rangeAt(position)
-        if (range) {
-            passage.select(range.start, range.end)
-        } else {
-            passage.cursorPosition = position
-            passage.selectWord()
-        }
+    function selectWord(range) {
+        if (!range)
+            return
+        passage.select(range.start, range.end)
         analyzeSelection()
     }
 
@@ -129,7 +125,7 @@ Item {
     }
 
     function analyzeSelection() {
-        if (!passage.selectedText.trim())
+        if (!/[\u1100-\u11ff\u3131-\u318e\ua960-\ua97c\uac00-\ud7a3\ud7b0-\ud7fb]/.test(passage.selectedText))
             return
         const position = passage.selectionStart
         const offset = passage.positionToRectangle(position).y - viewport.contentY
@@ -329,8 +325,7 @@ Item {
                     onSingleTapped: (eventPoint, button) => {
                         if (button === Qt.LeftButton) {
                             const point = eventPoint.position
-                            root.selectAt(passage.positionAt(point.x, point.y),
-                                          root.hoveredWord(point.x, point.y))
+                            root.selectWord(root.hoveredWord(point.x, point.y))
                         }
                     }
                 }

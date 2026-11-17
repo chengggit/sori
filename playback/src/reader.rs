@@ -19,29 +19,46 @@ pub struct WordRange {
 }
 
 pub fn word_ranges(analyzer: &KoreanAnalyzer, text: String) -> Result<Vec<WordRange>, String> {
+    let original: Vec<u16> = text.encode_utf16().collect();
     let tokens = analyzer.analyze(text)?;
     let mut ranges = Vec::new();
     for group in
         tokens.chunk_by(|a, b| a.sentence_index == b.sentence_index && a.word_index == b.word_index)
     {
-        let mut words = group
-            .iter()
-            .filter(|token| token.surface.chars().any(char::is_alphanumeric));
-        if let Some(first) = words.next() {
-            let range = words.fold(
-                WordRange {
-                    start: first.start,
-                    end: first.end,
-                },
-                |range, token| WordRange {
-                    start: range.start.min(token.start),
-                    end: range.end.max(token.end),
-                },
-            );
-            ranges.push(range);
+        let start = group.iter().map(|token| token.start).min().unwrap();
+        let end = group.iter().map(|token| token.end).max().unwrap();
+        let mut offset = start;
+        // Kiwi can group Latin text or punctuation with Korean within one written word.
+        for run in original[start..end].chunk_by(|a, b| is_hangul(*a) == is_hangul(*b)) {
+            let end = offset + run.len();
+            if is_hangul(run[0]) {
+                ranges.push(WordRange {
+                    start: attached_number_start(&original, offset),
+                    end,
+                });
+            }
+            offset = end;
         }
     }
     Ok(ranges)
+}
+
+fn attached_number_start(text: &[u16], end: usize) -> usize {
+    let digit = |unit| matches!(unit, 0x30..=0x39);
+    let mut start = end;
+    while start > 0 && digit(text[start - 1]) {
+        start -= 1;
+        // A grouping comma or decimal point belongs to the number between digits.
+        if start >= 2 && matches!(text[start - 1], 0x2c | 0x2e) && digit(text[start - 2]) {
+            start -= 1;
+        }
+    }
+    start
+}
+
+fn is_hangul(unit: u16) -> bool {
+    matches!(unit, 0x1100..=0x11ff | 0x3131..=0x318e | 0xa960..=0xa97c
+        | 0xac00..=0xd7a3 | 0xd7b0..=0xd7c6 | 0xd7cb..=0xd7fb)
 }
 
 #[derive(Debug, Serialize)]
@@ -292,5 +309,17 @@ mod tests {
         assert_eq!(result.normalized_form, "가다");
         assert!(result.morphemes.iter().any(|token| token.form == "가"));
         assert!(result.morphemes.len() > 1);
+
+        let mixed = "😀 Hello, 학교에! KAIST는. 3000회, 2년, 3,000회, 1.5년, 20.";
+        let text: Vec<u16> = mixed.encode_utf16().collect();
+        let ranges = word_ranges(&analyzer, mixed.into()).unwrap();
+        let clickable: Vec<_> = ranges
+            .iter()
+            .map(|range| String::from_utf16(&text[range.start..range.end]).unwrap())
+            .collect();
+        assert_eq!(
+            clickable,
+            ["학교에", "는", "3000회", "2년", "3,000회", "1.5년"]
+        );
     }
 }
