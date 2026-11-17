@@ -63,5 +63,9 @@ Button {
         }
         border.width: control.variant === "outline" ? 1 : 0
         border.color: Theme.border
+
+        Behavior on color {
+            ColorAnimation { duration: 160; easing.type: Easing.OutCubic }
+        }
     }
 }
