@@ -499,6 +499,10 @@ Item {
                         text: root.player.formatTime(timeline.value) + " / " + root.player.formatTime(root.player.duration)
                         color: "#eeeeee"
                         font.pixelSize: 13
+                        // Keep changing timestamp digits from shifting the controls beside it.
+                        Layout.preferredWidth: 128
+                        Layout.minimumWidth: Layout.preferredWidth
+                        Layout.maximumWidth: Layout.preferredWidth
                     }
                     PlaybackButton {
                         iconName: root.volumeLevel <= 0 ? "volume-x" : "volume"
