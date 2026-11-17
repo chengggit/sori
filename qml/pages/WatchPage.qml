@@ -3,6 +3,7 @@ import QtQuick.Controls
 import QtQuick.Effects
 import QtQuick.Layouts
 import QtQuick.Shapes
+import QtQuick.Window
 import Sori 1.0
 import "../style"
 import "../components"
@@ -312,7 +313,7 @@ Item {
         id: stage
         width: height * 16 / 9
         height: root.fullScreen ? Math.min(root.height, root.width * 9 / 16)
-            : Math.min(root.height - 218,
+            : Math.min(root.Window.window.height * 0.5, root.height - 218,
                 Math.min(root.width - 48, Theme.watchWidth) * 9 / 16)
         x: Math.round((root.width - width) / 2)
         y: root.fullScreen ? Math.round((root.height - height) / 2)
