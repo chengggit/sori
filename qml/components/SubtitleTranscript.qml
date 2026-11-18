@@ -10,6 +10,8 @@ Rectangle {
     required property var player
     signal lookupRequested(string text, int start, int end)
     signal addRequested()
+    property string emptyAction: "Add subtitle files"
+    property string emptyHint: "Select a primary text track in CC or add an SRT or VTT file."
     color: Theme.card
     border.color: Theme.border
     radius: Theme.radius
@@ -116,14 +118,14 @@ Rectangle {
 
         AppButton {
             visible: !root.subtitles.loading && lines.count === 0
-            text: "Add subtitle files"
+            text: root.emptyAction
             variant: "outline"
             onClicked: root.addRequested()
         }
 
         AppText {
             visible: !root.subtitles.loading && lines.count === 0
-            text: "Select a primary text track in CC or add an SRT or VTT file."
+            text: root.emptyHint
             Layout.fillWidth: true
             wrapMode: Text.Wrap
             color: Theme.mutedForeground

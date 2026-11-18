@@ -20,7 +20,8 @@
       "binaryDir": "${sourceDir}/build",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Release",
-        "SORI_REQUIRE_WEBENGINE": true
+        "SORI_REQUIRE_WEBENGINE": true,
+        "SORI_BUNDLE_TRANSCRIPT_HELPER": true
       }
     }
   ],

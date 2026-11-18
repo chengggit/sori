@@ -365,6 +365,13 @@ ApplicationWindow {
         onAccepted: root.attachSubtitles(selectedFile)
     }
 
+    FileDialog {
+        id: transcriptPicker
+        title: "Add text transcript"
+        nameFilters: ["Text files (*.txt)"]
+        onAccepted: watchPage.attachTranscript(root.renderHost.localPath(selectedFile))
+    }
+
     Rectangle {
         anchors.fill: parent
         color: root.fullScreen ? "#000000" : Theme.background
@@ -491,6 +498,7 @@ ApplicationWindow {
                 onCaptionsToggleRequested: root.captionsVisible = !root.captionsVisible
                 onOpenVideoRequested: videoPicker.open()
                 onOpenSubtitlesRequested: subtitlePicker.open()
+                onOpenTranscriptRequested: transcriptPicker.open()
                 onBackRequested: root.goBack("home")
             }
 
@@ -500,6 +508,7 @@ ApplicationWindow {
                 sourceComponent: YouTubeWatchPage {
                     video: root.currentVideo
                     embeddingAvailable: root.youtubeEmbeddingAvailable
+                    renderHost: root.renderHost
                     onBackRequested: root.goBack("home")
                     onCheckpoint: (entry, seconds, duration) => {
                         root.videoError = Library.saveYoutubeProgress(entry.youtubeId, entry.title,

@@ -54,9 +54,10 @@ add_custom_command(OUTPUT "${CORE_LIB}"
         "${CORE_DIR}/src/db.rs" "${CORE_DIR}/src/schema.sql" "${CORE_DIR}/src/documents.rs"
         "${CORE_DIR}/src/progress.rs" "${CORE_DIR}/src/library_model.rs"
         "${CORE_DIR}/src/nlp.rs" "${CORE_DIR}/src/reader.rs" "${CORE_DIR}/src/analysis_model.rs"
-        "${CORE_DIR}/src/video_library.rs"
+        "${CORE_DIR}/src/video_library.rs" "${CORE_DIR}/src/video_transcript.rs"
         "${CORE_DIR}/src/dictionary.rs" "${CORE_DIR}/src/vocabulary.rs"
-        "${CORE_DIR}/src/youtube.rs"
+        "${CORE_DIR}/src/youtube.rs" "${CORE_DIR}/src/youtube_transcript.rs"
+        "${CMAKE_CURRENT_SOURCE_DIR}/scripts/youtube_transcript.py"
     VERBATIM
 )
 add_custom_target(sori-core DEPENDS "${CORE_LIB}")
@@ -95,6 +96,7 @@ qt_add_resources(sori "watch" PREFIX "/" FILES
     qml/components/VocabularyEditor.qml
     qml/components/VocabularyForm.qml
     qml/components/WordAnalysis.qml
+    qml/components/UntimedTranscript.qml
     qml/components/SubtitleTranscript.qml
     qml/components/SubtitleDefinition.qml
     qml/components/ReaderAnalysis.qml
@@ -142,3 +144,6 @@ qt_add_resources(sori "watch" PREFIX "/" FILES
     qml/pages/YouTubeEmbed.qml
     assets/Inter-Variable.ttf assets/NotoSansKR-Regular.otf
 )
+
+include(scripts/bundle-youtube.cmake)
+install(TARGETS sori RUNTIME DESTINATION bin)

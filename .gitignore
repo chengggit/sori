@@ -8,3 +8,6 @@ docs/
 .env
 .env.*
 !.env.example
+
+/.venv-youtube/
+**/__pycache__/

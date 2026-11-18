@@ -53,6 +53,7 @@ QtObject {
     readonly property int readerAnalysisWidth: 500
     readonly property int readerTextSize: 16
     readonly property int readerLineHeight: 40
+    readonly property int transcriptLineHeight: 28
     readonly property int readerUnderlineOffset: 4
     readonly property int readerPadding: 24
 

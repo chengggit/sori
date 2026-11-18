@@ -239,6 +239,13 @@ clicking **Resume follow**, clicking a timestamp, or leaving the transcript idle
 for five seconds resumes it.
 Image-based subtitle tracks are not supported.
 
+For text without timestamps, use **Add transcript (TXT)** below a local video.
+UTF-8 TXT files up to 2 MiB are stored with the video, including their reading
+position. The text scrolls independently of playback; click Korean words to use
+the same analysis and vocabulary sidebar. Switch between the text transcript
+and selected subtitles, replace the TXT, or remove it without changing captions.
+TXT attachments also work on YouTube Watch. PDF transcripts are not supported yet.
+
 ## Local library
 
 Import UTF-8 text files or paste text in My Library. Open a document to read
@@ -277,6 +284,62 @@ YouTube playback uses the official embedded player when built with the matching
 Qt WebEngine Quick module. If the module is unavailable or a video cannot be
 embedded, use **Open in browser**. YouTube progress is saved locally and can
 be resumed from Home or History.
+
+### YouTube transcripts (optional Python helper)
+
+YouTube Watch uses the same aligned video/transcript column and Reader sidebar
+as local Watch. Korean manual or automatic captions load automatically when a
+video opens, using the local cache when available. There is no English fallback. Timestamps seek the embedded player;
+follow scrolling tracks playback. Successful results are cached in SQLite.
+**Add TXT** provides an independent reading transcript with saved scroll position.
+Words saved from either view retain the YouTube source.
+
+The Rust worker calls the maintained
+[youtube-transcript-api](https://github.com/jdepoix/youtube-transcript-api)
+library through a JSON-only Python subprocess, rather than reimplementing its
+undocumented YouTube requests or adding a second Qt binding. Python is optional:
+local media, reading, vocabulary, and ordinary YouTube playback work without it.
+
+End users do not install Python or pip packages. Release builds bundle a private
+Python runtime and the library in `helpers/sori-youtube-transcript/` beside Sori.
+The complete helper directory must ship inside the same app package.
+
+For development or building a release, prepare an isolated build environment:
+
+```sh
+python3 -m venv .venv-youtube
+.venv-youtube/bin/python -m pip install -r scripts/requirements-youtube-build.txt
+```
+
+The release preset enables `SORI_BUNDLE_TRANSCRIPT_HELPER`, which uses
+PyInstaller to include the interpreter and dependencies. Build it on each target
+OS/architecture; it is not a cross-platform binary. `cmake --install build
+--prefix /path/to/staging` stages Sori and its helper under `bin/`; native Qt,
+mpv, Kiwi resources, and platform installer deployment remain separate packaging
+steps. This is not a complete self-contained Sori installer yet.
+
+To also bundle it during development:
+
+```sh
+cmake --preset dev -DSORI_BUNDLE_TRANSCRIPT_HELPER=ON
+cmake --build --preset dev
+build/development/helpers/sori-youtube-transcript/sori-youtube-transcript --self-test
+```
+
+Sori prefers the bundled helper. Without one, development builds fall back to
+`.venv-youtube`; `SORI_PYTHON` can select another development Python executable.
+`SORI_HELPER_PYTHON` selects the build-time Python used by PyInstaller. On Windows,
+use `.venv-youtube/Scripts/python.exe` and the helper's `.exe` filename.
+The fallback helper script is embedded in the Rust binary. Requests time out after 40
+seconds; unavailable captions, network errors, and YouTube request blocking are
+reported in the page. Fetching needs internet but no YouTube Data API key.
+It retrieves existing captions; it does not transcribe audio or translate text.
+
+Offline helper tests:
+
+```sh
+.venv-youtube/bin/python -m unittest discover -s tests/python
+```
 
 [Inter license](assets/OFL-Inter.txt), [Noto Sans KR license](assets/OFL-NotoSansKR.txt),
 and [Lucide license](assets/LUCIDE-LICENSE.txt).

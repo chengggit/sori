@@ -12,6 +12,8 @@ Popup {
     property string word: ""
     property var analysis: null
     property var savedDefinition: null
+    property var savedEntry: null
+    property string saveError: ""
     property int analysisRequest: 0
     property int selection: 0
     property var pending: ({})
@@ -51,11 +53,38 @@ Popup {
         word = source.slice(start, end)
         analysis = null
         savedDefinition = null
+        savedEntry = null
+        saveError = ""
         lookups = ({})
         expanded = false
         scroll.contentItem.contentY = 0
         analysisRequest = Analysis.analyze(source, start, end)
         open()
+    }
+
+    function saveWord() {
+        if (savedEntry?.id) {
+            saveError = Library.removeWord(savedEntry.id)
+            if (!saveError) {
+                savedEntry = null
+                savedDefinition = null
+                startLookups()
+            }
+            return
+        }
+        const definition = wholeDefinitions[0] ?? null
+        const saved = Library.saveWord("local", videoId, {
+            word: analysis.word,
+            context: analysis.context,
+            normalizedForm: definition?.term || analysis.normalizedForm || null,
+            definition: definition,
+            tags: []
+        })
+        saveError = saved.error || ""
+        if (!saveError) {
+            savedEntry = saved
+            savedDefinition = saved.definition ?? definition
+        }
     }
 
     function lookupTerm(term) {
@@ -92,8 +121,10 @@ Popup {
                 return
             root.analysisRequest = 0
             root.analysis = result
-            if (result.word && root.videoId > 0)
-                root.savedDefinition = Library.findWord("local", root.videoId, result.word, result.context)?.definition
+            if (result.word && root.videoId > 0) {
+                root.savedEntry = Library.findWord("local", root.videoId, result.word, result.context)
+                root.savedDefinition = root.savedEntry?.definition ?? null
+            }
             root.startLookups()
         }
 
@@ -131,6 +162,37 @@ Popup {
             }
 
             AppButton {
+                id: bookmarkButton
+                objectName: "saveSubtitleWord"
+                iconName: root.savedEntry?.id ? "bookmark-filled" : "bookmark"
+                variant: "ghost"
+                Layout.preferredWidth: 28
+                Layout.preferredHeight: 28
+                enabled: !!root.analysis?.word && root.videoId > 0
+                Accessible.name: root.savedEntry?.id ? "Unsave word" : "Save word"
+                onClicked: root.saveWord()
+
+                ToolTip {
+                    id: bookmarkTooltip
+                    visible: bookmarkButton.hovered && bookmarkButton.enabled
+                    delay: 450
+                    text: bookmarkButton.Accessible.name
+                    x: (bookmarkButton.width - width) / 2
+                    y: -height - 6
+                    padding: 8
+                    contentItem: AppText {
+                        text: bookmarkTooltip.text
+                        font.pixelSize: 12
+                    }
+                    background: Rectangle {
+                        color: Theme.card
+                        border.color: Theme.border
+                        radius: Theme.radiusSmall
+                    }
+                }
+            }
+
+            AppButton {
                 iconName: "x"
                 iconSize: 12
                 variant: "ghost"
@@ -154,6 +216,14 @@ Popup {
                 id: body
                 width: scroll.availableWidth
                 spacing: 8
+
+                AppText {
+                    visible: root.saveError !== ""
+                    text: root.saveError
+                    color: Theme.destructive
+                    Layout.fillWidth: true
+                    wrapMode: Text.Wrap
+                }
 
                 AppText {
                     visible: !root.wholeDefinitions.length

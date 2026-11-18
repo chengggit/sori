@@ -128,8 +128,10 @@ mod progress;
 mod reader;
 mod subtitles;
 mod video_library;
+mod video_transcript;
 mod vocabulary;
 mod youtube;
+mod youtube_transcript;
 
 mod player_model;
 mod subtitle_model;

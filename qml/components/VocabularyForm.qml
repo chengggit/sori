@@ -11,6 +11,8 @@ ColumnLayout {
     property string error: ""
     property real documentId: 0
     property string sourceKind: "document"
+    property string youtubeId: ""
+    property string sourceTitle: ""
     property bool panelMode: false
     signal changed()
     signal closeRequested()
@@ -58,7 +60,7 @@ ColumnLayout {
             error = "Enter a meaning to save a note."
             return
         }
-        if (!documentId) {
+        if (entry?.id) {
             error = Library.editWord(entry.id, updates)
         } else {
             const imported = entry.definition && updates.meaning === entry.definition.text
@@ -71,13 +73,15 @@ ColumnLayout {
                 note: updates.note,
                 custom: !imported || entry.definition.custom
             } : null
-            const saved = Library.saveWord(sourceKind, documentId, {
+            const input = {
                 word: entry.word,
                 context: entry.context,
                 normalizedForm: updates.normalizedForm === entry.word ? null : updates.normalizedForm,
                 definition: definition,
                 tags: updates.tags
-            })
+            }
+            const saved = youtubeId ? Library.saveYoutubeWord(youtubeId, sourceTitle, input)
+                : Library.saveWord(sourceKind, documentId, input)
             error = saved.error || ""
         }
         if (!error) {
@@ -208,7 +212,7 @@ ColumnLayout {
         Item { Layout.fillWidth: true }
         AppButton { text: "Cancel"; variant: "outline"; onClicked: root.closeRequested() }
         AppButton {
-            text: root.documentId ? "Save word" : "Save changes"
+            text: root.entry?.id ? "Save changes" : "Save word"
             variant: "primary"
             onClicked: root.save()
         }

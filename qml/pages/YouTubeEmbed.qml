@@ -10,6 +10,12 @@ WebEngineView {
     readonly property string appOrigin: "https://com.sori.app"
     signal checkpoint(var entry, real seconds, real duration)
 
+    function seek(seconds) {
+        const time = Number(seconds)
+        if (Number.isFinite(time) && time >= 0)
+            runJavaScript("if (typeof player !== 'undefined' && player && player.seekTo) player.seekTo(" + time + ", true)")
+    }
+
     // Qt Quick shares an off-the-record profile by default.
     backgroundColor: "black"
     settings.playbackRequiresUserGesture: true

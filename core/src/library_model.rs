@@ -399,6 +399,78 @@ impl Library {
     }
 
     #[qslot]
+    fn read_youtube_transcript(&self, id: String) -> Value {
+        self.connection().and_then(|db| crate::youtube_transcript::read(&db, &id)).unwrap_or_else(|error| json!({"error":error}))
+    }
+    #[qslot]
+    fn cache_youtube_transcript(&self, id: String, data: Value) -> String {
+        self.connection().and_then(|db| crate::youtube_transcript::cache(&db, &id, data)).err().unwrap_or_default()
+    }
+    #[qslot]
+    fn attach_youtube_transcript(&self, id: String, path: String) -> Value {
+        self.connection().and_then(|db| crate::youtube_transcript::attach(&db, &id, Path::new(&path))).unwrap_or_else(|error| json!({"error":error}))
+    }
+    #[qslot]
+    fn save_youtube_transcript_position(&self, id: String, position: f64) -> String {
+        self.connection().and_then(|db| crate::youtube_transcript::save_position(&db, &id, position)).err().unwrap_or_default()
+    }
+    #[qslot]
+    fn remove_youtube_text_transcript(&self, id: String) -> String {
+        self.connection().and_then(|db| crate::youtube_transcript::remove_text(&db, &id)).err().unwrap_or_default()
+    }
+    #[qslot]
+    fn find_youtube_word(&self, id: String, word: String, context: String) -> Value {
+        self.connection().and_then(|db| vocabulary::find_video_entry(&db, vocabulary::VideoSource::Youtube {id, title: String::new()}, &word, &context))
+            .map(|entry| json!(entry)).unwrap_or_default()
+    }
+    #[qslot]
+    fn save_youtube_word(&mut self, id: String, title: String, mut input: Value) -> Value {
+        let result = self.connection().and_then(|db| {
+            input.as_object_mut().ok_or("Invalid vocabulary entry.")?.insert("source".into(), json!({"kind":"youtube", "id":id, "title":title}));
+            let input = serde_json::from_value(input).map_err(|e| e.to_string())?;
+            vocabulary::save_video(&db, input)
+        });
+        match result {
+            Ok(entry) => { self.refresh_vocabulary(); json!(entry) },
+            Err(error) => json!({"error":error})
+        }
+    }
+
+    #[qslot]
+    fn read_video_transcript(&self, id: i64) -> Value {
+        self.connection()
+            .and_then(|connection| crate::video_transcript::read(&connection, id))
+            .unwrap_or_else(|error| json!({ "error": error }))
+    }
+
+    #[qslot]
+    fn save_video_transcript(&self, id: i64, path: String) -> Value {
+        self.connection()
+            .and_then(|connection| {
+                crate::video_transcript::attach(&connection, id, Path::new(&path))
+            })
+            .unwrap_or_else(|error| json!({ "error": error }))
+    }
+
+    #[qslot]
+    fn save_transcript_position(&self, id: i64, position: f64) -> String {
+        self.connection()
+            .and_then(|connection| {
+                crate::video_transcript::save_position(&connection, id, position)
+            })
+            .err()
+            .unwrap_or_default()
+    }
+
+    #[qslot]
+    fn remove_video_transcript(&self, id: i64) -> String {
+        self.connection()
+            .and_then(|connection| crate::video_transcript::remove(&connection, id))
+            .err()
+            .unwrap_or_default()
+    }
+
+    #[qslot]
     fn save_video_subtitles(&self, id: i64, path: String) -> Value {
         self.connection()
             .and_then(|connection| video_library::save_sidecar(&connection, id, Path::new(&path)))

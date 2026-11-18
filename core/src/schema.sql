@@ -47,9 +47,25 @@ CREATE TABLE IF NOT EXISTS videos (
     sidecar TEXT
 );
 
+CREATE TABLE IF NOT EXISTS video_transcripts (
+    video_id INTEGER PRIMARY KEY REFERENCES videos(id) ON DELETE CASCADE,
+    title TEXT NOT NULL,
+    content TEXT NOT NULL,
+    position REAL NOT NULL DEFAULT 0 CHECK (position >= 0 AND position <= 1)
+);
+
 CREATE TABLE IF NOT EXISTS local_watch_history (
     video_id INTEGER PRIMARY KEY REFERENCES videos(id) ON DELETE CASCADE,
     watched_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS youtube_transcripts (
+    video_id TEXT PRIMARY KEY,
+    timed_json TEXT,
+    language TEXT,
+    title TEXT,
+    content TEXT,
+    position REAL NOT NULL DEFAULT 0 CHECK (position >= 0 AND position <= 1)
 );
 
 CREATE TABLE IF NOT EXISTS youtube_watch_history (

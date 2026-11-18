@@ -9,6 +9,8 @@ Rectangle {
 
     required property real documentId
     property string sourceKind: "document"
+    property string youtubeId: ""
+    property string sourceTitle: ""
     readonly property bool opened: selectedWord !== ""
     property bool animateEntrance: false
     property real revealProgress: animateEntrance ? (opened ? 1 : 0) : 1
@@ -105,7 +107,8 @@ Rectangle {
 
     function refreshSavedWord() {
         if (result?.word)
-            savedWord = Library.findWord(sourceKind, documentId, result.word, result.context)
+            savedWord = youtubeId ? Library.findYoutubeWord(youtubeId, result.word, result.context)
+                : Library.findWord(sourceKind, documentId, result.word, result.context)
     }
 
     function openSaveEditor() {
@@ -270,7 +273,7 @@ Rectangle {
 
             AppButton {
                 id: saveButton
-                enabled: !!root.result?.word && root.documentId > 0
+                enabled: !!root.result?.word && (root.documentId > 0 || root.youtubeId !== "")
                 iconName: root.savedWord?.id ? "bookmark-filled" : "bookmark"
                 iconSize: 20
                 anchors.verticalCenter: parent.verticalCenter
@@ -575,6 +578,8 @@ Rectangle {
                         Layout.fillWidth: true
                         panelMode: true
                         sourceKind: root.sourceKind
+                        youtubeId: root.youtubeId
+                        sourceTitle: root.sourceTitle
                         onChanged: root.refreshSavedWord()
                         onCloseRequested: root.closeSaveEditor()
                     }

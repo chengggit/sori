@@ -1,66 +1,144 @@
 import QtQuick
-import QtQuick.Layouts
 import QtQuick.Shapes
+import QtQuick.Window
+import QtQuick.Controls
+import QtQuick.Dialogs
+import QtQuick.Layouts
+import sori_core
 import "../components"
 import "../style"
 
 Item {
     id: root
-
+    clip: true
     required property var video
     required property bool embeddingAvailable
+    required property var renderHost
     property string saveError: ""
-
+    readonly property string youtubeId: video?.youtubeId ?? ""
+    property var savedTranscript: ({})
+    property bool showText: false
+    property int fetchRequest: 0
+    property string transcriptVideoId: ""
+    property string transcriptError: ""
+    readonly property real viewingWidth: width - analysis.width * analysis.revealProgress
+    readonly property real playerHeight: Math.max(0, Math.min(root.Window.window.height * 0.42,
+        root.height - 218, Math.min(root.viewingWidth - 48, Theme.watchWidth) * 9 / 16))
     signal backRequested()
     signal checkpoint(var entry, real seconds, real duration)
 
+    function fetchKoreanTranscript() {
+        if (!youtubeId || fetchRequest) return
+        transcriptError = ""
+        fetchRequest = YouTube.fetchTranscript(youtubeId, "ko")
+    }
+    function loadTranscript() {
+        if (youtubeId === transcriptVideoId) return
+        transcriptVideoId = youtubeId
+        fetchRequest = 0
+        analysis.close()
+        savedTranscript = youtubeId ? Library.readYoutubeTranscript(youtubeId) : ({})
+        transcriptError = savedTranscript.error || ""
+        showText = !!savedTranscript.content
+        playback.position = video?.seconds ?? 0
+        transcript.refresh()
+        if (youtubeId && (savedTranscript.language !== "ko" || !savedTranscript.cues?.length)) {
+            savedTranscript = Object.assign({}, savedTranscript, {cues: []})
+            fetchKoreanTranscript()
+        }
+    }
+    onYoutubeIdChanged: Qt.callLater(loadTranscript)
+    Component.onCompleted: Qt.callLater(loadTranscript)
+
+    QtObject {
+        id: playback
+        property real position: 0
+        function formatTime(seconds) { return Player.formatTime(seconds) }
+        function seek(seconds) {
+            if (embed.item) {
+                embed.item.seek(seconds)
+                position = seconds
+                transcript.refresh()
+            }
+        }
+    }
+    QtObject {
+        id: transcript
+        property var transcript: root.savedTranscript.cues ?? []
+        property int activeRow: -1
+        property bool loading: root.fetchRequest !== 0
+        function refresh() {
+            let left = 0, right = transcript.length
+            while (left < right) {
+                const middle = Math.floor((left + right) / 2)
+                if (transcript[middle].start <= playback.position) left = middle + 1
+                else right = middle
+            }
+            activeRow = left - 1
+        }
+        onTranscriptChanged: Qt.callLater(refresh)
+    }
+    Connections {
+        target: YouTube
+        function onTranscriptFinished(request, result) {
+            if (request !== root.fetchRequest) return
+            root.fetchRequest = 0
+            root.transcriptError = result.error || ""
+            if (!result.error) {
+                root.transcriptError = Library.cacheYoutubeTranscript(root.youtubeId, result)
+                root.savedTranscript = Object.assign({}, root.savedTranscript, result)
+                transcript.refresh()
+            }
+        }
+    }
+    FileDialog {
+        id: textPicker
+        title: "Add text transcript"
+        nameFilters: ["Text files (*.txt)"]
+        onAccepted: {
+            textReader.flush()
+            const result = Library.attachYoutubeTranscript(root.youtubeId, root.renderHost.localPath(selectedFile))
+            root.transcriptError = result.error || ""
+            if (!result.error) {
+                root.savedTranscript = result
+                root.showText = true
+                textReader.restoring = true
+                Qt.callLater(textReader.restore)
+            }
+        }
+    }
+
     ColumnLayout {
         id: content
-        anchors.top: parent.top
-        anchors.horizontalCenter: parent.horizontalCenter
-        anchors.margins: 24
-        width: Math.min(parent.width - 2 * anchors.margins, Theme.watchWidth)
+        x: (root.viewingWidth - width) / 2
+        y: 24
+        width: root.playerHeight * 16 / 9
+        height: Math.max(0, root.height - y - 16)
         spacing: 16
 
         RowLayout {
             Layout.fillWidth: true
-
-            AppButton {
-                text: "Back"
-                iconName: "arrow-left"
-                variant: "ghost"
-                onClicked: root.backRequested()
-            }
-
+            AppButton { text: "Back"; iconName: "arrow-left"; variant: "ghost"; onClicked: root.backRequested() }
             Item { Layout.fillWidth: true }
-
-            AppButton {
-                text: "Open in browser"
-                variant: "outline"
-                onClicked: Qt.openUrlExternally(root.video.youtubeUrl)
-            }
+            AppButton { text: "Open in browser"; variant: "outline"; onClicked: Qt.openUrlExternally(root.video.youtubeUrl) }
         }
-
         Rectangle {
             id: playerFrame
-            readonly property real playerWidth: content.width
-
             Layout.fillWidth: true
-            Layout.preferredHeight: Math.max(200, playerWidth * 9 / 16)
-            visible: embed.active && embed.status !== Loader.Error
+            Layout.preferredHeight: root.playerHeight
+            Layout.minimumHeight: Layout.preferredHeight
+            Layout.maximumHeight: Layout.preferredHeight
             radius: Theme.radius
             color: "black"
-
+            clip: true
             Loader {
                 id: embed
                 objectName: "youtubePlayerLoader"
                 anchors.fill: parent
-                active: root.embeddingAvailable && playerFrame.playerWidth >= 200
+                active: root.embeddingAvailable && width >= 200
                 source: "YouTubeEmbed.qml"
-
                 onLoaded: item.video = Qt.binding(() => root.video)
             }
-
             Repeater {
                 model: 4
                 delegate: Shape {
@@ -79,15 +157,15 @@ Item {
                     }
                 }
             }
-        }
-
-        Connections {
-            target: embed.item
-            function onCheckpoint(entry, seconds, duration) {
-                root.checkpoint(entry, seconds, duration)
+            Connections {
+                target: embed.item
+                function onCheckpoint(entry, seconds, duration) {
+                    playback.position = seconds
+                    transcript.refresh()
+                    root.checkpoint(entry, seconds, duration)
+                }
             }
         }
-
         AppText {
             text: root.video.title
             font.pixelSize: 20
@@ -95,16 +173,109 @@ Item {
             Layout.fillWidth: true
             elide: Text.ElideRight
         }
-
         AppText {
             readonly property string playerError: !root.embeddingAvailable || embed.status === Loader.Error
                 ? "This build does not include Qt WebEngine. Open the video in your browser."
-                : !embed.active ? "Enlarge the window to watch here." : (embed.item?.playbackError ?? "")
-            text: playerError || root.saveError
-            visible: !!text
+                : embed.item?.playbackError ?? ""
+            text: root.transcriptError || playerError || root.saveError
+            visible: text !== ""
             Layout.fillWidth: true
-            color: Theme.mutedForeground
             wrapMode: Text.Wrap
+            color: Theme.mutedForeground
+        }
+        Flow {
+            Layout.fillWidth: true
+            spacing: 8
+            AppButton {
+                visible: !!root.savedTranscript.content
+                text: root.showText ? "Show subtitles" : "Show text transcript"
+                variant: "ghost"
+                small: true
+                onClicked: root.showText = !root.showText
+            }
+            AppButton {
+                visible: root.transcriptError !== "" && !root.fetchRequest
+                text: "Retry transcript"
+                small: true
+                variant: "outline"
+                onClicked: root.fetchKoreanTranscript()
+            }
+            AppButton {
+                text: root.savedTranscript.content ? "Replace TXT" : "Add TXT"
+                variant: "outline"
+                small: true
+                onClicked: textPicker.open()
+            }
+            AppButton {
+                visible: !!root.savedTranscript.content
+                iconName: "trash"
+                variant: "ghost"
+                small: true
+                Accessible.name: "Remove text transcript"
+                onClicked: {
+                    textReader.flush()
+                    root.transcriptError = Library.removeYoutubeTextTranscript(root.youtubeId)
+                    if (!root.transcriptError) {
+                        root.savedTranscript = Object.assign({}, root.savedTranscript, {content: null, title: null, position: 0})
+                        root.showText = false
+                    }
+                }
+            }
+        }
+        AppText {
+            visible: !!root.savedTranscript.content && root.showText
+            text: root.savedTranscript.title ?? ""
+            color: Theme.mutedForeground
+            font.pixelSize: 12
+            Layout.fillWidth: true
+            elide: Text.ElideRight
+        }
+        UntimedTranscript {
+            id: textReader
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            visible: root.showText
+            videoId: 0
+            youtubeId: root.youtubeId
+            renderHost: root.renderHost
+            text: root.savedTranscript.content ?? ""
+            savedPosition: root.savedTranscript.position ?? 0
+            onLookupRequested: (text, start, end) => analysis.lookup(text, start, end)
+            onSaveFailed: error => root.transcriptError = error
+        }
+        SubtitleTranscript {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            visible: !root.showText
+            emptyAction: "Add text transcript (TXT)"
+            emptyHint: "Korean subtitles will load automatically when available. You can also attach a TXT transcript."
+            subtitles: transcript
+            player: playback
+            onLookupRequested: (text, start, end) => analysis.lookup(text, start, end)
+            onAddRequested: textPicker.open()
+        }
+    }
+    ReaderAnalysis {
+        id: analysis
+        objectName: "youtubeWordAnalysis"
+        documentId: 0
+        youtubeId: root.youtubeId
+        sourceTitle: root.video?.title ?? "YouTube video"
+        animateEntrance: true
+        width: Math.min(Theme.readerAnalysisWidth, root.width * 0.45)
+        anchors.right: parent.right
+        anchors.rightMargin: -(1 - revealProgress) * width
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        visible: opened || revealProgress > 0
+        onDismissRequested: close()
+    }
+    Shortcut {
+        sequence: "Escape"
+        enabled: analysis.opened
+        onActivated: {
+            if (analysis.editing) analysis.closeSaveEditor()
+            else analysis.close()
         }
     }
 }

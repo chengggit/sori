@@ -24,6 +24,22 @@ impl YouTube {
     #[qsignal]
     fn search_finished(&mut self, request: i32, result: &Value);
 
+    #[qsignal]
+    fn transcript_finished(&mut self, request: i32, result: &Value);
+
+    #[qslot]
+    fn fetch_transcript(&mut self, id: String, language: String) -> i32 {
+        self.request = self.request.wrapping_add(1).max(1);
+        let request = self.request;
+        let handle = self.get_thread_handle();
+        std::thread::spawn(move || {
+            let result = crate::youtube_transcript::fetch(&id, &language)
+                .unwrap_or_else(|error| json!({"error": error}));
+            let _ = handle.invoke_mut(move |model| model.transcript_finished(request, &result));
+        });
+        request
+    }
+
     fn configured(&self) -> bool {
         has_api_key()
     }

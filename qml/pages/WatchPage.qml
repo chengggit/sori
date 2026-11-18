@@ -5,6 +5,7 @@ import QtQuick.Layouts
 import QtQuick.Shapes
 import QtQuick.Window
 import Sori 1.0
+import sori_core
 import "../style"
 import "../components"
 
@@ -26,6 +27,7 @@ Item {
     signal toggleFullscreenRequested()
     signal captionsToggleRequested()
     signal openVideoRequested()
+    signal openTranscriptRequested()
     signal openSubtitlesRequested()
     signal backRequested()
 
@@ -39,6 +41,34 @@ Item {
     property real previousVolumeLevel: 100
     property bool resumeAfterDefinition: false
     property bool resumeAfterSidebar: false
+    property var textTranscript: ({})
+    property bool showUntimed: false
+    property string transcriptError: ""
+
+    function loadTranscript() {
+        textTranscript = videoId > 0 ? Library.readVideoTranscript(videoId) : ({})
+        transcriptError = textTranscript.error || ""
+        showUntimed = !!textTranscript.content
+    }
+    function attachTranscript(path) {
+        textReader.flush()
+        const result = Library.saveVideoTranscript(videoId, path)
+        transcriptError = result.error || ""
+        if (!result.error) {
+            textTranscript = result
+            showUntimed = true
+            textReader.restoring = true
+            Qt.callLater(textReader.restore)
+        }
+    }
+    function removeTranscript() {
+        textReader.flush()
+        transcriptError = Library.removeVideoTranscript(videoId)
+        if (!transcriptError) {
+            textTranscript = ({})
+            showUntimed = false
+        }
+    }
     readonly property bool showControls: player.loaded && (controlsAwake || player.paused
         || player.ended || timeline.pressed || trackMenu.opened)
 
@@ -62,7 +92,7 @@ Item {
     }
 
     onFullScreenChanged: closeAnalysis()
-    onVideoIdChanged: closeAnalysis()
+    onVideoIdChanged: { closeAnalysis(); loadTranscript() }
     onCaptionsVisibleChanged: if (!captionsVisible) subtitleDefinition.close()
 
     SubtitleDefinition {
@@ -336,8 +366,8 @@ Item {
         visible: !root.fullScreen
         anchors.top: parent.top
         anchors.topMargin: 24
-        x: (root.viewingWidth - width) / 2
-        width: Math.min(root.viewingWidth - 48, Theme.watchWidth)
+        x: stage.x
+        width: stage.width
         height: backButton.implicitHeight
 
         AppButton {
@@ -364,7 +394,7 @@ Item {
         id: stage
         width: height * 16 / 9
         height: root.fullScreen ? Math.min(root.height, root.width * 9 / 16)
-            : Math.min(root.Window.window.height * 0.5, root.height - 218,
+            : Math.min(root.Window.window.height * 0.42, root.height - 218,
                 Math.min(root.viewingWidth - 48, Theme.watchWidth) * 9 / 16)
         x: Math.round(((root.fullScreen ? root.width : root.viewingWidth) - width) / 2)
         y: root.fullScreen ? Math.round((root.height - height) / 2)
@@ -853,8 +883,8 @@ Item {
 
     ColumnLayout {
         visible: !root.fullScreen && root.player.loaded
-        width: Math.max(0, Math.min(root.viewingWidth - 48, Theme.watchWidth))
-        x: (root.viewingWidth - width) / 2
+        width: stage.width
+        x: stage.x
         height: Math.max(0, root.height - y - 16)
         y: stage.y + stage.height + 16
         spacing: 20
@@ -869,13 +899,60 @@ Item {
 
         AppText {
             Layout.fillWidth: true
-            text: root.libraryError || root.subtitles.error
+            text: root.transcriptError || root.libraryError || root.subtitles.error
             visible: text !== ""
             color: Theme.destructive
             wrapMode: Text.Wrap
         }
 
+        RowLayout {
+            Layout.fillWidth: true
+            AppButton {
+                visible: !!root.textTranscript.content
+                text: root.showUntimed ? "Show subtitles" : "Show text transcript"
+                variant: "ghost"
+                small: true
+                onClicked: root.showUntimed = !root.showUntimed
+            }
+            AppText {
+                Layout.fillWidth: true
+                text: root.showUntimed ? root.textTranscript.title : ""
+                elide: Text.ElideRight
+                color: Theme.mutedForeground
+                font.pixelSize: 12
+            }
+            AppButton {
+                text: root.textTranscript.content ? "Replace TXT" : "Add transcript (TXT)"
+                variant: "outline"
+                small: true
+                enabled: root.videoId > 0
+                onClicked: root.openTranscriptRequested()
+            }
+            AppButton {
+                visible: !!root.textTranscript.content
+                iconName: "trash"
+                variant: "ghost"
+                small: true
+                Accessible.name: "Remove text transcript"
+                onClicked: root.removeTranscript()
+            }
+        }
+
+        UntimedTranscript {
+            id: textReader
+            renderHost: root.renderHost
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            visible: root.showUntimed
+            videoId: root.videoId
+            savedPosition: root.textTranscript.position ?? 0
+            text: root.textTranscript.content ?? ""
+            onLookupRequested: (text, start, end) => transcriptAnalysis.lookup(text, start, end)
+            onSaveFailed: error => root.transcriptError = error
+        }
+
         SubtitleTranscript {
+            visible: !root.showUntimed
             Layout.fillWidth: true
             Layout.fillHeight: true
             subtitles: root.subtitles
