@@ -25,89 +25,123 @@ Item {
     property bool loadingMore: false
     property bool paginationFailed: false
     property string linkError: ""
-    readonly property string statusText: error || (!YouTube.configured
-        ? "Set SORI_YOUTUBE_API_KEY in .env.local to search YouTube from Sori."
-        : request && !loadingMore ? "Searching YouTube…"
-        : currentQuery && !videos.length ? "No videos found." : "")
+    readonly property string statusText: error || (!YouTube.configured ? "Set SORI_YOUTUBE_API_KEY in .env.local to search YouTube from Sori." : request && !loadingMore ? "Searching YouTube…" : currentQuery && !videos.length ? "No videos found." : "")
 
     readonly property var topics: [
-        { label: "History", query: "한국 역사 다큐 한국어 자막" },
-        { label: "Science & nature", query: "과학 자연 다큐 한국어 자막" },
-        { label: "Food & cooking", query: "한국 전통 음식 요리 한국어 자막" },
-        { label: "Comedy", query: "한국 코미디 스케치 한국어 자막" },
-        { label: "Interviews", query: "한국 직업 인터뷰 한국어 자막" },
-        { label: "Arts & crafts", query: "한국 공예 작업실 한국어 자막" },
-        { label: "Music", query: "한국 음악 공연 인터뷰 한국어 자막" },
-        { label: "Daily life", query: "한국 시골 일상 브이로그 한국어 자막" }
+        {
+            label: "History",
+            query: "한국 역사 다큐 한국어 자막"
+        },
+        {
+            label: "Science & nature",
+            query: "과학 자연 다큐 한국어 자막"
+        },
+        {
+            label: "Food & cooking",
+            query: "한국 전통 음식 요리 한국어 자막"
+        },
+        {
+            label: "Comedy",
+            query: "한국 코미디 스케치 한국어 자막"
+        },
+        {
+            label: "Interviews",
+            query: "한국 직업 인터뷰 한국어 자막"
+        },
+        {
+            label: "Arts & crafts",
+            query: "한국 공예 작업실 한국어 자막"
+        },
+        {
+            label: "Music",
+            query: "한국 음악 공연 인터뷰 한국어 자막"
+        },
+        {
+            label: "Daily life",
+            query: "한국 시골 일상 브이로그 한국어 자막"
+        }
     ]
 
+    // Append pages without resetting GridView's delegates and scroll position.
+    ListModel {
+        id: videoModel
+        dynamicRoles: true
+    }
+
     function refreshDiscovery() {
-        browse(discoveryQueries[discoveryIndex])
-        discoveryIndex = (discoveryIndex + 1) % discoveryQueries.length
+        browse(discoveryQueries[discoveryIndex]);
+        discoveryIndex = (discoveryIndex + 1) % discoveryQueries.length;
     }
 
     Component.onCompleted: {
         if (discovery && YouTube.configured)
-            Qt.callLater(refreshDiscovery)
+            Qt.callLater(refreshDiscovery);
     }
 
     function showLinkForm() {
-        linkError = ""
-        pasteDialog.open()
-        videoLink.forceActiveFocus()
+        linkError = "";
+        pasteDialog.open();
+        videoLink.forceActiveFocus();
     }
 
     function freshCacheEntries() {
         try {
-            return JSON.parse(searchCache.firstPages).filter(entry => entry.expiresAt > Date.now()
-                                                             && Array.isArray(entry.videos))
+            return JSON.parse(searchCache.firstPages).filter(entry => entry.expiresAt > Date.now() && Array.isArray(entry.videos));
         } catch (error) {
-            return []
+            return [];
         }
     }
 
     function loadMoreNearEnd() {
         if (!visible || request || !nextPage || !results.footerItem)
-            return
+            return;
         if (results.footerItem.y - (results.contentY + results.height) > paginationDistance) {
-            paginationFailed = false
-            return
+            paginationFailed = false;
+            return;
         }
         if (!paginationFailed)
-            browse(currentQuery, nextPage)
+            browse(currentQuery, nextPage);
     }
 
     function showFirstPage(firstPage) {
-        videos = firstPage.videos
-        nextPage = firstPage.nextPage
+        videos = firstPage.videos;
+        videoModel.clear();
+        for (const video of videos)
+            videoModel.append({
+                video: video
+            });
+        nextPage = firstPage.nextPage;
         // Wait for Continue Watching and the grid to lay out the first page together.
-        Qt.callLater(positionAtTop)
+        Qt.callLater(positionAtTop);
     }
 
     function positionAtTop() {
-        results.forceLayout()
-        results.positionViewAtBeginning()
+        wheelScroll.stop();
+        results.forceLayout();
+        results.positionViewAtBeginning();
     }
 
     function browse(query, pageToken) {
-        const term = query.trim()
+        const term = query.trim();
         if (!term || !YouTube.configured || (request && term === currentQuery))
-            return
-        error = ""
-        currentQuery = term
-        loadingMore = !!pageToken
+            return;
+        error = "";
+        currentQuery = term;
+        loadingMore = !!pageToken;
         if (!loadingMore) {
-            paginationFailed = false
-            search.text = term
-            videos = []
-            nextPage = ""
-            const cached = freshCacheEntries().find(entry => entry.query === term)
+            wheelScroll.stop();
+            paginationFailed = false;
+            search.text = term;
+            videos = [];
+            videoModel.clear();
+            nextPage = "";
+            const cached = freshCacheEntries().find(entry => entry.query === term);
             if (cached) {
-                showFirstPage(cached)
-                return
+                showFirstPage(cached);
+                return;
             }
         }
-        request = YouTube.search(term, pageToken || "")
+        request = YouTube.search(term, pageToken || "");
     }
 
     Connections {
@@ -115,29 +149,34 @@ Item {
 
         function onSearchFinished(request, result) {
             if (request !== root.request)
-                return
-            const wasLoadingMore = root.loadingMore
-            root.loadingMore = false
-            root.error = result.error ?? ""
-            root.paginationFailed = wasLoadingMore && !!root.error
+                return;
+            const wasLoadingMore = root.loadingMore;
+            root.error = result.error ?? "";
+            root.paginationFailed = wasLoadingMore && !!root.error;
             if (!root.error) {
                 if (wasLoadingMore) {
-                    const loaded = new Set(root.videos.map(video => video.id))
-                    root.videos = root.videos.concat(result.videos.filter(video => !loaded.has(video.id)))
-                    root.nextPage = result.nextPage === root.nextPage ? "" : result.nextPage
+                    const loaded = new Set(root.videos.map(video => video.id));
+                    const added = result.videos.filter(video => !loaded.has(video.id));
+                    root.videos = root.videos.concat(added);
+                    for (const video of added)
+                        videoModel.append({
+                            video: video
+                        });
+                    root.nextPage = result.nextPage === root.nextPage ? "" : result.nextPage;
                 } else {
-                    root.showFirstPage(result)
-                    const entries = root.freshCacheEntries().filter(entry => entry.query !== root.currentQuery)
+                    root.showFirstPage(result);
+                    const entries = root.freshCacheEntries().filter(entry => entry.query !== root.currentQuery);
                     entries.unshift({
                         query: root.currentQuery,
                         expiresAt: Date.now() + root.cacheLifetime,
                         videos: result.videos,
                         nextPage: root.nextPage
-                    })
-                    root.searchCache.firstPages = JSON.stringify(entries.slice(0, 30))
+                    });
+                    root.searchCache.firstPages = JSON.stringify(entries.slice(0, 30));
                 }
             }
-            root.request = 0
+            root.loadingMore = false;
+            root.request = 0;
         }
     }
 
@@ -152,15 +191,15 @@ Item {
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
 
         function submit() {
-            const url = YouTube.resolveLink(videoLink.text)
+            const url = YouTube.resolveLink(videoLink.text);
             if (!url) {
-                root.linkError = "Enter a YouTube video link."
-                return
+                root.linkError = "Enter a YouTube video link.";
+                return;
             }
-            videoLink.clear()
-            root.linkError = ""
-            close()
-            root.openYouTubeRequested(url, "", "")
+            videoLink.clear();
+            root.linkError = "";
+            close();
+            root.openYouTubeRequested(url, "", "");
         }
 
         background: Rectangle {
@@ -250,8 +289,7 @@ Item {
         anchors.topMargin: root.discovery ? 0 : Theme.pageInset
         anchors.bottomMargin: root.discovery ? 0 : Theme.pageInset
         anchors.horizontalCenter: parent.horizontalCenter
-        width: root.discovery ? Math.min(Theme.dashboardWidth, parent.width - 2 * Theme.pageInset)
-            : parent.width - 2 * Theme.pageInset
+        width: root.discovery ? Math.min(Theme.dashboardWidth, parent.width - 2 * Theme.pageInset) : parent.width - 2 * Theme.pageInset
         spacing: root.discovery ? 0 : 14
 
         RowLayout {
@@ -274,8 +312,15 @@ Item {
                 onClicked: root.browse(search.text)
             }
 
-            Item { Layout.fillWidth: true }
-            AppButton { text: "Paste video link"; iconName: "play"; variant: "outline"; onClicked: root.showLinkForm() }
+            Item {
+                Layout.fillWidth: true
+            }
+            AppButton {
+                text: "Paste video link"
+                iconName: "play"
+                variant: "outline"
+                onClicked: root.showLinkForm()
+            }
         }
 
         Flow {
@@ -298,37 +343,65 @@ Item {
 
         GridView {
             id: results
+            objectName: "discoveryResults"
             Layout.fillWidth: true
             Layout.fillHeight: true
             clip: true
-            model: root.videos
+            model: videoModel
             onContentYChanged: {
-                if (moving || resultsScrollBar.pressed)
-                    root.loadMoreNearEnd()
+                if (moving || resultsScrollBar.pressed || wheelScroll.running)
+                    root.loadMoreNearEnd();
+            }
+            onDraggingChanged: if (dragging) wheelScroll.stop()
+
+            NumberAnimation {
+                id: wheelScroll
+                target: results
+                property: "contentY"
+                duration: 180
+                easing.type: Easing.OutCubic
             }
 
             WheelHandler {
-                acceptedDevices: PointerDevice.Mouse
+                acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+                target: null
+                blocking: true
                 onWheel: event => {
-                    if (event.angleDelta.y === 0) {
-                        event.accepted = false
-                        return
+                    if (event.angleDelta.y === 0 && event.pixelDelta.y === 0) {
+                        event.accepted = false;
+                        return;
                     }
-                    const distance = event.pixelDelta.y || event.angleDelta.y
-                    results.flick(0, distance * 7)
-                    if (distance < 0)
-                        root.loadMoreNearEnd()
+                    event.accepted = true;
+                    const precise = event.pixelDelta.y !== 0;
+                    // A wheel notch is 120 angle units. Scroll by distance,
+                    // rather than a flick velocity that Qt caps and decelerates.
+                    const distance = precise ? event.pixelDelta.y * 2 : event.angleDelta.y / 120 * 300;
+                    const previousTarget = wheelScroll.running ? wheelScroll.to : results.contentY;
+                    wheelScroll.stop();
+                    results.cancelFlick();
+                    const minimum = results.originY;
+                    const maximum = Math.max(minimum, minimum + results.contentHeight - results.height);
+                    const destination = Math.max(minimum, Math.min(maximum,
+                        (precise ? results.contentY : previousTarget) - distance));
+                    if (precise) {
+                        // Pixel-based input already supplies smooth motion and inertia.
+                        results.contentY = destination;
+                        root.loadMoreNearEnd();
+                    } else {
+                        wheelScroll.from = results.contentY;
+                        wheelScroll.to = destination;
+                        wheelScroll.restart();
+                    }
                 }
             }
             readonly property int columns: Math.min(4, Math.max(1, Math.floor(width / (root.discovery ? 330 : 290))))
             cellWidth: Math.floor(width / columns)
-            readonly property real tileWidth: cellWidth - Theme.dashboardColumnGap
-                + Theme.dashboardColumnGap / columns
+            readonly property real tileWidth: cellWidth - Theme.dashboardColumnGap + Theme.dashboardColumnGap / columns
             readonly property int titleHeight: 2 * Theme.videoTitleLineHeight
-            cellHeight: Math.ceil(tileWidth * 9 / 16) + titleHeight
-                + Theme.videoChannelHeight + Theme.controlGap + Theme.dashboardRowGap
+            cellHeight: Math.ceil(tileWidth * 9 / 16) + titleHeight + Theme.videoChannelHeight + Theme.controlGap + Theme.dashboardRowGap
             ScrollBar.vertical: AppScrollBar {
                 id: resultsScrollBar
+                onPressedChanged: if (pressed) wheelScroll.stop()
                 parent: root.discovery ? root : results
                 anchors.top: parent.top
                 anchors.bottom: parent.bottom
@@ -362,15 +435,38 @@ Item {
                         id: discoverHeading
                         Layout.fillWidth: true
                         spacing: 5
-                        AppText { text: "DISCOVER"; font.pixelSize: 11; font.weight: Font.DemiBold; color: Theme.mutedForeground; font.letterSpacing: 1 }
-                        AppText { text: "Korean videos on YouTube"; font.pixelSize: 24; font.weight: Font.DemiBold }
+                        AppText {
+                            text: "DISCOVER"
+                            font.pixelSize: 11
+                            font.weight: Font.DemiBold
+                            color: Theme.mutedForeground
+                            font.letterSpacing: 1
+                        }
+                        AppText {
+                            text: "Korean videos on YouTube"
+                            font.pixelSize: 24
+                            font.weight: Font.DemiBold
+                        }
                     }
                     RowLayout {
                         id: discoverActions
                         Layout.alignment: Qt.AlignBottom
                         spacing: Theme.controlGap
-                        AppButton { text: "Paste YouTube link"; iconName: "link"; variant: "outline"; compact: true; onClicked: root.showLinkForm() }
-                        AppButton { text: "Refresh Discover"; iconName: "refresh"; variant: "outline"; compact: true; enabled: YouTube.configured && !root.request; onClicked: root.refreshDiscovery() }
+                        AppButton {
+                            text: "Paste YouTube link"
+                            iconName: "link"
+                            variant: "outline"
+                            compact: true
+                            onClicked: root.showLinkForm()
+                        }
+                        AppButton {
+                            text: "Refresh Discover"
+                            iconName: "refresh"
+                            variant: "outline"
+                            compact: true
+                            enabled: YouTube.configured && !root.request
+                            onClicked: root.refreshDiscovery()
+                        }
                     }
                 }
 
@@ -390,7 +486,8 @@ Item {
 
             delegate: Item {
                 id: cell
-                required property var modelData
+                required property var video
+                readonly property var modelData: video
                 required property int index
                 width: results.cellWidth
                 height: results.cellHeight
@@ -431,7 +528,10 @@ Item {
                                 scale: artwork.highlighted ? 1.02 : 1
 
                                 Behavior on scale {
-                                    NumberAnimation { duration: artwork.transitionDuration; easing.type: Easing.OutCubic }
+                                    NumberAnimation {
+                                        duration: artwork.transitionDuration
+                                        easing.type: Easing.OutCubic
+                                    }
                                 }
                             }
                             Rectangle {
@@ -440,7 +540,10 @@ Item {
                                 opacity: artwork.highlighted ? 1 : 0
 
                                 Behavior on opacity {
-                                    NumberAnimation { duration: artwork.transitionDuration; easing.type: Easing.OutCubic }
+                                    NumberAnimation {
+                                        duration: artwork.transitionDuration
+                                        easing.type: Easing.OutCubic
+                                    }
                                 }
                             }
                             Rectangle {
@@ -453,11 +556,17 @@ Item {
                                 opacity: artwork.highlighted ? 1 : 0
 
                                 Behavior on opacity {
-                                    NumberAnimation { duration: artwork.transitionDuration; easing.type: Easing.OutCubic }
+                                    NumberAnimation {
+                                        duration: artwork.transitionDuration
+                                        easing.type: Easing.OutCubic
+                                    }
                                 }
 
                                 Behavior on scale {
-                                    NumberAnimation { duration: artwork.transitionDuration; easing.type: Easing.OutCubic }
+                                    NumberAnimation {
+                                        duration: artwork.transitionDuration
+                                        easing.type: Easing.OutCubic
+                                    }
                                 }
 
                                 Icon {
@@ -481,15 +590,17 @@ Item {
                                     ShapePath {
                                         strokeWidth: 0
                                         fillColor: tile.activeFocus ? Theme.hero : Theme.background
-                                        PathSvg { path: "M 0 0 H %1 A %1 %1 0 0 0 0 %1 Z".arg(corner.width) }
+                                        PathSvg {
+                                            path: "M 0 0 H %1 A %1 %1 0 0 0 0 %1 Z".arg(corner.width)
+                                        }
                                     }
                                 }
                             }
                         }
 
                         AppText {
-                            Layout.fillWidth: true
                             id: videoTitle
+                            Layout.fillWidth: true
                             text: tile.modelData.title
                             Layout.topMargin: Theme.controlGap
                             Layout.preferredHeight: results.titleHeight
@@ -534,15 +645,12 @@ Item {
                         }
                     }
 
-                    onClicked: root.openYouTubeRequested("https://www.youtube.com/watch?v=" + modelData.id,
-                                                         modelData.title, modelData.channel)
-
+                    onClicked: root.openYouTubeRequested("https://www.youtube.com/watch?v=" + modelData.id, modelData.title, modelData.channel)
                 }
             }
             footer: Item {
                 width: results.width
-                height: (loadingLabel.visible ? loadingLabel.implicitHeight : 0)
-                    + (root.discovery ? Theme.dashboardBottomPadding : 0)
+                height: (loadingLabel.visible ? loadingLabel.implicitHeight : 0) + (root.discovery ? Theme.dashboardBottomPadding : 0)
 
                 AppText {
                     id: loadingLabel
