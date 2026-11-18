@@ -360,7 +360,7 @@ ApplicationWindow {
     }
     FileDialog {
         id: subtitlePicker
-        title: "Attach subtitles"
+        title: "Add subtitle files"
         nameFilters: ["Subtitle files (*.srt *.vtt)", "All files (*)"]
         onAccepted: root.attachSubtitles(selectedFile)
     }

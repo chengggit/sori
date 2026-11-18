@@ -194,11 +194,11 @@ Item {
 
             contentItem: ListView {
                 clip: true
-                implicitHeight: contentHeight
+                implicitHeight: Math.min(contentHeight, 256)
                 model: combo.popup.visible ? combo.delegateModel : null
                 currentIndex: combo.highlightedIndex
 
-                ScrollIndicator.vertical: ScrollIndicator { }
+                ScrollBar.vertical: AppScrollBar { }
             }
         }
     }
@@ -786,8 +786,7 @@ Item {
                 MenuButton {
                     Layout.fillWidth: true
                     Layout.topMargin: 2
-                    text: "Attach SRT or VTT"
-                    visible: root.fullScreen
+                    text: "Add subtitle files"
                     onClicked: root.openSubtitlesRequested()
                 }
 
@@ -808,25 +807,6 @@ Item {
             font.weight: Font.DemiBold
             elide: Text.ElideRight
             Layout.fillWidth: true
-        }
-
-        Rectangle {
-            Layout.fillWidth: true
-            implicitHeight: 64
-            radius: 14
-            border.color: Theme.border
-            color: Theme.card
-
-            AppButton {
-                anchors.left: parent.left
-                anchors.leftMargin: 16
-                anchors.verticalCenter: parent.verticalCenter
-                text: "Attach SRT or VTT"
-                iconName: "file-text"
-                variant: "outline"
-                small: true
-                onClicked: root.openSubtitlesRequested()
-            }
         }
 
         AppText {
