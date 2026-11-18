@@ -10,6 +10,12 @@ Rectangle {
     required property real documentId
     property string sourceKind: "document"
     readonly property bool opened: selectedWord !== ""
+    property bool animateEntrance: false
+    property real revealProgress: animateEntrance ? (opened ? 1 : 0) : 1
+    Behavior on revealProgress {
+        enabled: root.animateEntrance
+        NumberAnimation { duration: 260; easing.type: Easing.OutCubic }
+    }
     property bool editing: false
     readonly property var dictionaryProvider: DictionaryTabs.enabled[tabs.currentIndex - 1]
     readonly property bool showingAnalysis: !dictionaryProvider

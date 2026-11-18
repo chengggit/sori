@@ -8,6 +8,7 @@ import "../components"
 
 Item {
     id: root
+    clip: true
 
     required property bool active
     required property var renderHost
@@ -181,12 +182,15 @@ Item {
 
     ReaderAnalysis {
         id: analysis
+        objectName: "readerAnalysisSidebar"
         documentId: root.documentId
         anchors.right: parent.right
         anchors.top: parent.top
         anchors.bottom: parent.bottom
-        width: visible ? Math.min(Theme.readerAnalysisWidth, root.width * 0.45) : 0
-        visible: opened
+        animateEntrance: true
+        width: Math.min(Theme.readerAnalysisWidth, root.width * 0.45)
+        anchors.rightMargin: -(1 - revealProgress) * width
+        visible: opened || revealProgress > 0
         onDismissRequested: root.dismissAnalysis()
     }
 

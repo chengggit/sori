@@ -10,6 +10,7 @@ import "../components"
 
 Item {
     id: root
+    clip: true
 
     required property var player
     required property var subtitles
@@ -29,9 +30,10 @@ Item {
     signal backRequested()
 
     readonly property var trackMenu: trackMenu
-    readonly property bool analysisOpened: wordAnalysis.visible || subtitleDefinition.visible
+    readonly property bool analysisOpened: subtitleDefinition.visible
         || transcriptAnalysis.opened || fullscreenSidebar.visible
-    readonly property real viewingWidth: width - (transcriptAnalysis.visible ? transcriptAnalysis.width : 0)
+    readonly property real viewingWidth: width - (transcriptAnalysis.visible
+        ? transcriptAnalysis.width * transcriptAnalysis.revealProgress : 0)
     readonly property int textMode: Text.NativeRendering
     property real volumeLevel: 100
     property real previousVolumeLevel: 100
@@ -54,7 +56,6 @@ Item {
     function closeAnalysis() {
         resumeAfterDefinition = false
         resumeAfterSidebar = false
-        wordAnalysis.close()
         subtitleDefinition.close()
         transcriptAnalysis.close()
         fullscreenSidebar.close()
@@ -63,15 +64,6 @@ Item {
     onFullScreenChanged: closeAnalysis()
     onVideoIdChanged: closeAnalysis()
     onCaptionsVisibleChanged: if (!captionsVisible) subtitleDefinition.close()
-
-    WordAnalysis {
-        id: wordAnalysis
-        parent: Overlay.overlay
-        sourceKind: "local"
-        sourceId: root.videoId
-        x: parent.width - width - 20
-        y: 76
-    }
 
     SubtitleDefinition {
         id: subtitleDefinition
@@ -578,6 +570,7 @@ Item {
                     }
 
                     TapHandler {
+                        enabled: root.fullScreen
                         onSingleTapped: (eventPoint, button) => {
                             primary.cursorPosition = primary.positionAt(eventPoint.position.x, eventPoint.position.y)
                             primary.selectWord()
@@ -586,10 +579,6 @@ Item {
                                     root.resumeAfterDefinition = !root.player.paused && !root.player.ended
                                 root.player.pause()
                                 subtitleDefinition.lookup(primary.text, primary.selectionStart, primary.selectionEnd)
-                            } else if (!root.fullScreen && primary.selectedText.trim()) {
-                                root.player.pause()
-                                wordAnalysis.lookup(primary.text, primary.selectionStart, primary.selectionEnd)
-                                primary.deselect()
                             } else {
                                 subtitleDefinition.close()
                                 primary.deselect()
@@ -900,11 +889,14 @@ Item {
 
     ReaderAnalysis {
         id: transcriptAnalysis
+        objectName: "transcriptAnalysisSidebar"
         documentId: root.videoId
         sourceKind: "local"
-        visible: opened && !root.fullScreen
+        animateEntrance: true
+        visible: (opened || revealProgress > 0) && !root.fullScreen
         width: Math.min(Theme.readerAnalysisWidth, root.width * 0.45)
         anchors.right: parent.right
+        anchors.rightMargin: -(1 - revealProgress) * width
         anchors.top: parent.top
         anchors.bottom: parent.bottom
         onDismissRequested: close()
