@@ -17,6 +17,10 @@ Popup {
     property var pending: ({})
     property var lookups: ({})
     property bool expanded: false
+    property string sourceText: ""
+    property int sourceStart: 0
+    property int sourceEnd: 0
+    signal sidebarRequested(string text, int start, int end)
     readonly property var wholeDefinitions: {
         if (savedDefinition)
             return [savedDefinition]
@@ -33,12 +37,16 @@ Popup {
         && (analysis?.lookupTerms ?? []).some(term => !lookups[term])
 
     width: 352
-    height: Math.min(maximumHeight, heading.implicitHeight + body.implicitHeight + 2 * padding + 8)
+    height: Math.min(maximumHeight, heading.implicitHeight + body.implicitHeight
+        + sidebarButton.implicitHeight + 2 * padding + 16)
     padding: 16
     focus: true
-    closePolicy: Popup.CloseOnEscape
+    closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
 
     function lookup(source, start, end) {
+        sourceText = source
+        sourceStart = start
+        sourceEnd = end
         selection++
         word = source.slice(start, end)
         analysis = null
@@ -223,6 +231,16 @@ Popup {
                     }
                 }
             }
+        }
+
+        AppButton {
+            id: sidebarButton
+            objectName: "openDefinitionSidebar"
+            text: "Open in sidebar"
+            variant: "outline"
+            small: true
+            Layout.fillWidth: true
+            onClicked: root.sidebarRequested(root.sourceText, root.sourceStart, root.sourceEnd)
         }
     }
 }

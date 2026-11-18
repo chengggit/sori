@@ -224,6 +224,12 @@ Use the sidebar toggle during playback to see the video move with the layout.
 selected automatically when tagged. **F** enters fullscreen, **Esc**
 exits it, **Space** toggles playback, and **Left/Right** seek five seconds.
 
+In fullscreen, click a Korean caption word for a quick definition. Choose
+**Open in sidebar** for the Reader analysis, dictionaries, and vocabulary tools
+in a panel that slides over the right side of the video. Playback stays paused
+during the handoff. Closing the popup or sidebar resumes previously playing
+video; previously paused video stays paused.
+
 Outside fullscreen, the transcript below the video shows only the selected primary
 subtitle track, including embedded text tracks extracted from
 the video. Use **CC → Add subtitle files** for external SRT or VTT files.

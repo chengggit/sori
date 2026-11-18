@@ -29,11 +29,14 @@ Item {
     signal backRequested()
 
     readonly property var trackMenu: trackMenu
-    readonly property bool analysisOpened: wordAnalysis.visible || subtitleDefinition.visible || transcriptAnalysis.opened
+    readonly property bool analysisOpened: wordAnalysis.visible || subtitleDefinition.visible
+        || transcriptAnalysis.opened || fullscreenSidebar.visible
     readonly property real viewingWidth: width - (transcriptAnalysis.visible ? transcriptAnalysis.width : 0)
     readonly property int textMode: Text.NativeRendering
     property real volumeLevel: 100
     property real previousVolumeLevel: 100
+    property bool resumeAfterDefinition: false
+    property bool resumeAfterSidebar: false
     readonly property bool showControls: player.loaded && (controlsAwake || player.paused
         || player.ended || timeline.pressed || trackMenu.opened)
 
@@ -49,9 +52,12 @@ Item {
     function wakeControls() { root.wakeControlsRequested() }
 
     function closeAnalysis() {
+        resumeAfterDefinition = false
+        resumeAfterSidebar = false
         wordAnalysis.close()
         subtitleDefinition.close()
         transcriptAnalysis.close()
+        fullscreenSidebar.close()
     }
 
     onFullScreenChanged: closeAnalysis()
@@ -76,7 +82,57 @@ Item {
         maximumHeight: Math.max(0, Math.min(root.height * 0.45, stage.y + captionBox.y - 28))
         x: Math.round((stage.width - width) / 2)
         y: Math.floor(captionBox.y - height - 12)
-        onAboutToHide: primary.deselect()
+        onAboutToHide: {
+            primary.deselect()
+            const resume = root.resumeAfterDefinition
+            root.resumeAfterDefinition = false
+            if (resume && root.player.loaded && root.player.paused && !root.player.ended)
+                root.player.togglePlay()
+        }
+        onSidebarRequested: (text, start, end) => {
+            root.resumeAfterSidebar = root.resumeAfterDefinition
+            root.resumeAfterDefinition = false
+            subtitleDefinition.close()
+            fullscreenDetails.lookup(text, start, end)
+            fullscreenSidebar.open()
+        }
+    }
+
+    Drawer {
+        id: fullscreenSidebar
+        objectName: "fullscreenAnalysisSidebar"
+        parent: Overlay.overlay
+        edge: Qt.RightEdge
+        width: Math.min(Theme.readerAnalysisWidth, parent.width * 0.45)
+        height: parent.height
+        padding: 0
+        modal: true
+        dim: false
+        dragMargin: 0
+        focus: true
+        closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
+        enter: Transition {
+            NumberAnimation { property: "position"; duration: 260; easing.type: Easing.OutCubic }
+        }
+        exit: Transition {
+            NumberAnimation { property: "position"; duration: 200; easing.type: Easing.InCubic }
+        }
+        onClosed: {
+            fullscreenDetails.close()
+            const resume = root.resumeAfterSidebar
+            root.resumeAfterSidebar = false
+            if (resume && root.player.loaded && root.player.paused && !root.player.ended)
+                root.player.togglePlay()
+        }
+
+        ReaderAnalysis {
+            id: fullscreenDetails
+            objectName: "fullscreenWordAnalysis"
+            anchors.fill: parent
+            documentId: root.videoId
+            sourceKind: "local"
+            onDismissRequested: fullscreenSidebar.close()
+        }
     }
 
     component WatchText: Text {
@@ -526,6 +582,8 @@ Item {
                             primary.cursorPosition = primary.positionAt(eventPoint.position.x, eventPoint.position.y)
                             primary.selectWord()
                             if (root.fullScreen && /[가-힣ㄱ-ㆎᄀ-ᇿ]/.test(primary.selectedText)) {
+                                if (!subtitleDefinition.visible)
+                                    root.resumeAfterDefinition = !root.player.paused && !root.player.ended
                                 root.player.pause()
                                 subtitleDefinition.lookup(primary.text, primary.selectionStart, primary.selectionEnd)
                             } else if (!root.fullScreen && primary.selectedText.trim()) {
