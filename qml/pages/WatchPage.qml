@@ -35,7 +35,7 @@ Item {
     property real volumeLevel: 100
     property real previousVolumeLevel: 100
     readonly property bool showControls: player.loaded && (controlsAwake || player.paused
-        || player.ended || timeline.pressed || trackMenu.opened || controlHover.hovered)
+        || player.ended || timeline.pressed || trackMenu.opened)
 
     palette.window: Theme.background
     palette.base: Theme.card
@@ -342,7 +342,19 @@ Item {
             }
         }
 
-        HoverHandler { onPointChanged: root.wakeControls() }
+        HoverHandler {
+            property point lastPosition: Qt.point(-1, -1)
+            onHoveredChanged: if (!hovered) lastPosition = Qt.point(-1, -1)
+            onPointChanged: {
+                // Repaints and visibility changes can deliver stationary hover
+                // updates. Only actual pointer movement should reset inactivity.
+                if (hovered && (point.position.x !== lastPosition.x
+                        || point.position.y !== lastPosition.y)) {
+                    lastPosition = point.position
+                    root.wakeControls()
+                }
+            }
+        }
         TapHandler { onDoubleTapped: if (root.player.loaded) root.toggleFullscreenRequested() }
 
         Rectangle {
@@ -379,7 +391,7 @@ Item {
             visible: root.player.loaded && root.captionsVisible && (primary.text !== "" || secondary.text !== "")
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.bottom: parent.bottom
-            anchors.bottomMargin: root.showControls ? controls.height + controls.anchors.bottomMargin + 8 : 15
+            anchors.bottomMargin: root.showControls ? controls.height + controls.anchors.bottomMargin + 8 : 32
             width: Math.min(stage.width - 28, Math.max(primary.implicitWidth, secondary.implicitWidth) + 24)
             height: lines.implicitHeight + 10
             color: "#d9000000"
@@ -554,11 +566,6 @@ Item {
             visible: root.showControls
             color: "#bb000000"
             radius: 10
-
-            HoverHandler {
-                id: controlHover
-                onHoveredChanged: root.wakeControls()
-            }
 
             ColumnLayout {
                 anchors.fill: parent
