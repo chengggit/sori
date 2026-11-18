@@ -172,7 +172,7 @@ fn hanja_entries(wikitext: &str) -> Vec<(String, Option<String>)> {
     entries
 }
 
-fn clean_hanja(value: &str) -> Option<String> {
+pub(super) fn clean_hanja(value: &str) -> Option<String> {
     let value = value.replace("[[", "").replace("]]", "");
     let value = value.trim();
     let is_han = |ch: char| matches!(ch as u32, 0x3400..=0x4dbf | 0x4e00..=0x9fff | 0xf900..=0xfaff | 0x20000..=0x323af);

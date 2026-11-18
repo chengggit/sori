@@ -1,25 +1,103 @@
 use qtbridge::{qobject, QmlObject};
 use regex::Regex;
 use reqwest::blocking::Client;
-use rusqlite::{params, Connection};
+use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
 use std::io::Read;
 use std::path::PathBuf;
-use std::sync::OnceLock;
+use std::sync::{OnceLock, RwLock};
 use std::time::Duration;
 use url::Url;
 
 static CLIENT: OnceLock<Result<Client, String>> = OnceLock::new();
+static SAVED_API_KEY: RwLock<Option<String>> = RwLock::new(None);
 
 #[derive(Default)]
 pub struct YouTube {
     request: i32,
+    database: Option<crate::db::Database>,
+    settings_error: String,
 }
 
 #[qobject(Singleton, ConvertToCamelCase)]
 impl YouTube {
-    qproperty!("configured", Read = configured, Constant);
+    qproperty!(
+        "configured",
+        Read = configured,
+        Notify = configuration_changed
+    );
+    qproperty!("savedKey", Read = saved_key, Notify = configuration_changed);
+    qproperty!(
+        "settingsError",
+        Member = settings_error,
+        Notify = configuration_changed
+    );
+
+    #[qsignal]
+    fn configuration_changed(&mut self);
+
+    #[qslot]
+    fn initialize(&mut self, directory: String) {
+        let result =
+            crate::db::Database::initialize(PathBuf::from(directory)).and_then(|database| {
+                let key = read_saved_api_key(&database.connect()?)?;
+                self.database = Some(database);
+                *SAVED_API_KEY
+                    .write()
+                    .unwrap_or_else(|poison| poison.into_inner()) = key;
+                Ok(())
+            });
+        self.settings_error = result.err().unwrap_or_default();
+        self.configuration_changed();
+    }
+
+    fn saved_key(&self) -> bool {
+        SAVED_API_KEY
+            .read()
+            .unwrap_or_else(|poison| poison.into_inner())
+            .is_some()
+    }
+
+    #[qslot]
+    fn save_api_key(&mut self, key: String) -> String {
+        let result = self
+            .database
+            .as_ref()
+            .ok_or_else(|| "Settings are not available.".to_string())
+            .and_then(|database| {
+                let key = store_api_key(&database.connect()?, &key)?;
+                *SAVED_API_KEY
+                    .write()
+                    .unwrap_or_else(|poison| poison.into_inner()) = Some(key);
+                Ok(())
+            });
+        let error = result.err().unwrap_or_default();
+        if error.is_empty() {
+            self.configuration_changed();
+        }
+        error
+    }
+
+    #[qslot]
+    fn remove_api_key(&mut self) -> String {
+        let result = self
+            .database
+            .as_ref()
+            .ok_or_else(|| "Settings are not available.".to_string())
+            .and_then(|database| {
+                remove_saved_api_key(&database.connect()?)?;
+                *SAVED_API_KEY
+                    .write()
+                    .unwrap_or_else(|poison| poison.into_inner()) = None;
+                Ok(())
+            });
+        let error = result.err().unwrap_or_default();
+        if error.is_empty() {
+            self.configuration_changed();
+        }
+        error
+    }
 
     #[qsignal]
     fn search_finished(&mut self, request: i32, result: &Value);
@@ -71,16 +149,69 @@ pub fn has_api_key() -> bool {
 }
 
 fn api_key() -> Option<String> {
-    std::env::var("SORI_YOUTUBE_API_KEY")
-        .ok()
-        .map(|key| key.trim().to_owned())
-        .filter(|key| !key.is_empty())
+    SAVED_API_KEY
+        .read()
+        .unwrap_or_else(|poison| poison.into_inner())
+        .clone()
         .or_else(|| {
-            let path = env_file()?;
-            let settings = std::fs::read_to_string(path).ok()?;
-            key_from_settings(&settings, "SORI_YOUTUBE_API_KEY")
-                .or_else(|| key_from_settings(&settings, "VITE_YOUTUBE_API_KEY"))
+            std::env::var("SORI_YOUTUBE_API_KEY")
+                .ok()
+                .map(|key| key.trim().to_owned())
+                .filter(|key| !key.is_empty())
+                .or_else(|| {
+                    let path = env_file()?;
+                    let settings = std::fs::read_to_string(path).ok()?;
+                    key_from_settings(&settings, "SORI_YOUTUBE_API_KEY")
+                        .or_else(|| key_from_settings(&settings, "VITE_YOUTUBE_API_KEY"))
+                })
         })
+}
+
+fn read_saved_api_key(connection: &Connection) -> Result<Option<String>, String> {
+    connection
+        .query_row(
+            "SELECT value FROM app_settings WHERE key = 'youtube_api_key'",
+            [],
+            |row| row.get(0),
+        )
+        .optional()
+        .map_err(|error| error.to_string())
+}
+
+fn store_api_key(connection: &Connection, input: &str) -> Result<String, String> {
+    let key = input.trim();
+    if key.is_empty()
+        || key.len() > 512
+        || !key
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
+    {
+        return Err("Enter an API key without spaces or punctuation.".into());
+    }
+    #[cfg(unix)]
+    if let Some(path) = connection
+        .path()
+        .filter(|path| !path.is_empty() && *path != ":memory:")
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))
+            .map_err(|_| "Could not protect the local API key settings.".to_string())?;
+    }
+    connection
+        .execute(
+            "INSERT INTO app_settings (key, value) VALUES ('youtube_api_key', ?1)
+        ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+            [key],
+        )
+        .map_err(|error| error.to_string())?;
+    Ok(key.to_owned())
+}
+
+fn remove_saved_api_key(connection: &Connection) -> Result<(), String> {
+    connection
+        .execute("DELETE FROM app_settings WHERE key = 'youtube_api_key'", [])
+        .map_err(|error| error.to_string())?;
+    Ok(())
 }
 
 /// Resolve `.env.local` independently of the directory Sori was launched from.
@@ -256,10 +387,9 @@ pub fn fetch_duration(id: &str) -> Result<f64, String> {
     if !valid_id(id) {
         return Err("Invalid YouTube video ID.".into());
     }
-    let key = api_key()
-        .ok_or("Set SORI_YOUTUBE_API_KEY in .env.local to load YouTube durations.")?;
-    let mut url = Url::parse("https://www.googleapis.com/youtube/v3/videos")
-        .expect("constant videos URL");
+    let key = api_key().ok_or("Add a YouTube API key in Settings to load video durations.")?;
+    let mut url =
+        Url::parse("https://www.googleapis.com/youtube/v3/videos").expect("constant videos URL");
     url.query_pairs_mut().extend_pairs([
         ("part", "contentDetails".to_owned()),
         ("id", id.to_owned()),
@@ -473,8 +603,7 @@ fn parse_search(body: &[u8]) -> Result<SearchPage, String> {
 }
 
 fn search(query: &str, page: &str) -> Result<SearchPage, String> {
-    let key =
-        api_key().ok_or("Set SORI_YOUTUBE_API_KEY in .env.local to search YouTube from Sori.")?;
+    let key = api_key().ok_or("Add a YouTube API key in Settings to discover videos.")?;
     let query = query.trim();
     if query.is_empty() || query.chars().count() > 250 {
         return Err("Enter a search of up to 250 characters.".into());
@@ -540,6 +669,76 @@ fn search(query: &str, page: &str) -> Result<SearchPage, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn api_key_settings_persist_replace_and_remove_without_exposing_values() {
+        let directory = std::env::temp_dir().join(format!(
+            "sori-key-settings-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let database = crate::db::Database::initialize(directory.clone()).unwrap();
+        let connection = database.connect().unwrap();
+        assert!(read_saved_api_key(&connection).unwrap().is_none());
+        assert_eq!(
+            store_api_key(&connection, "  test_key-123  ").unwrap(),
+            "test_key-123"
+        );
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            assert_eq!(
+                std::fs::metadata(connection.path().unwrap())
+                    .unwrap()
+                    .permissions()
+                    .mode()
+                    & 0o777,
+                0o600
+            );
+        }
+        drop(connection);
+        let connection = database.connect().unwrap();
+        assert_eq!(
+            read_saved_api_key(&connection).unwrap().as_deref(),
+            Some("test_key-123")
+        );
+        for invalid in ["", "   ", "not a key", "key\nline", "key?value", "한국어"] {
+            assert!(store_api_key(&connection, invalid).is_err());
+            assert_eq!(
+                read_saved_api_key(&connection).unwrap().as_deref(),
+                Some("test_key-123")
+            );
+        }
+        assert!(store_api_key(&connection, &"x".repeat(513)).is_err());
+        store_api_key(&connection, "replacement_key").unwrap();
+        assert_eq!(
+            read_saved_api_key(&connection).unwrap().as_deref(),
+            Some("replacement_key")
+        );
+        connection
+            .execute(
+                "INSERT INTO app_settings (key,value) VALUES ('other_setting','unchanged')",
+                [],
+            )
+            .unwrap();
+        remove_saved_api_key(&connection).unwrap();
+        assert!(read_saved_api_key(&connection).unwrap().is_none());
+        assert_eq!(
+            connection
+                .query_row(
+                    "SELECT value FROM app_settings WHERE key='other_setting'",
+                    [],
+                    |row| row.get::<_, String>(0)
+                )
+                .unwrap(),
+            "unchanged"
+        );
+        drop(connection);
+        std::fs::remove_dir_all(directory).unwrap();
+    }
 
     #[test]
     fn accepts_supported_links_and_rejects_unrelated_hosts() {

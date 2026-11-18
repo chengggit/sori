@@ -266,9 +266,19 @@ Save a word from Reader or click a primary caption in Watch to analyze and
 save it. Vocabulary stores the original context and lets you edit meanings,
 notes, and tags. You can save words offline with an optional custom meaning.
 
-Select **Look up on Wiktionary** in the analysis panel to fetch Korean-to-English
-definitions and save one with the word. Reader shows Naver, Papago, and custom
-dictionary tabs beside Analysis. In Watch, open them with **Dictionaries**.
+Analysis automatically looks up definitions using the dictionary selected in
+**Settings → Analysis dictionary**. Wiktionary is the default and needs no key.
+To use [KRDict (Korean Basic Dictionary)](https://krdict.korean.go.kr/eng/openApi/openApiInfo),
+save its 32-character hexadecimal API key in Settings, then select **KRDict**.
+The key and selection are saved locally and apply immediately to Reader, Watch,
+and quick definition lookups. Removing the key switches back to Wiktionary.
+
+KRDict fetches exact Korean headwords and English definitions; when a sense has
+no English translation, its Korean definition is shown. API errors are displayed
+without silently switching providers. Source links and Hanja stay with saved
+vocabulary, which can be reviewed offline. Live lookups need internet.
+
+Reader shows Naver, Papago, and custom dictionary tabs beside Analysis.
 Manage tabs in Settings and use `{word}` in a custom HTTPS address to insert
 the selected word. Tabs open inside Sori with Qt WebEngine Quick and also
 offer an option to open the lookup in a browser.
@@ -278,8 +288,14 @@ across launches.
 
 ## YouTube discovery
 
-Set `SORI_YOUTUBE_API_KEY` in the launch environment or in `.env.local` in the working directory to search the YouTube Data API
-from Home and Explore. Paste a YouTube video link in either page without a key.
+Add a YouTube Data API key in **Settings → YouTube API key** to enable Home and
+Explore discovery. The input is masked, and the saved value is not displayed
+again. Save replaces the stored key; Remove deletes it. Changes take effect
+without restarting the app. The key is stored in the local SQLite database.
+
+A saved key takes precedence over `SORI_YOUTUBE_API_KEY` in the launch environment
+or `.env.local`. Removing it falls back to that environment configuration, if
+present. Paste a YouTube video link in either page without a key.
 YouTube playback uses the official embedded player when built with the matching
 Qt WebEngine Quick module. If the module is unavailable or a video cannot be
 embedded, use **Open in browser**. YouTube progress is saved locally and can

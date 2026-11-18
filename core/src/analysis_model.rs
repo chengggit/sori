@@ -12,10 +12,112 @@ pub struct Analysis {
     request: i32,
     dictionary_request: i32,
     passage_request: i32,
+    settings_database: Option<crate::db::Database>,
+    krdict_key: Option<String>,
+    dictionary_provider: String,
+    dictionary_settings_error: String,
 }
 
 #[qobject(Singleton, ConvertToCamelCase)]
 impl Analysis {
+    qproperty!(
+        "defaultDictionary",
+        Read = default_dictionary,
+        Notify = dictionary_settings_changed
+    );
+    qproperty!(
+        "krdictConfigured",
+        Read = krdict_configured,
+        Notify = dictionary_settings_changed
+    );
+    qproperty!(
+        "dictionarySettingsError",
+        Member = dictionary_settings_error,
+        Notify = dictionary_settings_changed
+    );
+
+    #[qsignal]
+    fn dictionary_settings_changed(&mut self);
+
+    fn default_dictionary(&self) -> String {
+        if self.dictionary_provider == "krdict" {
+            "krdict"
+        } else {
+            "wiktionary"
+        }
+        .into()
+    }
+
+    fn krdict_configured(&self) -> bool {
+        self.krdict_key.is_some()
+    }
+
+    fn settings_connection(&self) -> Result<rusqlite::Connection, String> {
+        self.settings_database
+            .as_ref()
+            .ok_or("Dictionary settings are unavailable.")?
+            .connect()
+    }
+
+    #[qslot]
+    fn initialize_dictionary(&mut self, directory: String) {
+        let result = crate::db::Database::initialize(directory.into()).and_then(|database| {
+            let (key, provider) = crate::krdict::read_settings(&database.connect()?)?;
+            self.settings_database = Some(database);
+            self.krdict_key = key;
+            self.dictionary_provider = provider;
+            Ok(())
+        });
+        self.dictionary_settings_error = result.err().unwrap_or_default();
+        self.dictionary_settings_changed();
+    }
+
+    #[qslot]
+    fn save_krdict_key(&mut self, key: String) -> String {
+        match self
+            .settings_connection()
+            .and_then(|db| crate::krdict::save_key(&db, &key))
+        {
+            Ok(key) => {
+                self.krdict_key = Some(key);
+                self.dictionary_settings_changed();
+                String::new()
+            }
+            Err(error) => error,
+        }
+    }
+
+    #[qslot]
+    fn remove_krdict_key(&mut self) -> String {
+        match self
+            .settings_connection()
+            .and_then(|mut db| crate::krdict::remove_key(&mut db))
+        {
+            Ok(()) => {
+                self.krdict_key = None;
+                self.dictionary_provider = "wiktionary".into();
+                self.dictionary_settings_changed();
+                String::new()
+            }
+            Err(error) => error,
+        }
+    }
+
+    #[qslot]
+    fn set_default_dictionary(&mut self, provider: String) -> String {
+        match self
+            .settings_connection()
+            .and_then(|db| crate::krdict::select(&db, &provider))
+        {
+            Ok(()) => {
+                self.dictionary_provider = provider;
+                self.dictionary_settings_changed();
+                String::new()
+            }
+            Err(error) => error,
+        }
+    }
+
     #[qsignal]
     fn finished(&mut self, request: i32, result: &Value);
 
@@ -94,12 +196,20 @@ impl Analysis {
         self.dictionary_request = self.dictionary_request.wrapping_add(1).max(1);
         let request = self.dictionary_request;
         let handle = self.get_thread_handle();
+        let provider = self.default_dictionary();
+        let key = self.krdict_key.clone();
         std::thread::spawn(move || {
-            let result = DICTIONARY
-                .get_or_init(|| Dictionary::new().map_err(|error| error.to_string()))
-                .as_ref()
-                .map_err(Clone::clone)
-                .and_then(|dictionary| dictionary.lookup(&term))
+            let lookup = if provider == "krdict" {
+                key.ok_or_else(|| "Save a KRDict API key in Settings.".to_string())
+                    .and_then(|key| crate::krdict::lookup(&term, &key))
+            } else {
+                DICTIONARY
+                    .get_or_init(|| Dictionary::new().map_err(|error| error.to_string()))
+                    .as_ref()
+                    .map_err(Clone::clone)
+                    .and_then(|dictionary| dictionary.lookup(&term))
+            };
+            let result = lookup
                 .map(|definitions| json!({ "definitions": definitions }))
                 .unwrap_or_else(|error| json!({ "error": error }));
             let _ = handle.invoke_mut(move |model| model.dictionary_finished(request, &result));

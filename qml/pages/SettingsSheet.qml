@@ -10,6 +10,37 @@ Popup {
     id: root
 
     property string dictionaryError: ""
+    property string youtubeError: ""
+    property string youtubeMessage: ""
+    property string krdictError: ""
+    property string krdictMessage: ""
+    onOpened: {
+        youtubeKey.clear()
+        youtubeError = YouTube.settingsError
+        youtubeMessage = ""
+        krdictKey.clear()
+        krdictError = Analysis.dictionarySettingsError
+        krdictMessage = ""
+    }
+    onClosed: { youtubeKey.clear(); krdictKey.clear() }
+
+    function saveKrdictKey() {
+        krdictError = Analysis.saveKrdictKey(krdictKey.text)
+        krdictMessage = ""
+        if (!krdictError) {
+            krdictKey.clear()
+            krdictMessage = "KRDict API key saved."
+        }
+    }
+
+    function saveYoutubeKey() {
+        youtubeError = YouTube.saveApiKey(youtubeKey.text)
+        youtubeMessage = ""
+        if (!youtubeError) {
+            youtubeKey.clear()
+            youtubeMessage = "API key saved."
+        }
+    }
 
     width: Math.min(510, parent ? parent.width - 40 : 510)
     implicitHeight: header.implicitHeight + 40 + 1 + settingsScroll.contentHeight
@@ -111,7 +142,7 @@ Popup {
 
                 AppText {
                     Layout.fillWidth: true
-                    text: "Customize appearance and dictionary lookups."
+                    text: "Customize appearance, YouTube discovery, and dictionary lookups."
                     color: Theme.mutedForeground
                     wrapMode: Text.Wrap
                 }
@@ -146,6 +177,185 @@ Popup {
                 y: 20
                 width: settingsScroll.availableWidth - 40
                 spacing: 20
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 8
+                    AppText { text: "YouTube API key"; font.weight: Font.DemiBold }
+                    AppText {
+                        Layout.fillWidth: true
+                        wrapMode: Text.Wrap
+                        font.pixelSize: 12
+                        color: Theme.mutedForeground
+                        text: YouTube.savedKey ? "A key is saved on this device. Enter a new key to replace it."
+                            : YouTube.configured ? "Using a key from your launch environment or .env.local."
+                            : "Add your YouTube Data API key to enable Home and Explore discovery."
+                    }
+                    AppInput {
+                        id: youtubeKey
+                        objectName: "youtubeApiKeyInput"
+                        Layout.fillWidth: true
+                        echoMode: TextInput.Password
+                        placeholderText: YouTube.savedKey ? "Enter a replacement API key" : "Paste your API key"
+                        Accessible.name: "YouTube API key"
+                        inputMethodHints: Qt.ImhHiddenText | Qt.ImhNoPredictiveText | Qt.ImhNoAutoUppercase
+                        onAccepted: if (text.trim()) root.saveYoutubeKey()
+                    }
+                    RowLayout {
+                        AppButton {
+                            objectName: "saveYoutubeApiKey"
+                            text: "Save key"
+                            small: true
+                            enabled: !!youtubeKey.text.trim()
+                            onClicked: root.saveYoutubeKey()
+                        }
+                        AppButton {
+                            objectName: "removeYoutubeApiKey"
+                            text: "Remove saved key"
+                            small: true
+                            variant: "outline"
+                            visible: YouTube.savedKey
+                            onClicked: {
+                                root.youtubeError = YouTube.removeApiKey()
+                                root.youtubeMessage = ""
+                                if (!root.youtubeError) {
+                                    youtubeKey.clear()
+                                    root.youtubeMessage = YouTube.configured
+                                        ? "Saved key removed. Using the environment key."
+                                        : "Saved key removed."
+                                }
+                            }
+                        }
+                    }
+                    AppText {
+                        Layout.fillWidth: true
+                        wrapMode: Text.Wrap
+                        font.pixelSize: 12
+                        text: root.youtubeError || root.youtubeMessage
+                        visible: text !== ""
+                        color: root.youtubeError ? Theme.destructive : Theme.mutedForeground
+                    }
+                    AppText {
+                        Layout.fillWidth: true
+                        wrapMode: Text.Wrap
+                        font.pixelSize: 12
+                        color: Theme.mutedForeground
+                        text: "Saved locally on this device. Transcript fetching and opening YouTube links do not need an API key."
+                    }
+                }
+
+                ColumnLayout {
+                    Layout.fillWidth: true
+                    spacing: 8
+                    AppText { text: "Analysis dictionary"; font.weight: Font.DemiBold }
+                    ComboBox {
+                        id: analysisDictionary
+                        objectName: "analysisDictionarySelector"
+                        Layout.fillWidth: true
+                        implicitHeight: Theme.inputHeight
+                        model: [{value: "wiktionary", label: "Wiktionary"}, {value: "krdict", label: "KRDict"}]
+                        textRole: "label"
+                        currentIndex: Analysis.defaultDictionary === "krdict" ? 1 : 0
+                        Accessible.name: "Default Analysis dictionary"
+                        leftPadding: 12
+                        rightPadding: 32
+                        onActivated: index => {
+                            root.krdictError = Analysis.setDefaultDictionary(model[index].value)
+                            root.krdictMessage = ""
+                            currentIndex = Qt.binding(() => Analysis.defaultDictionary === "krdict" ? 1 : 0)
+                        }
+                        contentItem: AppText {
+                            text: analysisDictionary.displayText
+                            font.pixelSize: 13
+                            verticalAlignment: Text.AlignVCenter
+                        }
+                        indicator: Icon {
+                            name: "chevron-down"
+                            size: 14
+                            x: analysisDictionary.width - width - 12
+                            y: (analysisDictionary.height - height) / 2
+                            color: Theme.mutedForeground
+                        }
+                        background: Rectangle {
+                            color: Theme.card
+                            radius: Theme.radius
+                            border.color: analysisDictionary.activeFocus ? Theme.accent : Theme.border
+                        }
+                        delegate: ItemDelegate {
+                            required property int index
+                            width: analysisDictionary.width - 8
+                            height: Theme.compactControlHeight
+                            highlighted: analysisDictionary.highlightedIndex === index
+                            contentItem: AppText { text: analysisDictionary.textAt(index); font.pixelSize: 13 }
+                            background: Rectangle {
+                                radius: Theme.radiusSmall
+                                color: parent.highlighted || parent.hovered ? Theme.neutralHover : "transparent"
+                            }
+                        }
+                        popup: Popup {
+                            y: analysisDictionary.height + 4
+                            width: analysisDictionary.width
+                            padding: 4
+                            background: Rectangle { color: Theme.card; border.color: Theme.border; radius: Theme.radius }
+                            contentItem: ListView {
+                                implicitHeight: contentHeight
+                                model: analysisDictionary.delegateModel
+                                currentIndex: analysisDictionary.highlightedIndex
+                                clip: true
+                            }
+                        }
+                    }
+                    AppText {
+                        Layout.fillWidth: true
+                        wrapMode: Text.Wrap
+                        font.pixelSize: 12
+                        color: Theme.mutedForeground
+                        text: "Used for Analysis definitions and quick word lookups. Wiktionary needs no key. Save a KRDict key before selecting KRDict."
+                    }
+                    AppText { text: "KRDict API key"; font.weight: Font.Medium }
+                    AppInput {
+                        id: krdictKey
+                        objectName: "krdictApiKeyInput"
+                        Layout.fillWidth: true
+                        echoMode: TextInput.Password
+                        placeholderText: Analysis.krdictConfigured ? "Enter a replacement KRDict key" : "Paste your 32-character KRDict key"
+                        Accessible.name: "KRDict API key"
+                        inputMethodHints: Qt.ImhHiddenText | Qt.ImhNoPredictiveText | Qt.ImhNoAutoUppercase
+                        onAccepted: if (text.trim()) root.saveKrdictKey()
+                    }
+                    RowLayout {
+                        AppButton {
+                            objectName: "saveKrdictKey"
+                            text: "Save key"
+                            small: true
+                            enabled: !!krdictKey.text.trim()
+                            onClicked: root.saveKrdictKey()
+                        }
+                        AppButton {
+                            objectName: "removeKrdictKey"
+                            text: "Remove saved key"
+                            visible: Analysis.krdictConfigured
+                            variant: "outline"
+                            small: true
+                            onClicked: {
+                                root.krdictError = Analysis.removeKrdictKey()
+                                root.krdictMessage = ""
+                                if (!root.krdictError) {
+                                    krdictKey.clear()
+                                    root.krdictMessage = "KRDict key removed. Using Wiktionary."
+                                }
+                            }
+                        }
+                    }
+                    AppText {
+                        Layout.fillWidth: true
+                        wrapMode: Text.Wrap
+                        text: root.krdictError || root.krdictMessage || (Analysis.krdictConfigured ? "A KRDict key is saved locally on this device." : "")
+                        visible: text !== ""
+                        font.pixelSize: 12
+                        color: root.krdictError ? Theme.destructive : Theme.mutedForeground
+                    }
+                }
 
                 ColumnLayout {
                     Layout.fillWidth: true

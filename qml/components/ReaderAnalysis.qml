@@ -26,6 +26,9 @@ Rectangle {
     property int request: 0
     property int selection: 0
     property int candidateIndex: 0
+    property string lookupText: ""
+    property int lookupStart: 0
+    property int lookupEnd: 0
     property var queuedTerms: []
     property var inFlight: ({})
     property var lookups: ({})
@@ -35,22 +38,27 @@ Rectangle {
     readonly property var wholeLookup: lookups["#" + wholeTerm]
     readonly property var sources: {
         const entries = {}
-        for (const lookup of Object.values(lookups)) {
-            for (const definition of lookup.definitions ?? []) {
-                if (definition.sourceUrl.startsWith("https://en.wiktionary.org/wiki/"))
-                    entries[definition.sourceUrl] = definition.term
-            }
+        function add(definition) {
+            const url = definition?.sourceUrl ?? ""
+            const wiki = url.startsWith("https://en.wiktionary.org/wiki/")
+            if (wiki || url.startsWith("https://krdict.korean.go.kr/"))
+                entries[url] = {url: url, term: definition.term, provider: wiki ? "wiktionary" : "krdict"}
         }
-        const saved = savedWord?.definition
-        if (saved?.sourceUrl.startsWith("https://en.wiktionary.org/wiki/"))
-            entries[saved.sourceUrl] = saved.term
-        return Object.keys(entries).map(url => ({ url, term: entries[url] }))
+        for (const lookup of Object.values(lookups))
+            for (const definition of lookup.definitions ?? []) add(definition)
+        add(savedWord?.definition)
+        return Object.values(entries)
     }
+    readonly property bool hasWiktionarySources: sources.some(source => source.provider === "wiktionary")
+    readonly property bool hasKrdictSources: sources.some(source => source.provider === "krdict")
     signal dismissRequested()
 
     color: Theme.card
 
     function lookup(text, start, end) {
+        lookupText = text
+        lookupStart = start
+        lookupEnd = end
         reset()
         selectedWord = text.slice(start, end)
         request = Analysis.analyze(text, start, end)
@@ -130,6 +138,9 @@ Rectangle {
 
     Connections {
         target: Analysis
+        function onDictionarySettingsChanged() {
+            if (root.opened) root.lookup(root.lookupText, root.lookupStart, root.lookupEnd)
+        }
 
         function onFinished(request, result) {
             if (request !== root.request)
@@ -514,7 +525,8 @@ Rectangle {
                 spacing: 4
 
                 AppText {
-                    text: "Definitions by Wiktionary contributors. Formatting removed."
+                    text: [root.hasWiktionarySources ? "Definitions by Wiktionary contributors. Formatting removed." : "",
+                           root.hasKrdictSources ? "KRDict · Korean Basic Dictionary, National Institute of Korean Language." : ""].filter(Boolean).join("\n")
                     color: Theme.mutedForeground
                     Layout.fillWidth: true
                     font.pixelSize: 12
@@ -522,6 +534,7 @@ Rectangle {
                 }
 
                 SourceLink {
+                    visible: root.hasWiktionarySources
                     text: "CC BY-SA 4.0"
                     destination: "https://creativecommons.org/licenses/by-sa/4.0/"
                 }

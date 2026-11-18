@@ -25,7 +25,7 @@ Item {
     property bool loadingMore: false
     property bool paginationFailed: false
     property string linkError: ""
-    readonly property string statusText: error || (!YouTube.configured ? "Set SORI_YOUTUBE_API_KEY in .env.local to search YouTube from Sori." : request && !loadingMore ? "Searching YouTube…" : currentQuery && !videos.length ? "No videos found." : "")
+    readonly property string statusText: error || (!YouTube.configured ? "Add a YouTube API key in Settings to discover videos." : request && !loadingMore ? "Searching YouTube…" : currentQuery && !videos.length ? "No videos found." : "")
 
     readonly property var topics: [
         {
@@ -73,10 +73,12 @@ Item {
         discoveryIndex = (discoveryIndex + 1) % discoveryQueries.length;
     }
 
-    Component.onCompleted: {
-        if (discovery && YouTube.configured)
-            Qt.callLater(refreshDiscovery);
+    function ensureDiscovery() {
+        if (discovery && visible && YouTube.configured && !request && !videos.length)
+            refreshDiscovery();
     }
+    Component.onCompleted: Qt.callLater(ensureDiscovery)
+    onVisibleChanged: Qt.callLater(ensureDiscovery)
 
     function showLinkForm() {
         linkError = "";
@@ -146,6 +148,8 @@ Item {
 
     Connections {
         target: YouTube
+
+        function onConfigurationChanged() { Qt.callLater(root.ensureDiscovery) }
 
         function onSearchFinished(request, result) {
             if (request !== root.request)

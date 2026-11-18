@@ -115,6 +115,9 @@ Popup {
 
     Connections {
         target: Analysis
+        function onDictionarySettingsChanged() {
+            if (root.visible) root.lookup(root.sourceText, root.sourceStart, root.sourceEnd)
+        }
 
         function onFinished(request, result) {
             if (request !== root.analysisRequest)

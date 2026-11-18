@@ -14,6 +14,7 @@ debug = 2
 kiwi-rs = "=2026.10.17"
 libmpv2-sys = "=4.0.1"
 regex = "1"
+roxmltree = "0.21"
 reqwest = { version = "0.13", default-features = false, features = ["blocking", "rustls"] }
 rusqlite = { version = "0.42", features = ["bundled"] }
 scraper = { version = "0.24", default-features = false }

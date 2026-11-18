@@ -121,6 +121,7 @@ mod analysis_model;
 mod controls;
 mod db;
 mod dictionary;
+mod krdict;
 mod documents;
 mod library_model;
 mod nlp;

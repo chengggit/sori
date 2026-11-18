@@ -1,5 +1,10 @@
 -- Keep this schema at version 1 during pre-release development.
 -- Fold changes into this file until released builds need incremental migrations.
+CREATE TABLE IF NOT EXISTS app_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS documents (
     id INTEGER PRIMARY KEY,
     title TEXT NOT NULL,

@@ -203,7 +203,9 @@ ApplicationWindow {
 
     Component.onCompleted: {
         DictionaryTabs.webEngineAvailable = youtubeEmbeddingAvailable
+        YouTube.initialize(dataDirectory)
         Library.initialize(dataDirectory)
+        Analysis.initializeDictionary(dataDirectory)
         Analysis.initialize(kiwiDirectory)
         wakeControls()
         if (startupPath)
