@@ -128,6 +128,13 @@ subtitles, dictionary parsing, and other core behavior. Tests requiring live
 services or native Kiwi resources are ignored by default. Use
 `ctest --preset dev --verbose` to see individual Rust test results.
 
+Run the transcript follow regression test with your Qt SDK’s `qmltestrunner`:
+
+```sh
+QT_QPA_PLATFORM=offscreen QT_QUICK_CONTROLS_STYLE=Basic QT_QPA_PLATFORMTHEME=generic \
+    /path/to/qt/bin/qmltestrunner -input tests/qml
+```
+
 For UI changes, also launch the app and exercise the affected workflow. Check
 normal and narrow window sizes and both themes. For player changes, check local
 playback, subtitle interaction, and fullscreen. Automated Rust tests cover core
@@ -221,8 +228,10 @@ Outside fullscreen, the transcript below the video shows only the selected prima
 subtitle track, including embedded text tracks extracted from
 the video. Use **CC → Add subtitle files** for external SRT or VTT files.
 Click a timestamp to seek or a Korean word to open the Reader analysis sidebar.
-Scrolling disables **Follow playback**; enable it again to follow the current
-line. Image-based subtitle tracks are not supported.
+The current line scrolls smoothly to the top. Scrolling pauses following;
+clicking **Resume follow**, clicking a timestamp, or leaving the transcript idle
+for five seconds resumes it.
+Image-based subtitle tracks are not supported.
 
 ## Local library
 

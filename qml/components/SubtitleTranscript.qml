@@ -11,27 +11,94 @@ ColumnLayout {
     signal addRequested()
     spacing: 8
 
+    property bool following: true
+    property int followingRow: -1
+
+    function pauseFollow() {
+        following = false
+        scrollAnimation.stop()
+        resumeDelay.restart()
+    }
+
+    function noteActivity() {
+        if (!following)
+            resumeDelay.restart()
+    }
+
+    function scrollToRow(index, settling = false) {
+        if (index < 0 || index >= lines.count || lines.height <= 0 || !visible)
+            return
+        scrollAnimation.stop()
+        followingRow = index
+        lines.cancelFlick()
+        lines.forceLayout()
+        const previous = lines.contentY
+        const item = lines.itemAtIndex(index)
+        let destination
+        if (item) {
+            destination = item.y
+        } else {
+            // Materialize distant rows to measure their position, then animate
+            // from the original viewport instead of letting ListView snap there.
+            lines.positionViewAtIndex(index, ListView.Beginning)
+            lines.forceLayout()
+            destination = lines.itemAtIndex(index)?.y ?? lines.contentY
+            lines.contentY = previous
+        }
+        scrollAnimation.from = previous
+        scrollAnimation.to = destination
+        scrollAnimation.duration = settling ? 220 : 650
+        scrollAnimation.restart()
+    }
+
     function followCurrent() {
-        if (follow.checked && subtitles.activeRow >= 0)
-            lines.positionViewAtIndex(subtitles.activeRow, ListView.Contain)
+        if (following)
+            scrollToRow(subtitles.activeRow)
+    }
+
+    function resumeFollow() {
+        resumeDelay.stop()
+        following = true
+        followCurrent()
+    }
+
+    Timer {
+        id: resumeDelay
+        interval: 5000
+        onTriggered: {
+            if (lines.dragging || transcriptScrollBar.pressed) {
+                restart()
+                return
+            }
+            root.resumeFollow()
+        }
+    }
+
+    NumberAnimation {
+        id: scrollAnimation
+        target: lines
+        property: "contentY"
+        duration: 650
+        easing.type: Easing.InOutSine
+        onFinished: {
+            // Wrapped rows change ListView's size estimates as they appear.
+            // Ease into the measured position if that shifted during the scroll.
+            const item = lines.itemAtIndex(root.followingRow)
+            if (root.following && (!item || Math.abs(lines.contentY - item.y) > 1))
+                root.scrollToRow(root.followingRow, true)
+        }
     }
 
     Connections {
         target: root.subtitles
         function onActiveRowChanged() { root.followCurrent() }
-        function onTranscriptChanged() { Qt.callLater(root.followCurrent) }
-    }
-
-    RowLayout {
-        Layout.fillWidth: true
-        AppText { text: "Transcript"; font.weight: Font.DemiBold; Layout.fillWidth: true }
-        CheckBox {
-            id: follow
-            text: "Follow playback"
-            checked: true
-            onToggled: root.followCurrent()
+        function onTranscriptChanged() {
+            scrollAnimation.stop()
+            Qt.callLater(root.followCurrent)
         }
     }
+
+    AppText { text: "Transcript"; font.weight: Font.DemiBold; Layout.fillWidth: true }
 
     AppText {
         visible: root.subtitles.loading
@@ -63,9 +130,58 @@ ColumnLayout {
         spacing: 4
         model: root.subtitles.transcript
         boundsBehavior: Flickable.StopAtBounds
-        onMovementStarted: follow.checked = false
+        onDraggingChanged: {
+            if (dragging) root.pauseFollow()
+            else root.noteActivity()
+        }
         onHeightChanged: Qt.callLater(root.followCurrent)
-        ScrollBar.vertical: AppScrollBar { }
+        onWidthChanged: Qt.callLater(root.followCurrent)
+        // Leave room for even the final cue to reach the top.
+        footer: Item { width: lines.width; height: lines.height }
+        ScrollBar.vertical: AppScrollBar {
+            id: transcriptScrollBar
+            onPressedChanged: {
+                if (pressed) root.pauseFollow()
+                else root.noteActivity()
+            }
+        }
+
+        WheelHandler {
+            target: null
+            blocking: false
+            onWheel: event => {
+                root.pauseFollow()
+                event.accepted = false
+            }
+        }
+
+        Item {
+            id: resumeOverlay
+            parent: lines
+            anchors.horizontalCenter: parent.horizontalCenter
+            anchors.top: parent.top
+            anchors.topMargin: 12
+            width: resumeFollowButton.implicitWidth
+            height: resumeFollowButton.implicitHeight
+            z: 2
+            readonly property bool shown: !root.following && lines.count > 0
+            opacity: shown ? 1 : 0
+            visible: opacity > 0
+            enabled: shown
+            transform: Translate { y: resumeOverlay.shown ? 0 : -16
+                Behavior on y { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
+            }
+            Behavior on opacity { NumberAnimation { duration: 180 } }
+
+            AppButton {
+                id: resumeFollowButton
+                objectName: "resumeTranscriptFollow"
+                text: "Resume follow"
+                variant: "outline"
+                small: true
+                onClicked: root.resumeFollow()
+            }
+        }
 
         delegate: Rectangle {
             id: cue
@@ -86,7 +202,12 @@ ColumnLayout {
                 variant: "ghost"
                 small: true
                 Accessible.name: "Seek to " + text
-                onClicked: root.player.seek(cue.modelData.start)
+                onClicked: {
+                    resumeDelay.stop()
+                    root.following = true
+                    root.scrollToRow(cue.index)
+                    root.player.seek(cue.modelData.start)
+                }
             }
 
             TextArea {
@@ -111,6 +232,7 @@ ColumnLayout {
                 }
                 TapHandler {
                     onSingleTapped: eventPoint => {
+                        root.noteActivity()
                         const position = passage.positionAt(eventPoint.position.x, eventPoint.position.y)
                         let start = position
                         let end = position
