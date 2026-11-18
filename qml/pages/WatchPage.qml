@@ -724,6 +724,7 @@ Item {
                             font: elapsedTime.font
                         }
                     }
+                    Item { Layout.fillWidth: true }
                     PlaybackButton {
                         iconName: root.volumeLevel <= 0 ? "volume-x" : "volume"
                         Accessible.name: root.volumeLevel <= 0 ? "Unmute" : "Mute"
@@ -778,7 +779,6 @@ Item {
                             root.wakeControls()
                         }
                     }
-                    Item { Layout.fillWidth: true }
                     PlaybackButton {
                         text: "CC"
                         objectName: "ccButton"
@@ -836,7 +836,7 @@ Item {
 
                 MenuCheck {
                     Layout.topMargin: 4
-                    text: "Show captions"
+                    text: "Show subtitles"
                     checked: root.captionsVisible
                     onToggled: root.captionsToggleRequested()
                 }
