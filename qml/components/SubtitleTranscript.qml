@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
+import QtQuick.Shapes
 import "../style"
 
 ColumnLayout {
@@ -226,6 +227,88 @@ ColumnLayout {
                 color: Theme.foreground
                 background: null
                 Accessible.name: "Subtitle text"
+
+                function wordAt(x, y) {
+                    const position = passage.positionAt(x, y)
+                    let start = position
+                    let end = position
+                    const word = /[\w\u1100-\u11ff\u3131-\u318e\uac00-\ud7a3]/
+                    while (start > 0 && word.test(passage.text[start - 1])) start--
+                    while (end < passage.text.length && word.test(passage.text[end])) end++
+                    if (start === end
+                            || !/[\u1100-\u11ff\u3131-\u318e\uac00-\ud7a3]/.test(passage.text.slice(start, end)))
+                        return null
+                    const first = passage.positionToRectangle(start)
+                    const last = passage.positionToRectangle(end)
+                    if (y < first.y || y >= last.y + last.height
+                            || (y < first.y + first.height && x < first.x)
+                            || (y >= last.y && x >= last.x))
+                        return null
+                    return { start: start, end: end }
+                }
+
+                FontMetrics {
+                    id: passageMetrics
+                    font: passage.font
+                }
+
+                Repeater {
+                    model: {
+                        const word = wordHover.word
+                        if (!word || passage.width <= 0)
+                            return []
+                        const segments = []
+                        let first = passage.positionToRectangle(word.start)
+                        let previous = first
+                        for (let position = word.start + 1; position <= word.end; position++) {
+                            const next = passage.positionToRectangle(position)
+                            const wraps = next.y !== previous.y
+                            if (wraps || position === word.end) {
+                                const edge = wraps ? previous.x + passageMetrics.advanceWidth(
+                                    passage.text.slice(position - 1, position)) : next.x
+                                segments.push({
+                                    left: first.x,
+                                    right: edge,
+                                    y: Math.round(first.y + passageMetrics.ascent
+                                                  + passageMetrics.underlinePosition + 2)
+                                })
+                            }
+                            if (wraps)
+                                first = next
+                            previous = next
+                        }
+                        return segments
+                    }
+
+                    Shape {
+                        id: underline
+                        required property var modelData
+                        x: modelData.left
+                        y: modelData.y
+                        width: Math.max(0, modelData.right - modelData.left)
+                        height: 2
+                        z: 1
+
+                        ShapePath {
+                            strokeColor: Theme.foreground
+                            strokeWidth: 2
+                            strokeStyle: ShapePath.DashLine
+                            dashPattern: [1, 1]
+                            capStyle: ShapePath.FlatCap
+                            fillColor: "transparent"
+                            startY: 1
+                            PathLine { x: underline.width; y: 1 }
+                        }
+                    }
+                }
+
+                HoverHandler {
+                    id: wordHover
+                    readonly property var word: hovered
+                        ? passage.wordAt(point.position.x, point.position.y) : null
+                    cursorShape: word ? Qt.PointingHandCursor : Qt.IBeamCursor
+                }
+
                 Keys.onReturnPressed: {
                     if (selectedText)
                         root.lookupRequested(text, selectionStart, selectionEnd)
@@ -233,16 +316,11 @@ ColumnLayout {
                 TapHandler {
                     onSingleTapped: eventPoint => {
                         root.noteActivity()
-                        const position = passage.positionAt(eventPoint.position.x, eventPoint.position.y)
-                        let start = position
-                        let end = position
-                        const word = /[\w\u1100-\u11ff\u3131-\u318e\uac00-\ud7a3]/
-                        while (start > 0 && word.test(passage.text[start - 1])) start--
-                        while (end < passage.text.length && word.test(passage.text[end])) end++
-                        if (/[\u1100-\u11ff\u3131-\u318e\uac00-\ud7a3]/.test(passage.text.slice(start, end))) {
-                            passage.select(start, end)
-                            root.lookupRequested(passage.text, start, end)
-                        }
+                        const word = passage.wordAt(eventPoint.position.x, eventPoint.position.y)
+                        if (!word)
+                            return
+                        passage.select(word.start, word.end)
+                        root.lookupRequested(passage.text, word.start, word.end)
                     }
                 }
             }
