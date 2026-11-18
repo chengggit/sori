@@ -2,7 +2,7 @@ import QtQuick
 import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Shapes
-import sori_qt_playback
+import sori_core
 import "../style"
 import "../components"
 

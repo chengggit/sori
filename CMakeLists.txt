@@ -40,35 +40,35 @@ if(SORI_QML_PREVIEW)
         VERBATIM
     )
 endif()
-set(PLAYBACK_DIR "${CMAKE_CURRENT_SOURCE_DIR}/playback")
-set(PLAYBACK_TARGET "${CMAKE_CURRENT_BINARY_DIR}/cargo")
-set(PLAYBACK_PROFILE "$<IF:$<CONFIG:Debug>,dev,$<IF:$<CONFIG:RelWithDebInfo>,release-with-debug,release>>")
-set(PLAYBACK_PROFILE_DIR "$<IF:$<CONFIG:Debug>,debug,$<IF:$<CONFIG:RelWithDebInfo>,release-with-debug,release>>")
-set(PLAYBACK_LIB "${PLAYBACK_TARGET}/${PLAYBACK_PROFILE_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}sori_qt_playback${CMAKE_STATIC_LIBRARY_SUFFIX}")
-add_custom_command(OUTPUT "${PLAYBACK_LIB}"
+set(CORE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/core")
+set(CORE_TARGET "${CMAKE_CURRENT_BINARY_DIR}/cargo")
+set(CORE_PROFILE "$<IF:$<CONFIG:Debug>,dev,$<IF:$<CONFIG:RelWithDebInfo>,release-with-debug,release>>")
+set(CORE_PROFILE_DIR "$<IF:$<CONFIG:Debug>,debug,$<IF:$<CONFIG:RelWithDebInfo>,release-with-debug,release>>")
+set(CORE_LIB "${CORE_TARGET}/${CORE_PROFILE_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}sori_core${CMAKE_STATIC_LIBRARY_SUFFIX}")
+add_custom_command(OUTPUT "${CORE_LIB}"
     COMMAND "${CMAKE_COMMAND}" -E env "QMAKE=${SORI_QMAKE}"
-        "${CARGO_EXECUTABLE}" build --profile "${PLAYBACK_PROFILE}" --locked
-        --manifest-path "${PLAYBACK_DIR}/Cargo.toml" --target-dir "${PLAYBACK_TARGET}"
-    DEPENDS "${SORI_QMAKE}" "${PLAYBACK_DIR}/src/player_model.rs" "${PLAYBACK_DIR}/src/subtitle_model.rs"
-        "${PLAYBACK_DIR}/Cargo.toml" "${PLAYBACK_DIR}/Cargo.lock" "${PLAYBACK_DIR}/src/lib.rs" "${PLAYBACK_DIR}/src/subtitles.rs" "${PLAYBACK_DIR}/src/controls.rs"
-        "${PLAYBACK_DIR}/src/db.rs" "${PLAYBACK_DIR}/src/schema.sql" "${PLAYBACK_DIR}/src/documents.rs"
-        "${PLAYBACK_DIR}/src/progress.rs" "${PLAYBACK_DIR}/src/library_model.rs"
-        "${PLAYBACK_DIR}/src/nlp.rs" "${PLAYBACK_DIR}/src/reader.rs" "${PLAYBACK_DIR}/src/analysis_model.rs"
-        "${PLAYBACK_DIR}/src/video_library.rs"
-        "${PLAYBACK_DIR}/src/dictionary.rs" "${PLAYBACK_DIR}/src/vocabulary.rs"
-        "${PLAYBACK_DIR}/src/youtube.rs"
+        "${CARGO_EXECUTABLE}" build --profile "${CORE_PROFILE}" --locked
+        --manifest-path "${CORE_DIR}/Cargo.toml" --target-dir "${CORE_TARGET}"
+    DEPENDS "${SORI_QMAKE}" "${CORE_DIR}/src/player_model.rs" "${CORE_DIR}/src/subtitle_model.rs"
+        "${CORE_DIR}/Cargo.toml" "${CORE_DIR}/Cargo.lock" "${CORE_DIR}/src/lib.rs" "${CORE_DIR}/src/subtitles.rs" "${CORE_DIR}/src/controls.rs"
+        "${CORE_DIR}/src/db.rs" "${CORE_DIR}/src/schema.sql" "${CORE_DIR}/src/documents.rs"
+        "${CORE_DIR}/src/progress.rs" "${CORE_DIR}/src/library_model.rs"
+        "${CORE_DIR}/src/nlp.rs" "${CORE_DIR}/src/reader.rs" "${CORE_DIR}/src/analysis_model.rs"
+        "${CORE_DIR}/src/video_library.rs"
+        "${CORE_DIR}/src/dictionary.rs" "${CORE_DIR}/src/vocabulary.rs"
+        "${CORE_DIR}/src/youtube.rs"
     VERBATIM
 )
-add_custom_target(sori-qt-playback DEPENDS "${PLAYBACK_LIB}")
-add_dependencies(sori sori-qt-playback)
+add_custom_target(sori-core DEPENDS "${CORE_LIB}")
+add_dependencies(sori sori-core)
 
 enable_testing()
 add_test(NAME rust
     COMMAND "${CMAKE_COMMAND}" -E env "QMAKE=${SORI_QMAKE}"
         "${CARGO_EXECUTABLE}" test --locked
-        --manifest-path "${PLAYBACK_DIR}/Cargo.toml" --target-dir "${PLAYBACK_TARGET}"
+        --manifest-path "${CORE_DIR}/Cargo.toml" --target-dir "${CORE_TARGET}"
 )
-target_link_libraries(sori PRIVATE "${PLAYBACK_LIB}" Qt6::Quick Qt6::OpenGL Qt6::Test PkgConfig::MPV)
+target_link_libraries(sori PRIVATE "${CORE_LIB}" Qt6::Quick Qt6::OpenGL Qt6::Test PkgConfig::MPV)
 if(TARGET Qt6::WebEngineQuick)
     target_link_libraries(sori PRIVATE Qt6::WebEngineQuick)
     target_compile_definitions(sori PRIVATE SORI_WEB_ENGINE)

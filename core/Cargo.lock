@@ -1774,7 +1774,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "sori-qt-playback"
+name = "sori-core"
 version = "0.1.0"
 dependencies = [
  "kiwi-rs",

@@ -1,6 +1,6 @@
 /build/
 /target/
-/playback/target/
+/core/target/
 /resources/kiwi/
 /AGENTS.md
 docs/

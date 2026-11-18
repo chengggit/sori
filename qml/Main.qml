@@ -4,7 +4,7 @@ import QtQuick.Controls
 import QtQuick.Dialogs
 import QtQuick.Layouts
 import Sori 1.0
-import sori_qt_playback
+import sori_core
 import "components"
 import "pages"
 import "style"

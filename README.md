@@ -173,7 +173,7 @@ editor's language-server client with the tools you need.
 
 | Language | Tool | Project configuration |
 | --- | --- | --- |
-| Rust | `rust-analyzer` | Open `playback/` or set `linkedProjects` to `playback/Cargo.toml` |
+| Rust | `rust-analyzer` | Open `core/` or set `linkedProjects` to `core/Cargo.toml` |
 | C++ | `clangd` | The root `.clangd` uses `build/development/compile_commands.json` |
 | QML | Qt's `qmlls` | Run `qmlls -b build/development --no-cmake-calls` from the repository root |
 
