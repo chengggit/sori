@@ -73,7 +73,7 @@ TestCase {
         verify(!transcript.following)
         const row = list.itemAtIndex(31)
         verify(row !== null)
-        const button = row.children[0]
+        const button = findChild(row, "transcriptTimestamp")
         const oldY = list.contentY
         button.clicked()
         verify(transcript.following)
@@ -83,6 +83,14 @@ TestCase {
         verify(list.contentY > oldY)
         wait(650)
         verify(Math.abs(list.contentY - list.itemAtIndex(31).y) < 2)
+
+        transcript.pauseFollow()
+        const seekRow = list.itemAtIndex(32)
+        verify(seekRow !== null)
+        mouseClick(seekRow, seekRow.width - 24, 4)
+        tryCompare(transcript, "following", true, 700)
+        compare(fakePlayer.position, 96)
+        wait(900)
 
         const resume = findChild(transcript, "resumeTranscriptFollow")
         verify(resume !== null)
