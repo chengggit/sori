@@ -8,6 +8,7 @@ Rectangle {
     id: root
 
     required property real documentId
+    property string sourceKind: "document"
     readonly property bool opened: selectedWord !== ""
     property bool editing: false
     readonly property var dictionaryProvider: DictionaryTabs.enabled[tabs.currentIndex - 1]
@@ -98,7 +99,7 @@ Rectangle {
 
     function refreshSavedWord() {
         if (result?.word)
-            savedWord = Library.findWord("document", documentId, result.word, result.context)
+            savedWord = Library.findWord(sourceKind, documentId, result.word, result.context)
     }
 
     function openSaveEditor() {
@@ -567,6 +568,7 @@ Rectangle {
                         id: editor
                         Layout.fillWidth: true
                         panelMode: true
+                        sourceKind: root.sourceKind
                         onChanged: root.refreshSavedWord()
                         onCloseRequested: root.closeSaveEditor()
                     }

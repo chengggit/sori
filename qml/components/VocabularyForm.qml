@@ -10,6 +10,7 @@ ColumnLayout {
     property var entry: null
     property string error: ""
     property real documentId: 0
+    property string sourceKind: "document"
     property bool panelMode: false
     signal changed()
     signal closeRequested()
@@ -70,7 +71,7 @@ ColumnLayout {
                 note: updates.note,
                 custom: !imported || entry.definition.custom
             } : null
-            const saved = Library.saveWord("document", documentId, {
+            const saved = Library.saveWord(sourceKind, documentId, {
                 word: entry.word,
                 context: entry.context,
                 normalizedForm: updates.normalizedForm === entry.word ? null : updates.normalizedForm,

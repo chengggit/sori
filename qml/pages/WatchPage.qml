@@ -29,7 +29,8 @@ Item {
     signal backRequested()
 
     readonly property var trackMenu: trackMenu
-    readonly property bool analysisOpened: wordAnalysis.visible || subtitleDefinition.visible
+    readonly property bool analysisOpened: wordAnalysis.visible || subtitleDefinition.visible || transcriptAnalysis.opened
+    readonly property real viewingWidth: width - (transcriptAnalysis.visible ? transcriptAnalysis.width : 0)
     readonly property int textMode: Text.NativeRendering
     property real volumeLevel: 100
     property real previousVolumeLevel: 100
@@ -50,9 +51,11 @@ Item {
     function closeAnalysis() {
         wordAnalysis.close()
         subtitleDefinition.close()
+        transcriptAnalysis.close()
     }
 
     onFullScreenChanged: closeAnalysis()
+    onVideoIdChanged: closeAnalysis()
     onCaptionsVisibleChanged: if (!captionsVisible) subtitleDefinition.close()
 
     WordAnalysis {
@@ -285,8 +288,8 @@ Item {
         visible: !root.fullScreen
         anchors.top: parent.top
         anchors.topMargin: 24
-        anchors.horizontalCenter: parent.horizontalCenter
-        width: Math.min(root.width - 48, Theme.watchWidth)
+        x: (root.viewingWidth - width) / 2
+        width: Math.min(root.viewingWidth - 48, Theme.watchWidth)
         height: backButton.implicitHeight
 
         AppButton {
@@ -314,8 +317,8 @@ Item {
         width: height * 16 / 9
         height: root.fullScreen ? Math.min(root.height, root.width * 9 / 16)
             : Math.min(root.Window.window.height * 0.5, root.height - 218,
-                Math.min(root.width - 48, Theme.watchWidth) * 9 / 16)
-        x: Math.round((root.width - width) / 2)
+                Math.min(root.viewingWidth - 48, Theme.watchWidth) * 9 / 16)
+        x: Math.round(((root.fullScreen ? root.width : root.viewingWidth) - width) / 2)
         y: root.fullScreen ? Math.round((root.height - height) / 2)
             : watchHeader.y + watchHeader.height + 16
         color: "#000000"
@@ -796,8 +799,9 @@ Item {
 
     ColumnLayout {
         visible: !root.fullScreen && root.player.loaded
-        width: Math.min(root.width - 48, Theme.watchWidth)
-        anchors.horizontalCenter: parent.horizontalCenter
+        width: Math.max(0, Math.min(root.viewingWidth - 48, Theme.watchWidth))
+        x: (root.viewingWidth - width) / 2
+        height: Math.max(0, root.height - y - 16)
         y: stage.y + stage.height + 16
         spacing: 20
 
@@ -816,5 +820,28 @@ Item {
             color: Theme.destructive
             wrapMode: Text.Wrap
         }
+
+        SubtitleTranscript {
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            subtitles: root.subtitles
+            player: root.player
+            onLookupRequested: (text, start, end) => transcriptAnalysis.lookup(text, start, end)
+            onAddRequested: root.openSubtitlesRequested()
+        }
+
+    }
+
+
+    ReaderAnalysis {
+        id: transcriptAnalysis
+        documentId: root.videoId
+        sourceKind: "local"
+        visible: opened && !root.fullScreen
+        width: Math.min(Theme.readerAnalysisWidth, root.width * 0.45)
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        onDismissRequested: close()
     }
 }

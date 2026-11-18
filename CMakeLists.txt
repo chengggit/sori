@@ -95,6 +95,7 @@ qt_add_resources(sori "watch" PREFIX "/" FILES
     qml/components/VocabularyEditor.qml
     qml/components/VocabularyForm.qml
     qml/components/WordAnalysis.qml
+    qml/components/SubtitleTranscript.qml
     qml/components/SubtitleDefinition.qml
     qml/components/ReaderAnalysis.qml
     qml/components/ReaderDefinitions.qml

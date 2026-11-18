@@ -217,6 +217,13 @@ Use the sidebar toggle during playback to see the video move with the layout.
 selected automatically when tagged. **F** enters fullscreen, **Esc**
 exits it, **Space** toggles playback, and **Left/Right** seek five seconds.
 
+Outside fullscreen, the transcript below the video shows only the selected primary
+subtitle track, including embedded text tracks extracted from
+the video. Use **CC → Add subtitle files** for external SRT or VTT files.
+Click a timestamp to seek or a Korean word to open the Reader analysis sidebar.
+Scrolling disables **Follow playback**; enable it again to follow the current
+line. Image-based subtitle tracks are not supported.
+
 ## Local library
 
 Import UTF-8 text files or paste text in My Library. Open a document to read

@@ -307,17 +307,12 @@ impl Subtitles {
     }
 
     fn rebuild(&mut self) {
-        let mut cues: Vec<_> = self
-            .slots
+        let cues = &self.slots[0].cues;
+        self.starts = cues.iter().map(|cue| cue.start).collect();
+        self.transcript = cues
             .iter()
-            .enumerate()
-            .flat_map(|(slot, selection)| selection.cues.iter().map(move |cue| (slot != 0, cue)))
+            .map(|cue| json!({ "start": cue.start, "end": cue.end, "text": cue.text }))
             .collect();
-        cues.sort_by(|(_, a), (_, b)| a.start.total_cmp(&b.start));
-        self.starts = cues.iter().map(|(_, cue)| cue.start).collect();
-        self.transcript = cues.into_iter().map(|(secondary, cue)| {
-            json!({ "start": cue.start, "end": cue.end, "text": cue.text, "secondary": secondary })
-        }).collect();
         self.transcript_changed();
         self.update(self.seconds);
     }
