@@ -94,6 +94,7 @@ qt_add_resources(sori "watch" PREFIX "/" FILES
     qml/components/Icon.qml
     qml/components/MediaCard.qml
     qml/components/MediaShelf.qml
+    qml/components/PageFrame.qml
     qml/components/PageHeader.qml
     qml/components/VocabularyEditor.qml
     qml/components/VocabularyForm.qml

@@ -287,13 +287,11 @@ Item {
         }
     }
 
-    ColumnLayout {
+    PageFrame {
         anchors.top: parent.top
         anchors.bottom: parent.bottom
-        anchors.topMargin: root.discovery ? 0 : Theme.pageInset
-        anchors.bottomMargin: root.discovery ? 0 : Theme.pageInset
-        anchors.horizontalCenter: parent.horizontalCenter
-        width: root.discovery ? Math.min(Theme.dashboardWidth, parent.width - 2 * Theme.pageInset) : parent.width - 2 * Theme.pageInset
+        topPadding: root.discovery ? 0 : Theme.pagePadding
+        bottomPadding: root.discovery ? 0 : Theme.pagePadding
         spacing: root.discovery ? 0 : 14
 
         RowLayout {

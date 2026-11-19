@@ -174,9 +174,9 @@ Item {
         }
     }
 
-    ColumnLayout {
-        anchors.fill: parent
-        anchors.margins: 28
+    PageFrame {
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
         spacing: 16
 
         RowLayout {

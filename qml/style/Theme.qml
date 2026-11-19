@@ -49,7 +49,6 @@ QtObject {
     readonly property color darkForeground: "#f4f4f4"
 
     readonly property int readerTextWidth: 768
-    readonly property int readerHeaderWidth: 1088
     readonly property int readerAnalysisWidth: 500
     readonly property int readerTextSize: 16
     readonly property int readerLineHeight: 40
@@ -77,12 +76,12 @@ QtObject {
     // Watch pages use the original player column width.
     readonly property int watchWidth: 920
 
-    // History uses the original page's max-w-6xl text width.
-    readonly property int historyWidth: 1088
-
     // Home uses the original dashboard's content width and spacing.
     readonly property int dashboardWidth: 1528
     readonly property int pageInset: 32
+    // All pages share the dashboard's centered content frame.
+    readonly property int pageMaxWidth: dashboardWidth
+    readonly property int pagePadding: dashboardPadding
     readonly property int dashboardPadding: 28
     readonly property int dashboardSectionGap: 24
     readonly property int dashboardRowGap: 28

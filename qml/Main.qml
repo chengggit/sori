@@ -410,9 +410,7 @@ ApplicationWindow {
                 backLabel: root.page === "reader" ? "Library" : ""
                 searchVisible: root.page === "home"
                 searchEnabled: YouTube.configured
-                maximumContentWidth: root.page === "home" ? Theme.dashboardWidth
-                    : root.page === "reader" ? Theme.readerHeaderWidth
-                    : root.page === "history" ? Theme.historyWidth : 0
+                maximumContentWidth: Theme.pageMaxWidth
                 placeholder: "Search YouTube for Korean videos"
                 onBackRequested: root.goBack("library")
                 onSearchAccepted: query => {
