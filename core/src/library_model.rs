@@ -29,6 +29,7 @@ pub struct Library {
     last_thumbnail_attempt: HashMap<i64, Instant>,
     last_metadata_attempt: HashMap<String, Instant>,
     last_duration_attempt: HashMap<String, Instant>,
+    importing: bool,
     error: String,
 }
 
@@ -50,6 +51,9 @@ impl Library {
 
     #[qsignal]
     fn library_changed(&mut self);
+
+    #[qsignal]
+    fn document_import_finished(&mut self, error: &String);
 
     #[qsignal]
     fn videos_changed(&mut self);
@@ -100,20 +104,28 @@ impl Library {
     }
 
     #[qslot]
-    fn import_document(&mut self, path: String) -> String {
-        self.change(|connection| {
-            let path = Path::new(&path);
-            let filename = path
-                .file_name()
-                .and_then(|name| name.to_str())
-                .ok_or("Choose a .txt file.")?;
-            let file = std::fs::File::open(path).map_err(|error| error.to_string())?;
-            let mut bytes = Vec::new();
-            file.take(documents::MAX_TEXT_BYTES as u64 + 1)
-                .read_to_end(&mut bytes)
-                .map_err(|error| error.to_string())?;
-            documents::import(connection, filename, &bytes)
-        })
+    fn import_document(&mut self, path: String) {
+        if self.importing {
+            self.document_import_finished(&"An import is already in progress.".to_string());
+            return;
+        }
+        let Some(database) = self.database.clone() else {
+            self.document_import_finished(&"Could not open the library database.".to_string());
+            return;
+        };
+        self.importing = true;
+        let handle = self.get_thread_handle();
+        std::thread::spawn(move || {
+            let result = import_document_file(&database, Path::new(&path));
+            let _ = handle.invoke_mut(move |model| {
+                model.importing = false;
+                if result.is_ok() {
+                    model.refresh();
+                }
+                let error = result.err().unwrap_or_default();
+                model.document_import_finished(&error);
+            });
+        });
     }
 
     #[qslot]
@@ -539,6 +551,31 @@ impl Library {
     #[qslot]
     fn remove_word(&mut self, id: i64) -> String {
         self.change_vocabulary(|connection| vocabulary::remove(connection, id))
+    }
+}
+
+fn import_document_file(database: &Database, path: &Path) -> Result<(), String> {
+    let filename = path
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or("Choose a .txt or .pdf file.")?;
+    let extension = filename
+        .rsplit_once('.')
+        .map(|(_, extension)| extension)
+        .unwrap_or_default();
+    let connection = database.connect()?;
+    if extension.eq_ignore_ascii_case("pdf") {
+        let content = crate::pdf::extract(path)?;
+        documents::import_pdf(&connection, filename, &content)
+    } else if extension.eq_ignore_ascii_case("txt") {
+        let file = std::fs::File::open(path).map_err(|error| error.to_string())?;
+        let mut bytes = Vec::new();
+        file.take(documents::MAX_TEXT_BYTES as u64 + 1)
+            .read_to_end(&mut bytes)
+            .map_err(|error| error.to_string())?;
+        documents::import(&connection, filename, &bytes)
+    } else {
+        Err("Choose a .txt or .pdf file.".into())
     }
 }
 

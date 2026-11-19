@@ -19,6 +19,7 @@ The desktop build is currently developed and verified on Linux.
 | Qt 6.10 or later | Quick/QML, OpenGL, Test, SVG, and WebEngine Quick |
 | Matching Qt private development headers and qmake | Building the Rust/Qt integration |
 | FFmpeg and FFprobe on PATH | Inspecting media and extracting subtitle tracks |
+| Poppler utilities (`pdftotext`) on PATH | Extracting text from imported PDFs |
 | Git | Cloning Sori and fetching its pinned Rust dependencies |
 | Bash | Running the optional `scripts/dev` helper |
 
@@ -33,7 +34,7 @@ The package names below match the Fedora 44 development environment:
 ```sh
 sudo dnf install git gcc-c++ make cmake pkgconf-pkg-config mpv-devel \
   qt6-qtbase-devel qt6-qtbase-private-devel qt6-qtdeclarative-devel \
-  qt6-qtsvg qt6-qtwebengine-devel ffmpeg-free
+  qt6-qtsvg qt6-qtwebengine-devel ffmpeg-free poppler-utils
 ```
 
 Install Rust using the official installer. [rustup](https://rustup.rs/)
@@ -248,8 +249,12 @@ TXT attachments also work on YouTube Watch. PDF transcripts are not supported ye
 
 ## Local library
 
-Import UTF-8 text files or paste text in My Library. Open a document to read
-it and resume from its saved scroll position. Sori uses the same local SQLite
+Import UTF-8 text files, PDFs, or paste text in My Library. PDF text is extracted
+locally with `pdftotext` and stored as a normal document of up to 2 MiB, so word
+analysis and reading progress work as they do for text files. PDF layout, images,
+tables, and page breaks are not preserved; scanned PDFs without a text layer are
+not supported. Open a document to read it and resume from its saved scroll
+position. Sori uses the same local SQLite
 database as the earlier desktop app, under `com.sori.app/library.sqlite3` in
 your user data directory (`$XDG_DATA_HOME` or `~/.local/share` on Linux).
 
