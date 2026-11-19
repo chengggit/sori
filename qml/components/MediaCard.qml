@@ -239,9 +239,12 @@ ItemDelegate {
         }
 
         AppText {
+            id: titleText
             Layout.fillWidth: true
             Layout.topMargin: 8
-            Layout.preferredHeight: 36
+            // Reserve only the lines the title actually needs so the metadata
+            // below sits directly under it. Baselines are fixed at 18px.
+            Layout.preferredHeight: Math.max(18, Math.min(36, titleText.implicitHeight))
             text: card.title
             font.pixelSize: 13
             font.weight: Font.DemiBold
@@ -303,8 +306,9 @@ ItemDelegate {
 
         MenuItem {
             id: editItem
+            // Menu layouts keep a slot for invisible items, so collapse it too.
             visible: !card.video
-            height: 34
+            height: visible ? 34 : 0
             width: actions.availableWidth
             onTriggered: card.editRequested()
 
