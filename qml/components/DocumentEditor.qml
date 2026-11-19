@@ -7,11 +7,13 @@ Dialog {
     id: root
 
     property bool importing: true
+    property bool working: false
     property string error: ""
     signal saveRequested(string title, string content)
     signal chooseFileRequested()
 
-    title: importing ? "Import text" : "Edit document"
+    title: importing ? "Import text or PDF" : "Edit document"
+    closePolicy: root.working ? Popup.NoAutoClose : Popup.CloseOnEscape | Popup.CloseOnPressOutside
     anchors.centerIn: parent
     width: Math.min(560, parent.width - 48)
     height: Math.min(520, parent.height - 48)
@@ -28,6 +30,7 @@ Dialog {
 
     function showEditor(importing, title, content) {
         root.importing = importing
+        root.working = false
         titleInput.text = title
         body.text = content
         error = ""
@@ -47,11 +50,21 @@ Dialog {
 
         AppButton {
             visible: root.importing
-            text: "Choose a .txt file"
+            text: "Choose a text or PDF file"
             iconName: "folder-open"
             variant: "outline"
+            enabled: !root.working
             Layout.bottomMargin: 8
             onClicked: root.chooseFileRequested()
+        }
+
+        AppText {
+            visible: root.working
+            text: "Reading the selected file…"
+            color: Theme.mutedForeground
+            wrapMode: Text.Wrap
+            Layout.fillWidth: true
+            Layout.bottomMargin: 8
         }
 
         AppText {
@@ -118,11 +131,17 @@ Dialog {
             Layout.topMargin: 8
             spacing: Theme.controlGap
 
-            AppButton { text: "Cancel"; variant: "outline"; onClicked: root.close() }
             AppButton {
-                text: root.importing ? "Import text" : "Save changes"
+                text: "Cancel"
+                variant: "outline"
+                enabled: !root.working
+                onClicked: root.close()
+            }
+            AppButton {
+                text: root.working ? "Importing…" : root.importing ? "Import text" : "Save changes"
                 variant: "primary"
-                enabled: body.text.trim() !== "" && (root.importing || titleInput.text.trim() !== "")
+                enabled: !root.working && body.text.trim() !== ""
+                    && (root.importing || titleInput.text.trim() !== "")
                 onClicked: root.saveRequested(titleInput.text, body.text)
             }
         }

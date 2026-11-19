@@ -69,6 +69,20 @@ Item {
         function onVideosChanged() {
             root.requestThumbnails();
         }
+
+        function onDocumentImportFinished(error) {
+            editor.working = false;
+            if (error) {
+                if (editor.visible)
+                    editor.error = error;
+                else
+                    root.error = error;
+                return;
+            }
+            search.clear();
+            root.error = "";
+            editor.close();
+        }
     }
 
     DocumentEditor {
@@ -88,15 +102,22 @@ Item {
 
     Native.FileDialog {
         id: textPicker
-        title: "Import a text file"
-        nameFilters: ["Text files (*.txt *.TXT)", "All files (*)"]
+        title: "Import a text or PDF file"
+        nameFilters: [
+            "Text and PDF files (*.txt *.TXT *.pdf *.PDF)",
+            "Text files (*.txt *.TXT)",
+            "PDF files (*.pdf *.PDF)",
+            "All files (*)"
+        ]
         onAccepted: {
-            editor.error = Library.importDocument(root.renderHost.localPath(selectedFile));
-            if (!editor.error) {
-                search.clear();
-                root.error = "";
-                editor.close();
+            const path = root.renderHost.localPath(selectedFile);
+            if (!path) {
+                editor.error = "Choose a .txt or .pdf file.";
+                return;
             }
+            editor.error = "";
+            editor.working = true;
+            Library.importDocument(path);
         }
     }
 
@@ -273,7 +294,7 @@ Item {
             visible: root.libraryEmpty || root.nothingMatches
             iconName: "library"
             title: root.nothingMatches ? "No matching items" : "Your library is empty"
-            message: root.nothingMatches ? "" : "Import a video, a .txt file, or pasted Korean text."
+            message: root.nothingMatches ? "" : "Import a video, a .txt or .pdf file, or pasted Korean text."
             actionText: root.nothingMatches ? "" : "Import text"
             onActionRequested: root.importText()
         }

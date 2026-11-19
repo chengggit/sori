@@ -125,6 +125,7 @@ mod krdict;
 mod documents;
 mod library_model;
 mod nlp;
+mod pdf;
 mod progress;
 mod reader;
 mod subtitles;
