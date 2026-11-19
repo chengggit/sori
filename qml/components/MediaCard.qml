@@ -35,6 +35,7 @@ ItemDelegate {
             return (card.seconds > 0 ? Player.formatTime(card.seconds) + " / " : "") + Player.formatTime(card.duration);
         return card.seconds > 0 ? Player.formatTime(card.seconds) + " watched" : "Not started";
     }
+    readonly property color cornerFill: card.visualFocus ? Theme.hero : Theme.background
     readonly property color coverColor: card.tintIndex % 3 === 0 ? Theme.hero
         : card.tintIndex % 3 === 1 ? Theme.accentSoft : Theme.chip
     readonly property string watermark: card.title.trim().substring(0, 1)
@@ -50,6 +51,22 @@ ItemDelegate {
 
     HoverHandler {
         cursorShape: Qt.PointingHandCursor
+    }
+
+    component ShapeCorner: Shape {
+        id: cornerShape
+
+        property color fill: Theme.background
+
+        width: Theme.radius
+        height: width
+        preferredRendererType: Shape.CurveRenderer
+
+        ShapePath {
+            strokeWidth: 0
+            fillColor: cornerShape.fill
+            PathSvg { path: "M 0 0 H %1 A %1 %1 0 0 0 0 %1 Z".arg(Theme.radius) }
+        }
     }
 
     background: Rectangle {
@@ -193,25 +210,31 @@ ItemDelegate {
                 onClicked: actions.open()
             }
 
-            Repeater {
-                model: 4
-
-                delegate: Shape {
-                    id: corner
-                    required property int index
-                    width: Theme.radius
-                    height: width
-                    x: corner.index === 1 || corner.index === 2 ? parent.width - width : 0
-                    y: corner.index >= 2 ? parent.height - height : 0
-                    rotation: corner.index * 90
-                    preferredRendererType: Shape.CurveRenderer
-
-                    ShapePath {
-                        strokeWidth: 0
-                        fillColor: card.visualFocus ? Theme.hero : Theme.background
-                        PathSvg { path: "M 0 0 H %1 A %1 %1 0 0 0 0 %1 Z".arg(corner.width) }
-                    }
-                }
+            // Round only the artwork by painting the card surface over each
+            // corner. Anchors are used instead of parent-size bindings because
+            // item parents are cleared while delegates are torn down.
+            ShapeCorner {
+                anchors.top: parent.top
+                anchors.left: parent.left
+                fill: card.cornerFill
+            }
+            ShapeCorner {
+                anchors.top: parent.top
+                anchors.right: parent.right
+                rotation: 90
+                fill: card.cornerFill
+            }
+            ShapeCorner {
+                anchors.bottom: parent.bottom
+                anchors.right: parent.right
+                rotation: 180
+                fill: card.cornerFill
+            }
+            ShapeCorner {
+                anchors.bottom: parent.bottom
+                anchors.left: parent.left
+                rotation: 270
+                fill: card.cornerFill
             }
         }
 
