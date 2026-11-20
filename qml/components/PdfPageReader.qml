@@ -1,6 +1,7 @@
 import QtQuick
 import QtQuick.Controls
 import QtQuick.Pdf
+import QtQuick.Shapes
 import "../style"
 
 Item {
@@ -173,18 +174,28 @@ Item {
                     horizontalAlignment: Text.AlignHCenter
                 }
 
-                Rectangle {
+                Shape {
+                    id: wordUnderline
                     visible: pageArea.hoverWord !== null
                     x: pageArea.hoverWord ? pageArea.hoverWord.x * pageArea.pageScale : 0
                     y: pageArea.hoverWord
-                        ? (pageArea.hoverWord.y + pageArea.hoverWord.height) * pageArea.pageScale
+                        ? (pageArea.hoverWord.y + pageArea.hoverWord.height) * pageArea.pageScale + 4
                         : 0
                     width: pageArea.hoverWord
                         ? pageArea.hoverWord.width * pageArea.pageScale
                         : 0
                     height: 2
-                    color: Theme.foreground
-                    opacity: 0.45
+
+                    ShapePath {
+                        strokeColor: Theme.foreground
+                        strokeWidth: 2
+                        strokeStyle: ShapePath.DashLine
+                        dashPattern: [1, 1]
+                        capStyle: ShapePath.FlatCap
+                        fillColor: "transparent"
+                        startY: 1
+                        PathLine { x: wordUnderline.width; y: 1 }
+                    }
                 }
 
                 HoverHandler {

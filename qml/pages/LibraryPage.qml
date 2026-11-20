@@ -252,7 +252,7 @@ Item {
                     id: textShelf
                     Layout.fillWidth: true
                     visible: root.searching ? count > 0 : !root.libraryEmpty
-                    title: "Text materials"
+                    title: "Texts"
                     model: root.matchingDocuments
                     cardsPerView: 5.2
                     minimumCardWidth: 150

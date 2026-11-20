@@ -137,7 +137,7 @@ ItemDelegate {
                 AppText {
                     id: badge
                     anchors.centerIn: parent
-                    text: "TEXT"
+                    text: card.item.pdf ? "PDF" : "TEXT"
                     font.pixelSize: 10
                     font.weight: Font.DemiBold
                     font.letterSpacing: 0.8
@@ -265,6 +265,12 @@ ItemDelegate {
             color: Theme.mutedForeground
             font.pixelSize: 12
             elide: Text.ElideRight
+        }
+
+        // Absorb the height a one-line title leaves unused, keeping the cover
+        // and title pinned to the top of the fixed-height row.
+        Item {
+            Layout.fillHeight: true
         }
     }
 

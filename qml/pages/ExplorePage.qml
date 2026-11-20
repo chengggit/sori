@@ -303,7 +303,7 @@ Item {
                 enabled: YouTube.configured
                 Layout.fillWidth: true
                 Layout.maximumWidth: 520
-                placeholderText: "Search YouTube for Korean videos"
+                placeholderText: "Search YouTube"
                 iconName: "search"
                 onAccepted: root.browse(text)
             }

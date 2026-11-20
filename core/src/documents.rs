@@ -7,17 +7,22 @@ pub const MAX_TEXT_BYTES: usize = 2 * 1024 * 1024;
 pub struct LibraryItem {
     pub id: i64,
     pub title: String,
+    pub pdf: bool,
 }
 
 pub fn list(database: &Connection) -> Result<Vec<LibraryItem>, String> {
     let mut statement = database
-        .prepare("SELECT id, title FROM documents ORDER BY id DESC")
+        .prepare(
+            "SELECT id, title, pdf_path IS NOT NULL AND pdf_path <> '' \
+             FROM documents ORDER BY id DESC",
+        )
         .map_err(|error| error.to_string())?;
     let rows = statement
         .query_map([], |row| {
             Ok(LibraryItem {
                 id: row.get(0)?,
                 title: row.get(1)?,
+                pdf: row.get(2)?,
             })
         })
         .map_err(|error| error.to_string())?;
@@ -212,6 +217,7 @@ mod tests {
         let id = import_pdf(&database, "책.pdf", "첫 문단\n\n둘째 문단").unwrap();
         assert_eq!(list(&database).unwrap()[0].id, id);
         assert_eq!(list(&database).unwrap()[0].title, "책");
+        assert!(!list(&database).unwrap()[0].pdf);
         assert_eq!(read(&database, id).unwrap(), "첫 문단\n\n둘째 문단");
         assert_eq!(
             import_pdf(&database, "책.pdf", "첫 문단\n\n둘째 문단").unwrap(),
@@ -223,8 +229,10 @@ mod tests {
             read_pdf_path(&database, id).unwrap().as_deref(),
             Some("/tmp/책.pdf")
         );
+        assert!(list(&database).unwrap()[0].pdf);
         set_pdf_path(&database, id, None).unwrap();
         assert_eq!(read_pdf_path(&database, id).unwrap(), None);
+        assert!(!list(&database).unwrap()[0].pdf);
 
         let scanned = import_pdf(&database, "스캔.pdf", "").unwrap();
         assert_eq!(read(&database, scanned).unwrap(), "");

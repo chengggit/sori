@@ -451,7 +451,7 @@ ApplicationWindow {
                     searchVisible: root.page === "home"
                     searchEnabled: YouTube.configured
                     maximumContentWidth: Theme.pageMaxWidth
-                    placeholder: "Search YouTube for Korean videos"
+                    placeholder: "Search YouTube"
                     onBackRequested: root.goBack("library")
                     onSearchAccepted: query => {
                         if (query.trim()) {
