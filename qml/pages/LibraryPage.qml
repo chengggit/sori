@@ -12,18 +12,17 @@ Item {
     required property var renderHost
     property string error: ""
     property var selectedDocument: null
-    readonly property var matchingItems: {
-        const query = search.text.trim().toLowerCase();
-        return Library.documents.map(item => ({
-                    id: item.id,
-                    title: item.title,
-                    video: false
-                })).concat(Library.videos.map(item => ({
-                    id: item.id,
-                    title: item.title,
-                    video: true
-                }))).filter(item => item.title.toLowerCase().includes(query));
-    }
+
+    readonly property string query: search.text.trim().toLowerCase()
+    readonly property bool searching: query !== ""
+    readonly property bool libraryEmpty: Library.documents.length === 0
+        && Library.videos.length === 0
+    readonly property var matchingDocuments: Library.documents.filter(document =>
+        (document.title ?? "").toLowerCase().includes(root.query))
+    readonly property var matchingVideos: Library.videos.filter(video =>
+        ((video.displayTitle ?? "") + " " + (video.title ?? "")).toLowerCase().includes(root.query))
+    readonly property bool nothingMatches: searching && matchingDocuments.length === 0
+        && matchingVideos.length === 0
 
     signal openReaderRequested(real documentId, string title)
     signal openWatchRequested(real videoId)
@@ -42,6 +41,34 @@ Item {
         }
         selectedDocument = document;
         editor.showEditor(false, document.title, result.content);
+    }
+
+    function requestThumbnails() {
+        for (const video of Library.videos) {
+            if (!video.thumbnailUrl)
+                Library.ensureVideoThumbnail(video.id);
+        }
+    }
+
+    function confirmRemoval(item, video) {
+        selectedDocument = {
+            id: item.id,
+            title: video ? (item.displayTitle || item.title) : item.title,
+            video: video
+        };
+        confirmRemovalDialog.open();
+    }
+
+    Component.onCompleted: requestThumbnails()
+    onVisibleChanged: if (visible)
+        requestThumbnails()
+
+    Connections {
+        target: Library
+
+        function onVideosChanged() {
+            root.requestThumbnails();
+        }
     }
 
     DocumentEditor {
@@ -74,7 +101,7 @@ Item {
     }
 
     Dialog {
-        id: confirmRemoval
+        id: confirmRemovalDialog
         parent: Overlay.overlay
         anchors.centerIn: parent
         modal: true
@@ -100,7 +127,7 @@ Item {
                 spacing: 6
 
                 AppText {
-                    text: confirmRemoval.title
+                    text: confirmRemovalDialog.title
                     font.pixelSize: 18
                     font.weight: Font.DemiBold
                 }
@@ -131,7 +158,7 @@ Item {
                     text: "Cancel"
                     variant: "outline"
                     small: true
-                    onClicked: confirmRemoval.close()
+                    onClicked: confirmRemovalDialog.close()
                 }
 
                 AppButton {
@@ -140,16 +167,16 @@ Item {
                     small: true
                     onClicked: {
                         root.error = root.selectedDocument.video ? Library.removeVideo(root.selectedDocument.id) : Library.removeDocument(root.selectedDocument.id);
-                        confirmRemoval.close();
+                        confirmRemovalDialog.close();
                     }
                 }
             }
         }
     }
 
-    ColumnLayout {
-        anchors.fill: parent
-        anchors.margins: 28
+    PageFrame {
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
         spacing: 16
 
         RowLayout {
@@ -187,64 +214,54 @@ Item {
             wrapMode: Text.Wrap
         }
 
-        ListView {
-            id: documents
+        ScrollView {
+            id: scroller
             Layout.fillWidth: true
             Layout.fillHeight: true
-            visible: count > 0
+            visible: !root.libraryEmpty && !root.nothingMatches
+            contentWidth: availableWidth
             clip: true
-            spacing: 8
-            model: root.matchingItems
             ScrollBar.vertical: AppScrollBar {}
 
-            delegate: Rectangle {
-                id: row
-                required property var modelData
-                width: ListView.view.width
-                height: 58
-                radius: Theme.radiusSmall
-                color: Theme.card
-                border.color: Theme.border
+            ColumnLayout {
+                width: scroller.availableWidth
+                spacing: Theme.dashboardRowGap
 
-                TapHandler {
-                    onTapped: row.modelData.video ? root.openWatchRequested(row.modelData.id) : root.openReaderRequested(row.modelData.id, row.modelData.title)
+                MediaShelf {
+                    id: textShelf
+                    Layout.fillWidth: true
+                    visible: root.searching ? count > 0 : !root.libraryEmpty
+                    title: "Text materials"
+                    model: root.matchingDocuments
+                    cardsPerView: 5.2
+                    minimumCardWidth: 150
+                    maximumCardWidth: 220
+                    coverRatio: 0.75
+                    emptyText: "No text yet"
+                    emptyActionText: "Import text"
+                    onOpenRequested: item => root.openReaderRequested(item.id, item.title)
+                    onEditRequested: item => root.editDocument(item)
+                    onRemoveRequested: item => root.confirmRemoval(item, false)
+                    onEmptyActionRequested: root.importText()
                 }
 
-                HoverHandler {
-                    cursorShape: Qt.PointingHandCursor
-                }
-
-                RowLayout {
-                    anchors.fill: parent
-                    anchors.leftMargin: 14
-                    anchors.rightMargin: 14
-                    spacing: 10
-
-                    Icon {
-                        name: row.modelData.video ? "film" : "file-text"
-                        color: Theme.accent
-                    }
-                    AppText {
-                        Layout.fillWidth: true
-                        text: row.modelData.title
-                        elide: Text.ElideRight
-                    }
-                    AppButton {
-                        text: "Edit"
-                        visible: !row.modelData.video
-                        variant: "ghost"
-                        small: true
-                        onClicked: root.editDocument(row.modelData)
-                    }
-                    AppButton {
-                        text: row.modelData.video ? "Remove" : "Delete"
-                        variant: "ghost"
-                        small: true
-                        onClicked: {
-                            root.selectedDocument = row.modelData;
-                            confirmRemoval.open();
-                        }
-                    }
+                MediaShelf {
+                    id: videoShelf
+                    Layout.fillWidth: true
+                    visible: root.searching ? count > 0 : !root.libraryEmpty
+                    title: "Videos"
+                    model: root.matchingVideos
+                    video: true
+                    cardsPerView: 3.2
+                    minimumCardWidth: 220
+                    maximumCardWidth: 340
+                    coverRatio: 16 / 9
+                    showMeta: true
+                    emptyText: "No videos yet"
+                    emptyActionText: "Import video"
+                    onOpenRequested: item => root.openWatchRequested(item.id)
+                    onRemoveRequested: item => root.confirmRemoval(item, true)
+                    onEmptyActionRequested: root.importVideoRequested()
                 }
             }
         }
@@ -253,16 +270,16 @@ Item {
             Layout.fillWidth: true
             Layout.preferredHeight: 288
             Layout.alignment: Qt.AlignTop
-            visible: documents.count === 0 && Library.error === ""
+            visible: root.libraryEmpty || root.nothingMatches
             iconName: "library"
-            title: search.text.trim() ? "No matching items" : "Your library is empty"
-            message: search.text.trim() ? "" : "Import a video, a .txt file, or pasted Korean text."
-            actionText: search.text.trim() ? "" : "Import text"
+            title: root.nothingMatches ? "No matching items" : "Your library is empty"
+            message: root.nothingMatches ? "" : "Import a video, a .txt file, or pasted Korean text."
+            actionText: root.nothingMatches ? "" : "Import text"
             onActionRequested: root.importText()
         }
 
         Item {
-            visible: documents.count === 0
+            visible: root.libraryEmpty || root.nothingMatches
             Layout.fillHeight: true
         }
     }

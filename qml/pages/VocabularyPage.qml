@@ -74,9 +74,9 @@ Item {
         onAccepted: root.error = Library.removeWord(root.selectedEntry.id)
     }
 
-    ColumnLayout {
-        anchors.fill: parent
-        anchors.margins: 28
+    PageFrame {
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
         spacing: 16
 
         AppInput {
