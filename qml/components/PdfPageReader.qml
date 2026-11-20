@@ -13,7 +13,7 @@ Item {
     property real restorePosition: 0
     property real position: 0
     property int currentPage: 0
-    readonly property int pageCount: document.pageCount
+    readonly property int pageCount: pdfDocument.pageCount
     property bool restoring: false
     property var pageCache: ({})
 
@@ -23,7 +23,7 @@ Item {
     signal wordRequested(string text, int start, int end)
 
     function pageAspect(index) {
-        const size = document.pagePointSize(index)
+        const size = pdfDocument.pagePointSize(index)
         return size.width > 0 ? size.height / size.width : 1.4
     }
 
@@ -41,7 +41,7 @@ Item {
 
     function wordAt(index, x, y) {
         const data = ensurePageData(index)
-        const size = document.pagePointSize(index)
+        const size = pdfDocument.pagePointSize(index)
         if (size.width <= 0)
             return null
         const scale = root.pageWidth / size.width
@@ -56,20 +56,20 @@ Item {
     }
 
     function updatePosition() {
-        if (restoring || document.pageCount === 0)
+        if (restoring || pdfDocument.pageCount === 0)
             return
-        const page = Math.max(0, Math.min(document.pageCount - 1,
+        const page = Math.max(0, Math.min(pdfDocument.pageCount - 1,
             view.indexAt(0, view.contentY + 1)))
         currentPage = page
-        position = document.pageCount > 1 ? page / (document.pageCount - 1) : 0
+        position = pdfDocument.pageCount > 1 ? page / (pdfDocument.pageCount - 1) : 0
     }
 
     function restoreProgress() {
-        if (document.status !== PdfDocument.Ready || document.pageCount === 0 || restoring)
+        if (pdfDocument.status !== PdfDocument.Ready || pdfDocument.pageCount === 0 || restoring)
             return
         restoring = true
         const page = Math.round(Math.max(0, Math.min(1, restorePosition))
-            * (document.pageCount - 1))
+            * (pdfDocument.pageCount - 1))
         view.positionViewAtIndex(page, ListView.Beginning)
         Qt.callLater(() => {
             root.restoring = false
@@ -94,7 +94,7 @@ Item {
     onRestorePositionChanged: restoreProgress()
 
     PdfDocument {
-        id: document
+        id: pdfDocument
         source: root.pdfUrl
         onStatusChanged: function(status) {
             if (status === PdfDocument.Ready)
@@ -106,9 +106,9 @@ Item {
         id: view
         objectName: "pdfView"
         anchors.fill: parent
-        visible: document.status === PdfDocument.Ready
+        visible: pdfDocument.status === PdfDocument.Ready
         clip: true
-        model: document.pageCount
+        model: pdfDocument.pageCount
         spacing: root.pageGap
         boundsBehavior: Flickable.StopAtBounds
         cacheBuffer: height
@@ -132,21 +132,45 @@ Item {
                 height: root.pageWidth * pageItem.aspect
                 property var hoverWord: null
                 readonly property real pageScale: root.pageWidth
-                    / Math.max(1, document.pagePointSize(pageItem.index).width)
+                    / Math.max(1, pdfDocument.pagePointSize(pageItem.index).width)
+
+                Rectangle {
+                    anchors.fill: parent
+                    color: "white"
+                }
 
                 PdfPageImage {
-                    anchors.fill: parent
-                    document: document
+                    id: pageImage
+                    width: pageArea.width
+                    height: pageArea.height
+                    document: pdfDocument
                     currentFrame: pageItem.index
                     asynchronous: true
                     fillMode: Image.PreserveAspectFit
                     sourceSize.width: Math.max(1,
-                        Math.round(root.pageWidth * Screen.devicePixelRatio))
+                        Math.round(pageArea.width * (Screen.devicePixelRatio || 1)))
                     sourceSize.height: 0
                     onStatusChanged: function(status) {
                         if (status === Image.Ready)
                             root.ensurePageData(pageItem.index)
                     }
+                }
+
+                AppText {
+                    anchors.centerIn: parent
+                    visible: pageImage.status === Image.Loading || pageImage.status === Image.Null
+                    text: "Rendering page…"
+                    color: Theme.mutedForeground
+                }
+
+                AppText {
+                    anchors.centerIn: parent
+                    width: Math.min(parent.width - 24, 320)
+                    visible: pageImage.status === Image.Error
+                    text: "Could not render this page."
+                    color: Theme.destructive
+                    wrapMode: Text.Wrap
+                    horizontalAlignment: Text.AlignHCenter
                 }
 
                 Rectangle {
@@ -188,7 +212,7 @@ Item {
 
     AppText {
         anchors.centerIn: parent
-        visible: document.status === PdfDocument.Loading
+        visible: pdfDocument.status === PdfDocument.Loading
         text: "Loading PDF…"
         color: Theme.mutedForeground
     }
@@ -196,8 +220,8 @@ Item {
     AppText {
         anchors.centerIn: parent
         width: Math.min(parent.width - 2 * Theme.readerPadding, 420)
-        visible: document.status === PdfDocument.Error
-        text: document.error || "Could not open this PDF."
+        visible: pdfDocument.status === PdfDocument.Error
+        text: pdfDocument.error || "Could not open this PDF."
         color: Theme.destructive
         wrapMode: Text.Wrap
         horizontalAlignment: Text.AlignHCenter
