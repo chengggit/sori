@@ -38,6 +38,13 @@ impl Database {
             .unwrap_or_else(|| Path::new("."))
             .join("thumbnails")
     }
+
+    pub fn pdf_directory(&self) -> PathBuf {
+        self.path
+            .parent()
+            .unwrap_or_else(|| Path::new("."))
+            .join("pdfs")
+    }
 }
 
 fn initialize_schema(connection: &mut Connection) -> Result<(), String> {
@@ -61,6 +68,11 @@ fn initialize_schema(connection: &mut Connection) -> Result<(), String> {
                 )
                 .map_err(|error| error.to_string())?;
         }
+    }
+    if !has_column(&transaction, "documents", "pdf_path")? {
+        transaction
+            .execute("ALTER TABLE documents ADD COLUMN pdf_path TEXT", [])
+            .map_err(|error| error.to_string())?;
     }
     transaction.commit().map_err(|error| error.to_string())
 }
@@ -92,6 +104,7 @@ mod tests {
         ).unwrap();
         initialize_schema(&mut connection).unwrap();
         initialize_schema(&mut connection).unwrap();
+        assert!(has_column(&connection, "documents", "pdf_path").unwrap());
         let document: (i64, String, String) = connection
             .query_row("SELECT id, title, content FROM documents", [], |row| {
                 Ok((row.get(0)?, row.get(1)?, row.get(2)?))
@@ -160,6 +173,7 @@ mod tests {
                 .as_nanos()
         ));
         let database = Database::initialize(directory.clone()).unwrap();
+        assert_eq!(database.pdf_directory(), directory.join("pdfs"));
         {
             let connection = database.connect().unwrap();
             crate::documents::import(&connection, "한국어.txt", "안녕하세요".as_bytes()).unwrap();

@@ -14,6 +14,7 @@ ApplicationWindow {
 
     property bool youtubeEmbeddingAvailable: false
     required property var renderHost
+    required property var pdfText
     required property string dataDirectory
     required property string kiwiDirectory
     required property string startupPath
@@ -461,6 +462,7 @@ ApplicationWindow {
                 ReaderPage {
                     id: readerPage
                     renderHost: root.renderHost
+                    pdfText: root.pdfText
                     active: root.page === "reader"
                 }
                 VocabularyPage {}

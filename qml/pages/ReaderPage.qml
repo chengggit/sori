@@ -12,10 +12,14 @@ Item {
 
     required property bool active
     required property var renderHost
+    required property var pdfText
     property real documentId: 0
     property string documentTitle: "Reader"
     property string documentError: ""
     property string progressError: ""
+    property string pdfPath: ""
+    readonly property string pdfUrl: pdfPath ? renderHost.localUrl(pdfPath) : ""
+    property bool pageMode: false
     property real restorePosition: 0
     property bool restoring: false
     property bool progressPending: false
@@ -46,12 +50,12 @@ Item {
     }
 
     function queueTokenization() {
-        if (active && !restoring && !documentError && passage.text)
+        if (active && !pageMode && !restoring && !documentError && passage.text)
             tokenizeDelay.restart()
     }
 
     function tokenizeVisiblePassage() {
-        if (!active || !passage.text)
+        if (!active || pageMode || !passage.text)
             return
         if (passageRequest) {
             tokenizationQueued = true
@@ -100,6 +104,8 @@ Item {
         documentTitle = title
         documentError = document.error || ""
         progressError = ""
+        pdfPath = document.pdfPath || ""
+        pageMode = pdfPath !== ""
         restorePosition = document.position ?? 0
         passage.text = document.content ?? ""
         renderHost.setReadingLineHeight(passage.textDocument, Theme.readerLineHeight)
@@ -113,6 +119,10 @@ Item {
     }
 
     function dismissAnalysis() {
+        if (root.pageMode) {
+            analysis.close()
+            return
+        }
         const position = passage.positionAt(0, Math.max(0, viewport.contentY - passage.y))
         const offset = passage.positionToRectangle(position).y - viewport.contentY
         analysis.close()
@@ -126,7 +136,8 @@ Item {
     }
 
     function analyzeSelection() {
-        if (!/[\u1100-\u11ff\u3131-\u318e\ua960-\ua97c\uac00-\ud7a3\ud7b0-\ud7fb]/.test(passage.selectedText))
+        if (root.pageMode
+                || !/[\u1100-\u11ff\u3131-\u318e\ua960-\ua97c\uac00-\ud7a3\ud7b0-\ud7fb]/.test(passage.selectedText))
             return
         const position = passage.selectionStart
         const offset = passage.positionToRectangle(position).y - viewport.contentY
@@ -134,12 +145,24 @@ Item {
         Qt.callLater(() => keepTextPosition(position, offset))
     }
 
+    function currentPosition() {
+        if (root.pageMode)
+            return Math.max(0, Math.min(1, pdfPageReader.position))
+        return root.scrollRange
+            ? Math.max(0, Math.min(1, viewport.contentY / root.scrollRange))
+            : 0
+    }
+
     function restoreProgress() {
         if (!root.active || !root.restoring)
             return
-        viewport.contentY = root.restorePosition * root.scrollRange
+        if (root.pageMode) {
+            pdfPageReader.restoreProgress()
+        } else {
+            viewport.contentY = root.restorePosition * root.scrollRange
+            queueTokenization()
+        }
         root.restoring = false
-        queueTokenization()
     }
 
     function flushProgress() {
@@ -149,7 +172,25 @@ Item {
         saveProgress.stop()
         if (root.documentId && !root.restoring)
             root.progressError = Library.saveReadingProgress(root.documentId,
-                root.scrollRange ? Math.max(0, Math.min(1, viewport.contentY / root.scrollRange)) : 0)
+                root.currentPosition())
+    }
+
+    function toggleReaderMode() {
+        if (!root.pdfPath)
+            return
+        const position = root.currentPosition()
+        root.restorePosition = position
+        root.progressPending = true
+        root.flushProgress()
+        root.pageMode = !root.pageMode
+        Qt.callLater(() => {
+            if (root.pageMode) {
+                pdfPageReader.restoreProgress()
+            } else {
+                root.viewport.contentY = position * root.scrollRange
+                root.queueTokenization()
+            }
+        })
     }
 
     onActiveChanged: if (active) Qt.callLater(restoreProgress)
@@ -218,6 +259,34 @@ Item {
         anchors.right: analysis.left
         spacing: 10
 
+        RowLayout {
+            Layout.fillWidth: true
+            visible: root.pdfPath !== ""
+            spacing: 8
+
+            AppText {
+                text: root.pageMode
+                    ? (pdfPageReader.pageCount > 0
+                        ? "Page " + (pdfPageReader.currentPage + 1)
+                            + " / " + pdfPageReader.pageCount
+                        : "PDF")
+                    : "Extracted text"
+                color: Theme.mutedForeground
+                font.pixelSize: 12
+            }
+
+            Item {
+                Layout.fillWidth: true
+            }
+
+            AppButton {
+                text: root.pageMode ? "Text" : "Page"
+                variant: "outline"
+                small: true
+                onClicked: root.toggleReaderMode()
+            }
+        }
+
         AppText {
             Layout.fillWidth: true
             visible: text !== ""
@@ -226,10 +295,39 @@ Item {
             wrapMode: Text.Wrap
         }
 
+        PdfPageReader {
+            id: pdfPageReader
+            objectName: "pdfPageReader"
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            visible: root.pageMode
+            pdfPath: root.pdfPath
+            pdfUrl: root.pdfUrl
+            pdfText: root.pdfText
+            restorePosition: root.restorePosition
+            onWordRequested: (text, start, end) => analysis.lookup(text, start, end)
+            onPositionChanged: {
+                if (root.active && root.documentId && !root.restoring
+                        && !pdfPageReader.restoring && !root.progressPending) {
+                    root.progressPending = true
+                    saveProgress.start()
+                }
+            }
+        }
+
+        AppText {
+            Layout.fillWidth: true
+            visible: !root.pageMode && root.pdfPath !== "" && passage.text === ""
+            text: "This PDF has no extractable text. Use the page view to read it."
+            color: Theme.mutedForeground
+            wrapMode: Text.Wrap
+        }
+
         Flickable {
             id: viewport
             Layout.fillWidth: true
             Layout.fillHeight: true
+            visible: !root.pageMode
             clip: true
             contentWidth: width
             contentHeight: passage.implicitHeight + 2 * Theme.readerPadding
@@ -237,6 +335,8 @@ Item {
             onWidthChanged: root.queueTokenization()
             onHeightChanged: root.queueTokenization()
             onContentYChanged: {
+                if (root.pageMode)
+                    return
                 root.queueTokenization()
                 if (root.active && root.documentId && !root.restoring
                         && !root.documentError && !root.progressPending) {

@@ -148,8 +148,18 @@ impl Library {
 
     #[qslot]
     fn remove_document(&mut self, id: i64) -> String {
+        let pdf_path = self
+            .connection()
+            .ok()
+            .and_then(|connection| documents::read_pdf_path(&connection, id).ok().flatten());
         let error = self.change(|connection| documents::remove(connection, id));
         if error.is_empty() {
+            if let (Some(database), Some(path)) = (&self.database, pdf_path) {
+                let path = Path::new(&path);
+                if path.starts_with(database.pdf_directory()) {
+                    let _ = std::fs::remove_file(path);
+                }
+            }
             self.refresh_vocabulary();
         }
         error
@@ -161,6 +171,7 @@ impl Library {
             let connection = self.connection()?;
             Ok(json!({
                 "content": documents::read(&connection, id)?,
+                "pdfPath": documents::read_pdf_path(&connection, id)?,
                 "position": progress::read(&connection, id)?,
             }))
         };
@@ -566,7 +577,18 @@ fn import_document_file(database: &Database, path: &Path) -> Result<(), String> 
     let connection = database.connect()?;
     if extension.eq_ignore_ascii_case("pdf") {
         let content = crate::pdf::extract(path)?;
-        documents::import_pdf(&connection, filename, &content)
+        let id = documents::import_pdf(&connection, filename, &content)?;
+        let directory = database.pdf_directory();
+        std::fs::create_dir_all(&directory)
+            .map_err(|error| format!("Could not save this PDF: {error}"))?;
+        let target = directory.join(format!("{id}.pdf"));
+        if path != target.as_path() {
+            std::fs::copy(path, &target)
+                .map_err(|error| format!("Could not save this PDF: {error}"))?;
+        }
+        let target = target.to_string_lossy().into_owned();
+        documents::set_pdf_path(&connection, id, Some(target.as_str()))?;
+        Ok(())
     } else if extension.eq_ignore_ascii_case("txt") {
         let file = std::fs::File::open(path).map_err(|error| error.to_string())?;
         let mut bytes = Vec::new();

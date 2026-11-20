@@ -40,10 +40,10 @@ pub fn import(database: &Connection, filename: &str, bytes: &[u8]) -> Result<(),
         return Err("This text file is empty.".into());
     }
 
-    insert(database, title, content)
+    insert(database, title, content).map(|_| ())
 }
 
-pub fn import_pdf(database: &Connection, filename: &str, content: &str) -> Result<(), String> {
+pub fn import_pdf(database: &Connection, filename: &str, content: &str) -> Result<i64, String> {
     let (title, extension) = filename
         .rsplit_once('.')
         .ok_or("Choose a .txt or .pdf file.")?;
@@ -51,16 +51,13 @@ pub fn import_pdf(database: &Connection, filename: &str, content: &str) -> Resul
     if title.is_empty() || !extension.eq_ignore_ascii_case("pdf") {
         return Err("Choose a .txt or .pdf file.".into());
     }
-    if content.trim().is_empty() {
-        return Err("This PDF has no extractable text. Scanned PDFs are not supported.".into());
-    }
     if content.len() > MAX_TEXT_BYTES {
         return Err("This PDF contains too much text.".into());
     }
     insert(database, title, content)
 }
 
-fn insert(database: &Connection, title: &str, content: &str) -> Result<(), String> {
+fn insert(database: &Connection, title: &str, content: &str) -> Result<i64, String> {
     database
         .execute(
             "INSERT INTO documents (title, content)
@@ -70,6 +67,35 @@ fn insert(database: &Connection, title: &str, content: &str) -> Result<(), Strin
             params![title, content],
         )
         .map_err(|error| error.to_string())?;
+    database
+        .query_row(
+            "SELECT id FROM documents WHERE title = ?1 AND content = ?2 ORDER BY id LIMIT 1",
+            params![title, content],
+            |row| row.get(0),
+        )
+        .map_err(|error| error.to_string())
+}
+
+pub fn read_pdf_path(database: &Connection, id: i64) -> Result<Option<String>, String> {
+    database
+        .query_row("SELECT pdf_path FROM documents WHERE id = ?1", [id], |row| {
+            row.get(0)
+        })
+        .optional()
+        .map_err(|error| error.to_string())
+        .map(|path| path.flatten())
+}
+
+pub fn set_pdf_path(database: &Connection, id: i64, path: Option<&str>) -> Result<(), String> {
+    let changed = database
+        .execute(
+            "UPDATE documents SET pdf_path = ?2 WHERE id = ?1",
+            params![id, path],
+        )
+        .map_err(|error| error.to_string())?;
+    if changed == 0 {
+        return Err("Document not found.".into());
+    }
     Ok(())
 }
 
@@ -181,19 +207,29 @@ mod tests {
     }
 
     #[test]
-    fn imports_pdf_text_and_rejects_invalid_pdf_text() {
+    fn imports_pdf_text_and_validates_pdf_input() {
         let database = database();
-        import_pdf(&database, "책.pdf", "첫 문단\n\n둘째 문단").unwrap();
-        let items = list(&database).unwrap();
-        assert_eq!(items[0].title, "책");
+        let id = import_pdf(&database, "책.pdf", "첫 문단\n\n둘째 문단").unwrap();
+        assert_eq!(list(&database).unwrap()[0].id, id);
+        assert_eq!(list(&database).unwrap()[0].title, "책");
+        assert_eq!(read(&database, id).unwrap(), "첫 문단\n\n둘째 문단");
         assert_eq!(
-            read(&database, items[0].id).unwrap(),
-            "첫 문단\n\n둘째 문단"
+            import_pdf(&database, "책.pdf", "첫 문단\n\n둘째 문단").unwrap(),
+            id
         );
+
+        set_pdf_path(&database, id, Some("/tmp/책.pdf")).unwrap();
         assert_eq!(
-            import_pdf(&database, "책.pdf", "  \n").unwrap_err(),
-            "This PDF has no extractable text. Scanned PDFs are not supported."
+            read_pdf_path(&database, id).unwrap().as_deref(),
+            Some("/tmp/책.pdf")
         );
+        set_pdf_path(&database, id, None).unwrap();
+        assert_eq!(read_pdf_path(&database, id).unwrap(), None);
+
+        let scanned = import_pdf(&database, "스캔.pdf", "").unwrap();
+        assert_eq!(read(&database, scanned).unwrap(), "");
+        assert_eq!(list(&database).unwrap().len(), 2);
+
         assert_eq!(
             import_pdf(&database, "책.txt", "본문").unwrap_err(),
             "Choose a .txt or .pdf file."
@@ -203,7 +239,6 @@ mod tests {
             import_pdf(&database, "큰책.pdf", &oversized).unwrap_err(),
             "This PDF contains too much text."
         );
-        assert_eq!(list(&database).unwrap().len(), 1);
     }
 
     #[test]

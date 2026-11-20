@@ -646,7 +646,7 @@ mod tests {
         let second = save(&database, another_context).unwrap();
         database
             .execute(
-                "INSERT INTO documents VALUES (2, '다른 책', '학교에 갔어요.')",
+                "INSERT INTO documents (id, title, content) VALUES (2, '다른 책', '학교에 갔어요.')",
                 [],
             )
             .unwrap();

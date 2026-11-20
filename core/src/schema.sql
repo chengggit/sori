@@ -8,7 +8,8 @@ CREATE TABLE IF NOT EXISTS app_settings (
 CREATE TABLE IF NOT EXISTS documents (
     id INTEGER PRIMARY KEY,
     title TEXT NOT NULL,
-    content TEXT NOT NULL
+    content TEXT NOT NULL,
+    pdf_path TEXT
 );
 
 CREATE TABLE IF NOT EXISTS vocabulary (
