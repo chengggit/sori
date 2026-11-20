@@ -354,7 +354,7 @@ Item {
                 width: Math.max(0, Math.min(viewport.width - 2 * Theme.readerPadding, Theme.readerTextWidth))
                 padding: 0
                 readOnly: true
-                renderType: TextEdit.NativeRendering
+                renderType: TextEdit.QtRendering
                 selectByMouse: true
                 textFormat: TextEdit.PlainText
                 wrapMode: TextEdit.Wrap

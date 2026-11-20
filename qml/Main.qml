@@ -31,6 +31,8 @@ ApplicationWindow {
         : page === "history" ? "History" : "Home"
 
     property string page: "home"
+    // Browser-style zoom levels, from smallest to largest.
+    readonly property var pageScaleLevels: [0.5, 0.67, 0.75, 0.8, 0.9, 1, 1.1, 1.25, 1.5]
     property bool sidebarExpanded: true
     property bool controlsAwake: true
     property bool captionsVisible: true
@@ -87,6 +89,21 @@ ApplicationWindow {
             watchPage.closeAnalysis()
         }
         page = nextPage
+    }
+
+    function zoomPage(direction) {
+        const levels = pageScaleLevels
+        if (direction > 0) {
+            const next = levels.find(level => level > Theme.pageScale + 0.001)
+            Theme.setPageScale(next ?? levels[levels.length - 1])
+        } else {
+            const smaller = levels.filter(level => level < Theme.pageScale - 0.001)
+            Theme.setPageScale(smaller.length ? smaller[smaller.length - 1] : levels[0])
+        }
+    }
+
+    function resetPageScale() {
+        Theme.setPageScale(1)
     }
 
     function wakeControls() {
@@ -354,6 +371,18 @@ ApplicationWindow {
         enabled: !root.fullScreen && !settingsSheet.visible
         onActivated: root.sidebarExpanded = !root.sidebarExpanded
     }
+    Shortcut {
+        sequences: ["Ctrl+Shift+=", "Ctrl+=", "Ctrl++"]
+        onActivated: root.zoomPage(1)
+    }
+    Shortcut {
+        sequences: ["Ctrl+Shift+-", "Ctrl+-"]
+        onActivated: root.zoomPage(-1)
+    }
+    Shortcut {
+        sequence: "Ctrl+0"
+        onActivated: root.resetPageScale()
+    }
 
     FileDialog {
         id: videoPicker
@@ -375,148 +404,159 @@ ApplicationWindow {
         onAccepted: watchPage.attachTranscript(root.renderHost.localPath(selectedFile))
     }
 
-    Rectangle {
-        anchors.fill: parent
-        color: root.fullScreen ? "#000000" : Theme.background
-    }
-
-    AppSidebar {
-        id: sidebar
-        objectName: "appSidebar"
-        visible: !root.fullScreen
-        width: implicitWidth
-        height: parent.height
-        currentPage: root.page === "reader" ? "library" : root.page
-        expanded: root.sidebarExpanded
-        onToggleRequested: root.sidebarExpanded = !root.sidebarExpanded
-        onPageRequested: pageName => root.navigate(pageName)
-        onSettingsRequested: settingsSheet.open()
-    }
-
+    // Page zoom shrinks the logical viewport and scales the rendered result, so
+    // layouts reflow exactly as they would in a narrower window.
     Item {
-        id: content
-        anchors.left: root.fullScreen ? parent.left : sidebar.right
-        anchors.right: parent.right
-        anchors.top: parent.top
-        anchors.bottom: parent.bottom
+        id: viewport
+        objectName: "zoomViewport"
+        width: root.width / Theme.pageScale
+        height: root.height / Theme.pageScale
+        scale: Theme.pageScale
+        transformOrigin: Item.TopLeft
 
-        ColumnLayout {
+        Rectangle {
             anchors.fill: parent
-            spacing: 0
-            visible: !root.fullScreen && root.page !== "watch"
+            color: root.fullScreen ? "#000000" : Theme.background
+        }
 
-            PageHeader {
-                Layout.fillWidth: true
-                title: root.page === "reader" ? readerPage.documentTitle : root.pageTitle
-                backLabel: root.page === "reader" ? "Library" : ""
-                searchVisible: root.page === "home"
-                searchEnabled: YouTube.configured
-                maximumContentWidth: Theme.pageMaxWidth
-                placeholder: "Search YouTube for Korean videos"
-                onBackRequested: root.goBack("library")
-                onSearchAccepted: query => {
-                    if (query.trim()) {
-                        root.navigate("explore")
-                        explorePage.browse(query)
-                    }
-                }
-            }
-
-            StackLayout {
-                Layout.fillWidth: true
-                Layout.fillHeight: true
-                currentIndex: {
-                    switch (root.page) {
-                    case "home": return 0
-                    case "explore": return 1
-                    case "library": return 2
-                    case "reader": return 3
-                    case "vocabulary": return 4
-                    case "history": return 5
-                    default: return 0
-                    }
-                }
-
-                HomePage {
-                    id: homePage
-                    searchCache: youtubeSearchCache
-                    onOpenYouTubeRequested: (url, title, channel) => root.openYouTube(url, title, channel)
-                    onOpenLibraryRequested: root.navigate("library")
-                    onOpenVideoRequested: videoPicker.open()
-                    onResumeVideoRequested: entry => homePage.resumeError = root.openHistoryVideo(entry)
-                }
-                ExplorePage {
-                    id: explorePage
-                    searchCache: youtubeSearchCache
-                    onOpenYouTubeRequested: (url, title, channel) => root.openYouTube(url, title, channel)
-                }
-                LibraryPage {
-                    renderHost: root.renderHost
-                    onOpenReaderRequested: (id, title) => {
-                        readerPage.openDocument(id, title)
-                        root.navigate("reader")
-                    }
-                    onOpenWatchRequested: id => error = root.openSavedVideo(id)
-                    onImportVideoRequested: videoPicker.open()
-                }
-                ReaderPage {
-                    id: readerPage
-                    renderHost: root.renderHost
-                    pdfText: root.pdfText
-                    active: root.page === "reader"
-                }
-                VocabularyPage {}
-                HistoryPage {
-                    onOpenExploreRequested: root.navigate("explore")
-                    onOpenWatchRequested: entry => error = root.openHistoryVideo(entry)
-                }
-            }
+        AppSidebar {
+            id: sidebar
+            objectName: "appSidebar"
+            visible: !root.fullScreen
+            width: implicitWidth
+            height: parent.height
+            currentPage: root.page === "reader" ? "library" : root.page
+            expanded: root.sidebarExpanded
+            onToggleRequested: root.sidebarExpanded = !root.sidebarExpanded
+            onPageRequested: pageName => root.navigate(pageName)
+            onSettingsRequested: settingsSheet.open()
         }
 
         Item {
-            anchors.fill: parent
-            visible: root.page === "watch"
+            id: content
+            anchors.left: root.fullScreen ? parent.left : sidebar.right
+            anchors.right: parent.right
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
 
-            Rectangle {
+            ColumnLayout {
                 anchors.fill: parent
-                color: root.fullScreen ? "#000000" : Theme.background
-            }
+                spacing: 0
+                visible: !root.fullScreen && root.page !== "watch"
 
-            WatchPage {
-                id: watchPage
-                anchors.fill: parent
-                player: root.player
-                subtitles: root.subtitles
-                renderHost: root.renderHost
-                fullScreen: root.fullScreen
-                controlsAwake: root.controlsAwake
-                captionsVisible: root.captionsVisible
-                libraryError: root.videoError
-                visible: !root.currentVideo?.youtubeId
-                videoId: root.currentVideo?.id ?? 0
-                backLabel: root.pageStack[root.pageStack.length - 1] === "library" ? "My Library" : "Back"
-                onWakeControlsRequested: root.wakeControls()
-                onToggleFullscreenRequested: root.toggleFullscreen()
-                onCaptionsToggleRequested: root.captionsVisible = !root.captionsVisible
-                onOpenVideoRequested: videoPicker.open()
-                onOpenSubtitlesRequested: subtitlePicker.open()
-                onOpenTranscriptRequested: transcriptPicker.open()
-                onBackRequested: root.goBack("home")
-            }
-
-            Loader {
-                anchors.fill: parent
-                active: parent.visible && !!root.currentVideo?.youtubeId
-                sourceComponent: YouTubeWatchPage {
-                    video: root.currentVideo
-                    embeddingAvailable: root.youtubeEmbeddingAvailable
-                    renderHost: root.renderHost
-                    onBackRequested: root.goBack("home")
-                    onCheckpoint: (entry, seconds, duration) => {
-                        root.videoError = Library.saveYoutubeProgress(entry.youtubeId, entry.title,
-                                                                      entry.channel, seconds, duration)
+                PageHeader {
+                    Layout.fillWidth: true
+                    title: root.page === "reader" ? readerPage.documentTitle : root.pageTitle
+                    backLabel: root.page === "reader" ? "Library" : ""
+                    searchVisible: root.page === "home"
+                    searchEnabled: YouTube.configured
+                    maximumContentWidth: Theme.pageMaxWidth
+                    placeholder: "Search YouTube for Korean videos"
+                    onBackRequested: root.goBack("library")
+                    onSearchAccepted: query => {
+                        if (query.trim()) {
+                            root.navigate("explore")
+                            explorePage.browse(query)
+                        }
                     }
-                    saveError: root.videoError
+                }
+
+                StackLayout {
+                    Layout.fillWidth: true
+                    Layout.fillHeight: true
+                    currentIndex: {
+                        switch (root.page) {
+                        case "home": return 0
+                        case "explore": return 1
+                        case "library": return 2
+                        case "reader": return 3
+                        case "vocabulary": return 4
+                        case "history": return 5
+                        default: return 0
+                        }
+                    }
+
+                    HomePage {
+                        id: homePage
+                        searchCache: youtubeSearchCache
+                        onOpenYouTubeRequested: (url, title, channel) => root.openYouTube(url, title, channel)
+                        onOpenLibraryRequested: root.navigate("library")
+                        onOpenVideoRequested: videoPicker.open()
+                        onResumeVideoRequested: entry => homePage.resumeError = root.openHistoryVideo(entry)
+                    }
+                    ExplorePage {
+                        id: explorePage
+                        searchCache: youtubeSearchCache
+                        onOpenYouTubeRequested: (url, title, channel) => root.openYouTube(url, title, channel)
+                    }
+                    LibraryPage {
+                        renderHost: root.renderHost
+                        onOpenReaderRequested: (id, title) => {
+                            readerPage.openDocument(id, title)
+                            root.navigate("reader")
+                        }
+                        onOpenWatchRequested: id => error = root.openSavedVideo(id)
+                        onImportVideoRequested: videoPicker.open()
+                    }
+                    ReaderPage {
+                        id: readerPage
+                        renderHost: root.renderHost
+                        pdfText: root.pdfText
+                        active: root.page === "reader"
+                    }
+                    VocabularyPage {}
+                    HistoryPage {
+                        onOpenExploreRequested: root.navigate("explore")
+                        onOpenWatchRequested: entry => error = root.openHistoryVideo(entry)
+                    }
+                }
+            }
+
+            Item {
+                anchors.fill: parent
+                visible: root.page === "watch"
+
+                Rectangle {
+                    anchors.fill: parent
+                    color: root.fullScreen ? "#000000" : Theme.background
+                }
+
+                WatchPage {
+                    id: watchPage
+                    anchors.fill: parent
+                    player: root.player
+                    subtitles: root.subtitles
+                    renderHost: root.renderHost
+                    fullScreen: root.fullScreen
+                    controlsAwake: root.controlsAwake
+                    captionsVisible: root.captionsVisible
+                    libraryError: root.videoError
+                    visible: !root.currentVideo?.youtubeId
+                    videoId: root.currentVideo?.id ?? 0
+                    backLabel: root.pageStack[root.pageStack.length - 1] === "library" ? "My Library" : "Back"
+                    onWakeControlsRequested: root.wakeControls()
+                    onToggleFullscreenRequested: root.toggleFullscreen()
+                    onCaptionsToggleRequested: root.captionsVisible = !root.captionsVisible
+                    onOpenVideoRequested: videoPicker.open()
+                    onOpenSubtitlesRequested: subtitlePicker.open()
+                    onOpenTranscriptRequested: transcriptPicker.open()
+                    onBackRequested: root.goBack("home")
+                }
+
+                Loader {
+                    anchors.fill: parent
+                    active: parent.visible && !!root.currentVideo?.youtubeId
+                    sourceComponent: YouTubeWatchPage {
+                        video: root.currentVideo
+                        embeddingAvailable: root.youtubeEmbeddingAvailable
+                        renderHost: root.renderHost
+                        onBackRequested: root.goBack("home")
+                        onCheckpoint: (entry, seconds, duration) => {
+                            root.videoError = Library.saveYoutubeProgress(entry.youtubeId, entry.title,
+                                                                          entry.channel, seconds, duration)
+                        }
+                        saveError: root.videoError
+                    }
                 }
             }
         }
