@@ -160,9 +160,12 @@ Item {
             pdfPageReader.restoreProgress()
         } else {
             viewport.contentY = root.restorePosition * root.scrollRange
-            queueTokenization()
         }
+        // Tokenization must be queued after the restore flag clears, otherwise
+        // queueTokenization() refuses to run and the text stays unclickable.
         root.restoring = false
+        if (!root.pageMode)
+            queueTokenization()
     }
 
     function flushProgress() {
