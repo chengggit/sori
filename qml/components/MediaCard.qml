@@ -137,7 +137,7 @@ ItemDelegate {
                 AppText {
                     id: badge
                     anchors.centerIn: parent
-                    text: "TEXT"
+                    text: card.item.pdf ? "PDF" : "TEXT"
                     font.pixelSize: 10
                     font.weight: Font.DemiBold
                     font.letterSpacing: 0.8
@@ -242,9 +242,10 @@ ItemDelegate {
             id: titleText
             Layout.fillWidth: true
             Layout.topMargin: 8
-            // Reserve only the lines the title actually needs so the metadata
-            // below sits directly under it. Baselines are fixed at 18px.
-            Layout.preferredHeight: Math.max(18, Math.min(36, titleText.implicitHeight))
+            // Always reserve two lines. The shelf's row height assumes this
+            // block, and a shorter block lets the column center vertically,
+            // dropping cards with one-line titles out of alignment.
+            Layout.preferredHeight: 36
             text: card.title
             font.pixelSize: 13
             font.weight: Font.DemiBold
