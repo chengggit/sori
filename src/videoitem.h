@@ -12,6 +12,7 @@ class RenderHost : public QObject
 public:
     RenderHost();
     Q_INVOKABLE QString localPath(const QUrl &url) const { return url.toLocalFile(); }
+    Q_INVOKABLE QString localUrl(const QString &path) const { return QUrl::fromLocalFile(path).toString(); }
     Q_INVOKABLE void checkFrame();
     Q_INVOKABLE void setReadingLineHeight(QQuickTextDocument *document, int pixels);
     void frameRendered();

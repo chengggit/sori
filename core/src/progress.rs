@@ -41,10 +41,10 @@ mod tests {
         database.pragma_update(None, "foreign_keys", true).unwrap();
         database.execute_batch(include_str!("schema.sql")).unwrap();
         database
-            .execute("INSERT INTO documents VALUES (1, '책', '안녕하세요')", [])
+            .execute("INSERT INTO documents (id, title, content) VALUES (1, '책', '안녕하세요')", [])
             .unwrap();
         database
-            .execute("INSERT INTO documents VALUES (2, '다른 책', '한국어')", [])
+            .execute("INSERT INTO documents (id, title, content) VALUES (2, '다른 책', '한국어')", [])
             .unwrap();
         database
     }

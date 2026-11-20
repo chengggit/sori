@@ -18,6 +18,7 @@ The desktop build is currently developed and verified on Linux.
 | pkg-config and libmpv development files | Finding and linking the native player |
 | Qt 6.10 or later | Quick/QML, OpenGL, Test, SVG, and WebEngine Quick |
 | Matching Qt private development headers and qmake | Building the Rust/Qt integration |
+| Qt PDF module (QtPdf/QtPdfQuick) | Rendering PDF pages and text layers |
 | FFmpeg and FFprobe on PATH | Inspecting media and extracting subtitle tracks |
 | Poppler utilities (`pdftotext`) on PATH | Extracting text from imported PDFs |
 | Git | Cloning Sori and fetching its pinned Rust dependencies |
@@ -34,7 +35,7 @@ The package names below match the Fedora 44 development environment:
 ```sh
 sudo dnf install git gcc-c++ make cmake pkgconf-pkg-config mpv-devel \
   qt6-qtbase-devel qt6-qtbase-private-devel qt6-qtdeclarative-devel \
-  qt6-qtsvg qt6-qtwebengine-devel ffmpeg-free poppler-utils
+  qt6-qtsvg qt6-qtwebengine-devel qt6-qtpdf-devel ffmpeg-free poppler-utils
 ```
 
 Install Rust using the official installer. [rustup](https://rustup.rs/)
@@ -249,12 +250,14 @@ TXT attachments also work on YouTube Watch. PDF transcripts are not supported ye
 
 ## Local library
 
-Import UTF-8 text files, PDFs, or paste text in My Library. PDF text is extracted
-locally with `pdftotext` and stored as a normal document of up to 2 MiB, so word
-analysis and reading progress work as they do for text files. PDF layout, images,
-tables, and page breaks are not preserved; scanned PDFs without a text layer are
-not supported. Open a document to read it and resume from its saved scroll
-position. Sori uses the same local SQLite
+Import UTF-8 text files, PDFs, or paste text in My Library. PDFs open in the
+original page view: layout, images, tables, and page breaks are rendered as they
+appear in the PDF, and Korean words with an embedded text layer are clickable for
+analysis and vocabulary saving. Use the **Text** button to switch to locally
+extracted text, which also works as a fallback when the PDF file is unavailable.
+PDF text extraction uses `pdftotext` and is limited to 2 MiB. Scanned PDFs remain
+readable as pages but have no clickable words. Open a document to read it and
+resume from its saved scroll position. Sori uses the same local SQLite
 database as the earlier desktop app, under `com.sori.app/library.sqlite3` in
 your user data directory (`$XDG_DATA_HOME` or `~/.local/share` on Linux).
 

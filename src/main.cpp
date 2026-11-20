@@ -1,3 +1,4 @@
+#include "pdftext.h"
 #include "videoitem.h"
 
 #include <QCommandLineParser>
@@ -63,12 +64,14 @@ int main(int argc, char **argv)
     }
     const MpvLifetime mpv;
     RenderHost renderHost;
+    PdfText pdfText;
     sori_qt_register_models();
     qmlRegisterType<VideoItem>("Sori", 1, 0, "VideoSurface");
     QQmlApplicationEngine engine;
     auto kiwiDirectory = app.applicationDirPath() + QStringLiteral("/kiwi");
     if (!QDir(kiwiDirectory).exists()) kiwiDirectory = QStringLiteral(SORI_KIWI_DIR);
     engine.setInitialProperties({{"renderHost", QVariant::fromValue(&renderHost)},
+                                 {"pdfText", QVariant::fromValue(&pdfText)},
                                  {"dataDirectory", QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation)
                                      + QStringLiteral("/com.sori.app")},
                                  {"kiwiDirectory", kiwiDirectory},

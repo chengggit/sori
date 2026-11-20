@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.21)
 project(Sori LANGUAGES CXX)
 
-find_package(Qt6 6.10 REQUIRED COMPONENTS Quick OpenGL Test)
+find_package(Qt6 6.10 REQUIRED COMPONENTS Quick OpenGL Test Pdf PdfQuick)
 option(SORI_REQUIRE_WEBENGINE "Require embedded YouTube and dictionary support" OFF)
 if(SORI_REQUIRE_WEBENGINE)
     find_package(Qt6 6.10 REQUIRED COMPONENTS WebEngineQuick)
@@ -19,6 +19,7 @@ set(CMAKE_AUTOMOC ON)
 
 add_executable(sori
     src/main.cpp
+    src/pdftext.cpp src/pdftext.h
     src/videoitem.cpp src/videoitem.h
 )
 target_compile_definitions(sori PRIVATE SORI_KIWI_DIR="${CMAKE_CURRENT_SOURCE_DIR}/resources/kiwi")
@@ -69,7 +70,7 @@ add_test(NAME rust
         "${CARGO_EXECUTABLE}" test --locked
         --manifest-path "${CORE_DIR}/Cargo.toml" --target-dir "${CORE_TARGET}"
 )
-target_link_libraries(sori PRIVATE "${CORE_LIB}" Qt6::Quick Qt6::OpenGL Qt6::Test PkgConfig::MPV)
+target_link_libraries(sori PRIVATE "${CORE_LIB}" Qt6::Quick Qt6::OpenGL Qt6::Test Qt6::PdfQuick PkgConfig::MPV)
 if(TARGET Qt6::WebEngineQuick)
     target_link_libraries(sori PRIVATE Qt6::WebEngineQuick)
     target_compile_definitions(sori PRIVATE SORI_WEB_ENGINE)
@@ -96,6 +97,7 @@ qt_add_resources(sori "watch" PREFIX "/" FILES
     qml/components/MediaShelf.qml
     qml/components/PageFrame.qml
     qml/components/PageHeader.qml
+    qml/components/PdfPageReader.qml
     qml/components/VocabularyEditor.qml
     qml/components/VocabularyForm.qml
     qml/components/WordAnalysis.qml
