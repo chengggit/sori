@@ -36,7 +36,7 @@ Item {
         || transcriptAnalysis.opened || fullscreenSidebar.visible
     readonly property real viewingWidth: width - (transcriptAnalysis.visible
         ? transcriptAnalysis.width * transcriptAnalysis.revealProgress : 0)
-    readonly property int textMode: Text.NativeRendering
+    readonly property int textMode: Text.QtRendering
     property real volumeLevel: 100
     property real previousVolumeLevel: 100
     property bool resumeAfterDefinition: false

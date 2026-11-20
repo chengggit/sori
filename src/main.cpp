@@ -54,6 +54,10 @@ int main(int argc, char **argv)
     if (parser.positionalArguments().size() > 1) parser.showHelp(2);
 
     QQuickWindow::setGraphicsApi(QSGRendererInterface::OpenGL);
+    // Distance-field glyphs scale cleanly with the zoom transform. Native text
+    // rasterization looks pixelated there, and GPU curve rendering produced
+    // broken pixels in small glyphs.
+    QQuickWindow::setTextRenderType(QQuickWindow::QtTextRendering);
     QFontDatabase::addApplicationFont(":/assets/Inter-Variable.ttf");
     QFontDatabase::addApplicationFont(":/assets/NotoSansKR-Regular.otf");
 

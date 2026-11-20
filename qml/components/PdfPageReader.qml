@@ -148,7 +148,7 @@ Item {
                     asynchronous: true
                     fillMode: Image.PreserveAspectFit
                     sourceSize.width: Math.max(1,
-                        Math.round(pageArea.width * (Screen.devicePixelRatio || 1)))
+                        Math.round(pageArea.width * Theme.pageScale * (Screen.devicePixelRatio || 1)))
                     sourceSize.height: 0
                     onStatusChanged: function(status) {
                         if (status === Image.Ready)

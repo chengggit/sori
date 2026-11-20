@@ -8,11 +8,22 @@ QtObject {
     readonly property bool dark: preferences.appearance === "dark"
         || (preferences.appearance === "system" && styleHints.colorScheme === Qt.ColorScheme.Dark)
     property alias appearance: preferences.appearance
+    readonly property real minPageScale: 0.5
+    readonly property real maxPageScale: 1.5
+    readonly property real pageScale: {
+        const stored = preferences.pageScale
+        return stored >= minPageScale && stored <= maxPageScale ? stored : 1
+    }
+
+    function setPageScale(value) {
+        preferences.pageScale = Math.max(minPageScale, Math.min(maxPageScale, value))
+    }
 
     property Settings store: Settings {
         id: preferences
         category: "Appearance"
         property string appearance: "system"
+        property real pageScale: 1
     }
 
     // sRGB equivalents of the OKLCH palette in the original Svelte src/routes/layout.css.
