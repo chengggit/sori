@@ -560,7 +560,7 @@ Item {
                                         const edge = wraps ? previous.x
                                             + captionMetrics.advanceWidth(hoverText.text.slice(i - 1, i)) : next.x
                                         segments.push({ x: first.x, y: Math.round(first.y + captionMetrics.ascent
-                                            + captionMetrics.underlinePosition + 1), width: Math.max(0, edge - first.x) })
+                                            + captionMetrics.underlinePosition + 4), width: Math.max(0, edge - first.x) })
                                     }
                                     if (wraps)
                                         first = next
@@ -581,8 +581,8 @@ Item {
                                     strokeColor: hoverText.selectedTextColor
                                     strokeWidth: 2
                                     strokeStyle: ShapePath.DashLine
-                                    dashPattern: [0.5, 1.8]
-                                    capStyle: ShapePath.RoundCap
+                                    dashPattern: [1, 1]
+                                    capStyle: ShapePath.FlatCap
                                     fillColor: "transparent"
                                     startY: 1
                                     PathLine { x: underline.width; y: 1 }

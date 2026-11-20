@@ -136,7 +136,7 @@ Rectangle {
                                 left: first.x,
                                 right: edge,
                                 y: Math.round(first.y + passageMetrics.ascent
-                                              + passageMetrics.underlinePosition + 2)
+                                              + passageMetrics.underlinePosition + 4)
                             })
                         }
                         if (wraps)
