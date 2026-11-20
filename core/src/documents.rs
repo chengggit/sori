@@ -40,6 +40,27 @@ pub fn import(database: &Connection, filename: &str, bytes: &[u8]) -> Result<(),
         return Err("This text file is empty.".into());
     }
 
+    insert(database, title, content)
+}
+
+pub fn import_pdf(database: &Connection, filename: &str, content: &str) -> Result<(), String> {
+    let (title, extension) = filename
+        .rsplit_once('.')
+        .ok_or("Choose a .txt or .pdf file.")?;
+    let title = title.trim();
+    if title.is_empty() || !extension.eq_ignore_ascii_case("pdf") {
+        return Err("Choose a .txt or .pdf file.".into());
+    }
+    if content.trim().is_empty() {
+        return Err("This PDF has no extractable text. Scanned PDFs are not supported.".into());
+    }
+    if content.len() > MAX_TEXT_BYTES {
+        return Err("This PDF contains too much text.".into());
+    }
+    insert(database, title, content)
+}
+
+fn insert(database: &Connection, title: &str, content: &str) -> Result<(), String> {
     database
         .execute(
             "INSERT INTO documents (title, content)
@@ -157,6 +178,32 @@ mod tests {
         assert_eq!(list(&database).unwrap()[0].id, id);
         import(&database, "책.txt", "다른 문장".as_bytes()).unwrap();
         assert_eq!(list(&database).unwrap().len(), 2);
+    }
+
+    #[test]
+    fn imports_pdf_text_and_rejects_invalid_pdf_text() {
+        let database = database();
+        import_pdf(&database, "책.pdf", "첫 문단\n\n둘째 문단").unwrap();
+        let items = list(&database).unwrap();
+        assert_eq!(items[0].title, "책");
+        assert_eq!(
+            read(&database, items[0].id).unwrap(),
+            "첫 문단\n\n둘째 문단"
+        );
+        assert_eq!(
+            import_pdf(&database, "책.pdf", "  \n").unwrap_err(),
+            "This PDF has no extractable text. Scanned PDFs are not supported."
+        );
+        assert_eq!(
+            import_pdf(&database, "책.txt", "본문").unwrap_err(),
+            "Choose a .txt or .pdf file."
+        );
+        let oversized = "a".repeat(MAX_TEXT_BYTES + 1);
+        assert_eq!(
+            import_pdf(&database, "큰책.pdf", &oversized).unwrap_err(),
+            "This PDF contains too much text."
+        );
+        assert_eq!(list(&database).unwrap().len(), 1);
     }
 
     #[test]
