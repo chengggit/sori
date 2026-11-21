@@ -29,7 +29,6 @@ pub struct Library {
     last_thumbnail_attempt: HashMap<i64, Instant>,
     last_metadata_attempt: HashMap<String, Instant>,
     last_duration_attempt: HashMap<String, Instant>,
-    importing: bool,
     error: String,
 }
 
@@ -51,9 +50,6 @@ impl Library {
 
     #[qsignal]
     fn library_changed(&mut self);
-
-    #[qsignal]
-    fn document_import_finished(&mut self, error: &String);
 
     #[qsignal]
     fn videos_changed(&mut self);
@@ -104,28 +100,19 @@ impl Library {
     }
 
     #[qslot]
-    fn import_document(&mut self, path: String) {
-        if self.importing {
-            self.document_import_finished(&"An import is already in progress.".to_string());
-            return;
+    fn import_document(&mut self, path: String) -> String {
+        let result = self
+            .database
+            .as_ref()
+            .ok_or_else(|| "Could not open the library database.".to_string())
+            .and_then(|database| import_document_file(database, Path::new(&path)));
+        match result {
+            Ok(()) => {
+                self.refresh();
+                String::new()
+            }
+            Err(error) => error,
         }
-        let Some(database) = self.database.clone() else {
-            self.document_import_finished(&"Could not open the library database.".to_string());
-            return;
-        };
-        self.importing = true;
-        let handle = self.get_thread_handle();
-        std::thread::spawn(move || {
-            let result = import_document_file(&database, Path::new(&path));
-            let _ = handle.invoke_mut(move |model| {
-                model.importing = false;
-                if result.is_ok() {
-                    model.refresh();
-                }
-                let error = result.err().unwrap_or_default();
-                model.document_import_finished(&error);
-            });
-        });
     }
 
     #[qslot]
@@ -576,8 +563,12 @@ fn import_document_file(database: &Database, path: &Path) -> Result<(), String> 
         .unwrap_or_default();
     let connection = database.connect()?;
     if extension.eq_ignore_ascii_case("pdf") {
-        let content = crate::pdf::extract(path)?;
-        let id = documents::import_pdf(&connection, filename, &content)?;
+        let metadata = std::fs::metadata(path)
+            .map_err(|error| format!("Could not read this PDF: {error}"))?;
+        if metadata.len() > documents::MAX_PDF_BYTES {
+            return Err("Choose a PDF no larger than 50 MiB.".into());
+        }
+        let id = documents::import_pdf(&connection, filename)?;
         let directory = database.pdf_directory();
         std::fs::create_dir_all(&directory)
             .map_err(|error| format!("Could not save this PDF: {error}"))?;
