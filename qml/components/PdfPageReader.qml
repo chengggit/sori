@@ -113,10 +113,52 @@ Item {
         spacing: root.pageGap
         boundsBehavior: Flickable.StopAtBounds
         cacheBuffer: height
-        ScrollBar.vertical: AppScrollBar {}
         onContentYChanged: root.updatePosition()
         onWidthChanged: root.updatePosition()
         onHeightChanged: root.updatePosition()
+        onDraggingChanged: if (dragging) wheelScroll.stop()
+
+        NumberAnimation {
+            id: wheelScroll
+            target: view
+            property: "contentY"
+            duration: 180
+            easing.type: Easing.OutCubic
+        }
+
+        WheelHandler {
+            acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+            target: null
+            blocking: true
+            onWheel: event => {
+                if (event.angleDelta.y === 0 && event.pixelDelta.y === 0) {
+                    event.accepted = false
+                    return
+                }
+                event.accepted = true
+                const precise = event.pixelDelta.y !== 0
+                // A wheel notch is 120 angle units. Scroll by distance,
+                // rather than a flick velocity that Qt caps and decelerates.
+                const distance = precise ? event.pixelDelta.y * 2 : event.angleDelta.y / 120 * 300
+                const previousTarget = wheelScroll.running ? wheelScroll.to : view.contentY
+                wheelScroll.stop()
+                view.cancelFlick()
+                const minimum = view.originY
+                const maximum = Math.max(minimum, minimum + view.contentHeight - view.height)
+                const destination = Math.max(minimum, Math.min(maximum,
+                    (precise ? view.contentY : previousTarget) - distance))
+                if (precise) {
+                    view.contentY = destination
+                } else {
+                    wheelScroll.from = view.contentY
+                    wheelScroll.to = destination
+                    wheelScroll.restart()
+                }
+            }
+        }
+        ScrollBar.vertical: AppScrollBar {
+            onPressedChanged: if (pressed) wheelScroll.stop()
+        }
 
         delegate: Item {
             id: pageItem
