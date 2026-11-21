@@ -312,8 +312,9 @@ ItemDelegate {
 
         MenuItem {
             id: editItem
+            // PDFs have no editable text; their pages come from the original file.
             // Menu layouts keep a slot for invisible items, so collapse it too.
-            visible: !card.video
+            visible: !card.video && !card.item.pdf
             height: visible ? 34 : 0
             width: actions.availableWidth
             onTriggered: card.editRequested()

@@ -19,7 +19,7 @@ Item {
     property string progressError: ""
     property string pdfPath: ""
     readonly property string pdfUrl: pdfPath ? renderHost.localUrl(pdfPath) : ""
-    property bool pageMode: false
+    readonly property bool isPdf: pdfPath !== ""
     property real restorePosition: 0
     property bool restoring: false
     property bool progressPending: false
@@ -50,12 +50,12 @@ Item {
     }
 
     function queueTokenization() {
-        if (active && !pageMode && !restoring && !documentError && passage.text)
+        if (active && !isPdf && !restoring && !documentError && passage.text)
             tokenizeDelay.restart()
     }
 
     function tokenizeVisiblePassage() {
-        if (!active || pageMode || !passage.text)
+        if (!active || isPdf || !passage.text)
             return
         if (passageRequest) {
             tokenizationQueued = true
@@ -105,7 +105,6 @@ Item {
         documentError = document.error || ""
         progressError = ""
         pdfPath = document.pdfPath || ""
-        pageMode = pdfPath !== ""
         restorePosition = document.position ?? 0
         passage.text = document.content ?? ""
         renderHost.setReadingLineHeight(passage.textDocument, Theme.readerLineHeight)
@@ -119,7 +118,7 @@ Item {
     }
 
     function dismissAnalysis() {
-        if (root.pageMode) {
+        if (root.isPdf) {
             analysis.close()
             return
         }
@@ -136,7 +135,7 @@ Item {
     }
 
     function analyzeSelection() {
-        if (root.pageMode
+        if (root.isPdf
                 || !/[\u1100-\u11ff\u3131-\u318e\ua960-\ua97c\uac00-\ud7a3\ud7b0-\ud7fb]/.test(passage.selectedText))
             return
         const position = passage.selectionStart
@@ -146,7 +145,7 @@ Item {
     }
 
     function currentPosition() {
-        if (root.pageMode)
+        if (root.isPdf)
             return Math.max(0, Math.min(1, pdfPageReader.position))
         return root.scrollRange
             ? Math.max(0, Math.min(1, viewport.contentY / root.scrollRange))
@@ -156,7 +155,7 @@ Item {
     function restoreProgress() {
         if (!root.active || !root.restoring)
             return
-        if (root.pageMode) {
+        if (root.isPdf) {
             pdfPageReader.restoreProgress()
         } else {
             viewport.contentY = root.restorePosition * root.scrollRange
@@ -164,7 +163,7 @@ Item {
         // Tokenization must be queued after the restore flag clears, otherwise
         // queueTokenization() refuses to run and the text stays unclickable.
         root.restoring = false
-        if (!root.pageMode)
+        if (!root.isPdf)
             queueTokenization()
     }
 
@@ -176,24 +175,6 @@ Item {
         if (root.documentId && !root.restoring)
             root.progressError = Library.saveReadingProgress(root.documentId,
                 root.currentPosition())
-    }
-
-    function toggleReaderMode() {
-        if (!root.pdfPath)
-            return
-        const position = root.currentPosition()
-        root.restorePosition = position
-        root.progressPending = true
-        root.flushProgress()
-        root.pageMode = !root.pageMode
-        Qt.callLater(() => {
-            if (root.pageMode) {
-                pdfPageReader.restoreProgress()
-            } else {
-                root.viewport.contentY = position * root.scrollRange
-                root.queueTokenization()
-            }
-        })
     }
 
     onActiveChanged: if (active) Qt.callLater(restoreProgress)
@@ -264,29 +245,15 @@ Item {
 
         RowLayout {
             Layout.fillWidth: true
-            visible: root.pdfPath !== ""
-            spacing: 8
+            visible: root.isPdf
 
             AppText {
-                text: root.pageMode
-                    ? (pdfPageReader.pageCount > 0
-                        ? "Page " + (pdfPageReader.currentPage + 1)
-                            + " / " + pdfPageReader.pageCount
-                        : "PDF")
-                    : "Extracted text"
+                text: pdfPageReader.pageCount > 0
+                    ? "Page " + (pdfPageReader.currentPage + 1)
+                        + " / " + pdfPageReader.pageCount
+                    : "PDF"
                 color: Theme.mutedForeground
                 font.pixelSize: 12
-            }
-
-            Item {
-                Layout.fillWidth: true
-            }
-
-            AppButton {
-                text: root.pageMode ? "Text" : "Page"
-                variant: "outline"
-                small: true
-                onClicked: root.toggleReaderMode()
             }
         }
 
@@ -303,7 +270,7 @@ Item {
             objectName: "pdfPageReader"
             Layout.fillWidth: true
             Layout.fillHeight: true
-            visible: root.pageMode
+            visible: root.isPdf
             pdfPath: root.pdfPath
             pdfUrl: root.pdfUrl
             pdfText: root.pdfText
@@ -318,19 +285,11 @@ Item {
             }
         }
 
-        AppText {
-            Layout.fillWidth: true
-            visible: !root.pageMode && root.pdfPath !== "" && passage.text === ""
-            text: "This PDF has no extractable text. Use the page view to read it."
-            color: Theme.mutedForeground
-            wrapMode: Text.Wrap
-        }
-
         Flickable {
             id: viewport
             Layout.fillWidth: true
             Layout.fillHeight: true
-            visible: !root.pageMode
+            visible: !root.isPdf
             clip: true
             contentWidth: width
             contentHeight: passage.implicitHeight + 2 * Theme.readerPadding
@@ -338,7 +297,7 @@ Item {
             onWidthChanged: root.queueTokenization()
             onHeightChanged: root.queueTokenization()
             onContentYChanged: {
-                if (root.pageMode)
+                if (root.isPdf)
                     return
                 root.queueTokenization()
                 if (root.active && root.documentId && !root.restoring

@@ -2,6 +2,7 @@ use rusqlite::{params, Connection, OptionalExtension};
 use serde::Serialize;
 
 pub const MAX_TEXT_BYTES: usize = 2 * 1024 * 1024;
+pub const MAX_PDF_BYTES: u64 = 50 * 1024 * 1024;
 
 #[derive(Serialize)]
 pub struct LibraryItem {
@@ -48,18 +49,21 @@ pub fn import(database: &Connection, filename: &str, bytes: &[u8]) -> Result<(),
     insert(database, title, content).map(|_| ())
 }
 
-pub fn import_pdf(database: &Connection, filename: &str, content: &str) -> Result<i64, String> {
-    let (title, extension) = filename
-        .rsplit_once('.')
-        .ok_or("Choose a .txt or .pdf file.")?;
+/// Store a PDF as a page-only document. Reading happens in the native PDF page
+/// view, so no text is extracted from the file at import time.
+pub fn import_pdf(database: &Connection, filename: &str) -> Result<i64, String> {
+    let (title, extension) = filename.rsplit_once('.').ok_or("Choose a .pdf file.")?;
     let title = title.trim();
     if title.is_empty() || !extension.eq_ignore_ascii_case("pdf") {
-        return Err("Choose a .txt or .pdf file.".into());
+        return Err("Choose a .pdf file.".into());
     }
-    if content.len() > MAX_TEXT_BYTES {
-        return Err("This PDF contains too much text.".into());
-    }
-    insert(database, title, content)
+    database
+        .execute(
+            "INSERT INTO documents (title, content) VALUES (?1, '')",
+            params![title],
+        )
+        .map_err(|error| error.to_string())?;
+    Ok(database.last_insert_rowid())
 }
 
 fn insert(database: &Connection, title: &str, content: &str) -> Result<i64, String> {
@@ -212,17 +216,13 @@ mod tests {
     }
 
     #[test]
-    fn imports_pdf_text_and_validates_pdf_input() {
+    fn imports_pdf_as_page_only_document_and_validates_pdf_input() {
         let database = database();
-        let id = import_pdf(&database, "책.pdf", "첫 문단\n\n둘째 문단").unwrap();
+        let id = import_pdf(&database, "책.pdf").unwrap();
         assert_eq!(list(&database).unwrap()[0].id, id);
         assert_eq!(list(&database).unwrap()[0].title, "책");
         assert!(!list(&database).unwrap()[0].pdf);
-        assert_eq!(read(&database, id).unwrap(), "첫 문단\n\n둘째 문단");
-        assert_eq!(
-            import_pdf(&database, "책.pdf", "첫 문단\n\n둘째 문단").unwrap(),
-            id
-        );
+        assert_eq!(read(&database, id).unwrap(), "");
 
         set_pdf_path(&database, id, Some("/tmp/책.pdf")).unwrap();
         assert_eq!(
@@ -234,18 +234,13 @@ mod tests {
         assert_eq!(read_pdf_path(&database, id).unwrap(), None);
         assert!(!list(&database).unwrap()[0].pdf);
 
-        let scanned = import_pdf(&database, "스캔.pdf", "").unwrap();
-        assert_eq!(read(&database, scanned).unwrap(), "");
-        assert_eq!(list(&database).unwrap().len(), 2);
-
         assert_eq!(
-            import_pdf(&database, "책.txt", "본문").unwrap_err(),
-            "Choose a .txt or .pdf file."
+            import_pdf(&database, "책.txt").unwrap_err(),
+            "Choose a .pdf file."
         );
-        let oversized = "a".repeat(MAX_TEXT_BYTES + 1);
         assert_eq!(
-            import_pdf(&database, "큰책.pdf", &oversized).unwrap_err(),
-            "This PDF contains too much text."
+            import_pdf(&database, "책").unwrap_err(),
+            "Choose a .pdf file."
         );
     }
 

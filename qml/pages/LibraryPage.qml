@@ -69,20 +69,6 @@ Item {
         function onVideosChanged() {
             root.requestThumbnails();
         }
-
-        function onDocumentImportFinished(error) {
-            editor.working = false;
-            if (error) {
-                if (editor.visible)
-                    editor.error = error;
-                else
-                    root.error = error;
-                return;
-            }
-            search.clear();
-            root.error = "";
-            editor.close();
-        }
     }
 
     DocumentEditor {
@@ -115,9 +101,12 @@ Item {
                 editor.error = "Choose a .txt or .pdf file.";
                 return;
             }
-            editor.error = "";
-            editor.working = true;
-            Library.importDocument(path);
+            editor.error = Library.importDocument(path);
+            if (!editor.error) {
+                search.clear();
+                root.error = "";
+                editor.close();
+            }
         }
     }
 

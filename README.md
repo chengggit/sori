@@ -20,7 +20,6 @@ The desktop build is currently developed and verified on Linux.
 | Matching Qt private development headers and qmake | Building the Rust/Qt integration |
 | Qt PDF module (QtPdf/QtPdfQuick) | Rendering PDF pages and text layers |
 | FFmpeg and FFprobe on PATH | Inspecting media and extracting subtitle tracks |
-| Poppler utilities (`pdftotext`) on PATH | Extracting text from imported PDFs |
 | Git | Cloning Sori and fetching its pinned Rust dependencies |
 | Bash | Running the optional `scripts/dev` helper |
 
@@ -35,7 +34,7 @@ The package names below match the Fedora 44 development environment:
 ```sh
 sudo dnf install git gcc-c++ make cmake pkgconf-pkg-config mpv-devel \
   qt6-qtbase-devel qt6-qtbase-private-devel qt6-qtdeclarative-devel \
-  qt6-qtsvg qt6-qtwebengine-devel qt6-qtpdf-devel ffmpeg-free poppler-utils
+  qt6-qtsvg qt6-qtwebengine-devel qt6-qtpdf-devel ffmpeg-free
 ```
 
 Install Rust using the official installer. [rustup](https://rustup.rs/)
@@ -253,11 +252,10 @@ TXT attachments also work on YouTube Watch. PDF transcripts are not supported ye
 Import UTF-8 text files, PDFs, or paste text in My Library. PDFs open in the
 original page view: layout, images, tables, and page breaks are rendered as they
 appear in the PDF, and Korean words with an embedded text layer are clickable for
-analysis and vocabulary saving. Use the **Text** button to switch to locally
-extracted text, which also works as a fallback when the PDF file is unavailable.
-PDF text extraction uses `pdftotext` and is limited to 2 MiB. Scanned PDFs remain
+analysis and vocabulary saving. PDFs are kept as page-only documents (up to
+50 MiB); no text is extracted from them at import time. Scanned PDFs remain
 readable as pages but have no clickable words. Open a document to read it and
-resume from its saved scroll position. Sori uses the same local SQLite
+resume from its saved reading position. Sori uses the same local SQLite
 database as the earlier desktop app, under `com.sori.app/library.sqlite3` in
 your user data directory (`$XDG_DATA_HOME` or `~/.local/share` on Linux).
 
