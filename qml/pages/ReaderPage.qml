@@ -20,6 +20,10 @@ Item {
     property string pdfPath: ""
     readonly property string pdfUrl: pdfPath ? renderHost.localUrl(pdfPath) : ""
     readonly property bool isPdf: pdfPath !== ""
+    property bool bookMode: false
+    readonly property int pdfPageIndex: bookMode ? bookReader.currentPage : pdfPageReader.currentPage
+    readonly property int pdfPageCount: bookMode ? bookReader.pageCount : pdfPageReader.pageCount
+    readonly property real pdfPosition: bookMode ? bookReader.position : pdfPageReader.position
     property real restorePosition: 0
     property bool restoring: false
     property bool progressPending: false
@@ -146,17 +150,35 @@ Item {
 
     function currentPosition() {
         if (root.isPdf)
-            return Math.max(0, Math.min(1, pdfPageReader.position))
+            return Math.max(0, Math.min(1, root.pdfPosition))
         return root.scrollRange
             ? Math.max(0, Math.min(1, viewport.contentY / root.scrollRange))
             : 0
+    }
+
+    function toggleBookMode() {
+        if (!root.isPdf)
+            return
+        root.restorePosition = root.currentPosition()
+        root.progressPending = true
+        root.flushProgress()
+        root.bookMode = !root.bookMode
+        Qt.callLater(() => {
+            if (root.bookMode)
+                bookReader.restoreProgress()
+            else
+                pdfPageReader.restoreProgress()
+        })
     }
 
     function restoreProgress() {
         if (!root.active || !root.restoring)
             return
         if (root.isPdf) {
-            pdfPageReader.restoreProgress()
+            if (root.bookMode)
+                bookReader.restoreProgress()
+            else
+                pdfPageReader.restoreProgress()
         } else {
             viewport.contentY = root.restorePosition * root.scrollRange
         }
@@ -230,6 +252,19 @@ Item {
         }
     }
 
+    Shortcut {
+        enabled: root.active && root.isPdf && root.bookMode && root.pdfPageIndex > 0
+        sequence: "Left"
+        onActivated: bookReader.previousPage()
+    }
+
+    Shortcut {
+        enabled: root.active && root.isPdf && root.bookMode
+            && root.pdfPageIndex < root.pdfPageCount - 1
+        sequence: "Right"
+        onActivated: bookReader.nextPage()
+    }
+
     Timer {
         id: saveProgress
         interval: 500
@@ -246,14 +281,46 @@ Item {
         RowLayout {
             Layout.fillWidth: true
             visible: root.isPdf
+            spacing: 8
+
+            AppButton {
+                iconName: "arrow-left"
+                variant: "outline"
+                small: true
+                visible: root.bookMode
+                Accessible.name: "Previous page"
+                enabled: root.pdfPageIndex > 0
+                onClicked: bookReader.previousPage()
+            }
 
             AppText {
-                text: pdfPageReader.pageCount > 0
-                    ? "Page " + (pdfPageReader.currentPage + 1)
-                        + " / " + pdfPageReader.pageCount
+                text: root.pdfPageCount > 0
+                    ? "Page " + (root.pdfPageIndex + 1) + " / " + root.pdfPageCount
                     : "PDF"
                 color: Theme.mutedForeground
                 font.pixelSize: 12
+            }
+
+            AppButton {
+                iconName: "arrow-left"
+                rotation: 180
+                variant: "outline"
+                small: true
+                visible: root.bookMode
+                Accessible.name: "Next page"
+                enabled: root.pdfPageCount > 0 && root.pdfPageIndex < root.pdfPageCount - 1
+                onClicked: bookReader.nextPage()
+            }
+
+            Item {
+                Layout.fillWidth: true
+            }
+
+            AppButton {
+                text: root.bookMode ? "Scroll" : "Book"
+                variant: "outline"
+                small: true
+                onClicked: root.toggleBookMode()
             }
         }
 
@@ -270,7 +337,7 @@ Item {
             objectName: "pdfPageReader"
             Layout.fillWidth: true
             Layout.fillHeight: true
-            visible: root.isPdf
+            visible: root.isPdf && !root.bookMode
             pdfPath: root.pdfPath
             pdfUrl: root.pdfUrl
             pdfText: root.pdfText
@@ -279,6 +346,25 @@ Item {
             onPositionChanged: {
                 if (root.active && root.documentId && !root.restoring
                         && !pdfPageReader.restoring && !root.progressPending) {
+                    root.progressPending = true
+                    saveProgress.start()
+                }
+            }
+        }
+
+        PdfBookReader {
+            id: bookReader
+            objectName: "pdfBookReader"
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            visible: root.isPdf && root.bookMode
+            pdfUrl: root.pdfUrl
+            pdfText: root.pdfText
+            restorePosition: root.restorePosition
+            onWordRequested: (text, start, end) => analysis.lookup(text, start, end)
+            onPositionChanged: {
+                if (root.active && root.documentId && !root.restoring
+                        && !root.progressPending) {
                     root.progressPending = true
                     saveProgress.start()
                 }
