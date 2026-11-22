@@ -31,6 +31,11 @@ impl Analysis {
         Notify = dictionary_settings_changed
     );
     qproperty!(
+        "krdictKey",
+        Read = saved_krdict_key,
+        Notify = dictionary_settings_changed
+    );
+    qproperty!(
         "dictionarySettingsError",
         Member = dictionary_settings_error,
         Notify = dictionary_settings_changed
@@ -50,6 +55,10 @@ impl Analysis {
 
     fn krdict_configured(&self) -> bool {
         self.krdict_key.is_some()
+    }
+
+    fn saved_krdict_key(&self) -> String {
+        self.krdict_key.clone().unwrap_or_default()
     }
 
     fn settings_connection(&self) -> Result<rusqlite::Connection, String> {
