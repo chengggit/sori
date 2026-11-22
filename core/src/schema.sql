@@ -83,6 +83,13 @@ CREATE TABLE IF NOT EXISTS youtube_watch_history (
     watched_at INTEGER NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS youtube_subscriptions (
+    channel_id TEXT PRIMARY KEY,
+    title TEXT NOT NULL,
+    uploads_playlist_id TEXT NOT NULL,
+    added_at INTEGER NOT NULL DEFAULT (unixepoch())
+);
+
 CREATE TABLE IF NOT EXISTS video_vocabulary (
     vocabulary_id INTEGER PRIMARY KEY REFERENCES vocabulary(id) ON DELETE CASCADE,
     video_id INTEGER REFERENCES videos(id) ON DELETE CASCADE,

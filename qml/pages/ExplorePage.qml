@@ -15,8 +15,7 @@ Item {
     readonly property int paginationDistance: 500
     property bool discovery: false
     property Component leadingContent
-    property int discoveryIndex: 0
-    readonly property var discoveryQueries: ["한국 집밥 요리 브이로그", "한국 일상 브이로그", "한국 여행 브이로그"]
+    property string feedKey: ""
     property int request: 0
     property var videos: []
     property string currentQuery: ""
@@ -25,7 +24,13 @@ Item {
     property bool loadingMore: false
     property bool paginationFailed: false
     property string linkError: ""
-    readonly property string statusText: error || (!YouTube.configured ? "Add a YouTube API key in Settings to discover videos." : request && !loadingMore ? "Searching YouTube…" : currentQuery && !videos.length ? "No videos found." : "")
+    readonly property int subscriptionCount: (YouTube.subscriptions ?? []).length
+    readonly property string statusText: error || (!YouTube.configured
+        ? "Add a YouTube API key in Settings to discover videos."
+        : discovery && subscriptionCount === 0
+            ? "Add a YouTube channel in Settings to build your feed."
+            : request ? "Loading videos…"
+            : currentQuery && !videos.length ? "No videos found." : "")
 
     readonly property var topics: [
         {
@@ -68,9 +73,40 @@ Item {
         dynamicRoles: true
     }
 
+    // Newest upload sits first; everything below is shuffled so Refresh gives
+    // a different mix from the same set of subscribed channels.
+    function showFeed(feedVideos) {
+        videos = feedVideos;
+        videoModel.clear();
+        if (videos.length) {
+            videoModel.append({ video: videos[0] });
+            const rest = videos.slice(1);
+            for (let i = rest.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                const temporary = rest[i];
+                rest[i] = rest[j];
+                rest[j] = temporary;
+            }
+            for (const video of rest)
+                videoModel.append({ video: video });
+        }
+        Qt.callLater(positionAtTop);
+    }
+
     function refreshDiscovery() {
-        browse(discoveryQueries[discoveryIndex]);
-        discoveryIndex = (discoveryIndex + 1) % discoveryQueries.length;
+        if (!YouTube.configured || root.subscriptionCount === 0) {
+            videos = [];
+            videoModel.clear();
+            nextPage = "";
+            currentQuery = "";
+            return;
+        }
+        error = "";
+        videos = [];
+        videoModel.clear();
+        nextPage = "";
+        currentQuery = "subscriptions";
+        request = YouTube.subscriptionFeed();
     }
 
     function ensureDiscovery() {
@@ -129,6 +165,7 @@ Item {
             return;
         error = "";
         currentQuery = term;
+        feedKey = "query:" + term;
         loadingMore = !!pageToken;
         if (!loadingMore) {
             wheelScroll.stop();
@@ -137,7 +174,7 @@ Item {
             videos = [];
             videoModel.clear();
             nextPage = "";
-            const cached = freshCacheEntries().find(entry => entry.query === term);
+            const cached = freshCacheEntries().find(entry => entry.query === feedKey);
             if (cached) {
                 showFirstPage(cached);
                 return;
@@ -169,9 +206,9 @@ Item {
                     root.nextPage = result.nextPage === root.nextPage ? "" : result.nextPage;
                 } else {
                     root.showFirstPage(result);
-                    const entries = root.freshCacheEntries().filter(entry => entry.query !== root.currentQuery);
+                    const entries = root.freshCacheEntries().filter(entry => entry.query !== root.feedKey);
                     entries.unshift({
-                        query: root.currentQuery,
+                        query: root.feedKey,
                         expiresAt: Date.now() + root.cacheLifetime,
                         videos: result.videos,
                         nextPage: root.nextPage
@@ -181,6 +218,15 @@ Item {
             }
             root.loadingMore = false;
             root.request = 0;
+        }
+
+        function onSubscriptionFeedFinished(request, result) {
+            if (request !== root.request)
+                return;
+            root.error = result.error ?? "";
+            root.request = 0;
+            if (!root.error)
+                root.showFeed(result.videos ?? []);
         }
     }
 
@@ -449,6 +495,15 @@ Item {
                             font.pixelSize: 24
                             font.weight: Font.DemiBold
                         }
+                        AppText {
+                            visible: root.discovery && root.videos.length > 0
+                            Layout.fillWidth: true
+                            text: root.videos.length > 0 && root.videos[0]
+                                ? "Newest from " + root.videos[0].channel : ""
+                            color: Theme.mutedForeground
+                            font.pixelSize: 12
+                            elide: Text.ElideRight
+                        }
                     }
                     RowLayout {
                         id: discoverActions
@@ -462,7 +517,7 @@ Item {
                             onClicked: root.showLinkForm()
                         }
                         AppButton {
-                            text: "Refresh Discover"
+                            text: "Refresh"
                             iconName: "refresh"
                             variant: "outline"
                             compact: true

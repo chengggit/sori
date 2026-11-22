@@ -33,9 +33,20 @@ impl YouTube {
         Member = settings_error,
         Notify = configuration_changed
     );
+    qproperty!(
+        "subscriptions",
+        Read = subscription_list,
+        Notify = subscriptions_changed
+    );
 
     #[qsignal]
     fn configuration_changed(&mut self);
+
+    #[qsignal]
+    fn subscriptions_changed(&mut self);
+
+    #[qsignal]
+    fn subscription_feed_finished(&mut self, request: i32, result: &Value);
 
     #[qslot]
     fn initialize(&mut self, directory: String) {
@@ -139,6 +150,73 @@ impl YouTube {
                 .map(|result| json!(result))
                 .unwrap_or_else(|error| json!({"error": error}));
             let _ = handle.invoke_mut(move |model| model.search_finished(request, &result));
+        });
+        request
+    }
+
+    fn connection(&self) -> Result<Connection, String> {
+        self.database
+            .as_ref()
+            .ok_or_else(|| "Settings are not available.".to_string())?
+            .connect()
+    }
+
+    fn subscription_list(&self) -> Value {
+        let entries = self
+            .connection()
+            .and_then(|connection| subscriptions(&connection))
+            .unwrap_or_default();
+        json!(entries)
+    }
+
+    #[qslot]
+    fn resolve_channel(&self, input: String) -> Value {
+        match resolve_channel(&input) {
+            Ok(channel) => json!(channel),
+            Err(error) => json!({ "error": error }),
+        }
+    }
+
+    #[qslot]
+    fn add_subscription(&mut self, id: String, title: String, playlist: String) -> String {
+        let error = self
+            .connection()
+            .and_then(|connection| add_subscription(&connection, &id, &title, &playlist))
+            .err()
+            .unwrap_or_default();
+        if error.is_empty() {
+            self.subscriptions_changed();
+        }
+        error
+    }
+
+    #[qslot]
+    fn remove_subscription(&mut self, id: String) -> String {
+        let error = self
+            .connection()
+            .and_then(|connection| remove_subscription(&connection, &id))
+            .err()
+            .unwrap_or_default();
+        if error.is_empty() {
+            self.subscriptions_changed();
+        }
+        error
+    }
+
+    #[qslot]
+    fn subscription_feed(&mut self) -> i32 {
+        self.request = self.request.wrapping_add(1).max(1);
+        let request = self.request;
+        let database = self.database.clone();
+        let handle = self.get_thread_handle();
+        std::thread::spawn(move || {
+            let result = database
+                .ok_or_else(|| "Settings are not available.".to_string())
+                .and_then(|database| subscription_feed(&database))
+                .unwrap_or_else(|error| json!({"error": error}));
+            let _ = handle.invoke_mut(move |model| {
+                model.subscription_feed_finished(request, &result)
+            });
         });
         request
     }
@@ -602,6 +680,276 @@ fn parse_search(body: &[u8]) -> Result<SearchPage, String> {
     })
 }
 
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct Subscription {
+    channel_id: String,
+    title: String,
+    uploads_playlist_id: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct FeedVideo {
+    id: String,
+    title: String,
+    channel: String,
+    published_at: String,
+}
+
+fn subscriptions(connection: &Connection) -> Result<Vec<Subscription>, String> {
+    let mut statement = connection
+        .prepare(
+            "SELECT channel_id, title, uploads_playlist_id FROM youtube_subscriptions
+         ORDER BY added_at DESC",
+        )
+        .map_err(|error| error.to_string())?;
+    let entries = statement
+        .query_map([], |row| {
+            Ok(Subscription {
+                channel_id: row.get(0)?,
+                title: row.get(1)?,
+                uploads_playlist_id: row.get(2)?,
+            })
+        })
+        .map_err(|error| error.to_string())?
+        .collect::<Result<Vec<_>, _>>()
+        .map_err(|error| error.to_string());
+    entries
+}
+
+fn add_subscription(
+    connection: &Connection,
+    id: &str,
+    title: &str,
+    playlist: &str,
+) -> Result<(), String> {
+    if id.trim().is_empty() || title.trim().is_empty() || playlist.trim().is_empty() {
+        return Err("Could not resolve that channel.".into());
+    }
+    connection
+        .execute(
+            "INSERT INTO youtube_subscriptions (channel_id, title, uploads_playlist_id)
+         VALUES (?1, ?2, ?3) ON CONFLICT(channel_id) DO UPDATE SET
+         title = excluded.title, uploads_playlist_id = excluded.uploads_playlist_id",
+            params![id.trim(), title.trim(), playlist.trim()],
+        )
+        .map_err(|error| error.to_string())?;
+    Ok(())
+}
+
+fn remove_subscription(connection: &Connection, id: &str) -> Result<(), String> {
+    connection
+        .execute("DELETE FROM youtube_subscriptions WHERE channel_id = ?1", [id])
+        .map_err(|error| error.to_string())?;
+    Ok(())
+}
+
+enum ChannelInput {
+    Id(String),
+    Handle(String),
+    User(String),
+    Query(String),
+}
+
+fn channel_input(input: &str) -> ChannelInput {
+    let value = input.trim();
+    if let Ok(url) = Url::parse(value) {
+        let segments: Vec<String> = url
+            .path_segments()
+            .map(|parts| parts.map(str::to_owned).collect())
+            .unwrap_or_default();
+        for (index, segment) in segments.iter().enumerate() {
+            if segment == "channel" {
+                if let Some(id) = segments.get(index + 1) {
+                    return ChannelInput::Id(id.clone());
+                }
+            }
+            if let Some(handle) = segment.strip_prefix('@') {
+                return ChannelInput::Handle(handle.to_owned());
+            }
+            if matches!(segment.as_str(), "c" | "user") {
+                if let Some(name) = segments.get(index + 1) {
+                    return if segment == "c" {
+                        ChannelInput::Query(name.clone())
+                    } else {
+                        ChannelInput::User(name.clone())
+                    };
+                }
+            }
+        }
+    }
+    if let Some(handle) = value.strip_prefix('@') {
+        return ChannelInput::Handle(handle.trim().to_owned());
+    }
+    if value.len() == 24 && value.starts_with("UC") {
+        return ChannelInput::Id(value.to_owned());
+    }
+    ChannelInput::Query(value.to_owned())
+}
+
+fn api_error(status: u16, body: &[u8]) -> String {
+    let response = serde_json::from_slice::<Value>(body).unwrap_or_default();
+    let error = response
+        .pointer("/error/errors/0/reason")
+        .and_then(Value::as_str);
+    match (status, error) {
+        (_, Some("quotaExceeded" | "dailyLimitExceeded")) => {
+            "The daily YouTube quota has been reached.".into()
+        }
+        (429, _) | (_, Some("rateLimitExceeded" | "userRateLimitExceeded")) => {
+            "YouTube is limiting requests. Try again shortly.".into()
+        }
+        (400, Some("keyInvalid" | "API_KEY_INVALID")) => "The YouTube API key is not valid.".into(),
+        (403, Some("accessNotConfigured")) => {
+            "The YouTube Data API is not enabled for this key.".into()
+        }
+        _ => "YouTube did not return the requested data.".into(),
+    }
+}
+
+fn get_json(url: Url) -> Result<Value, String> {
+    let response = client()?
+        .get(url)
+        .send()
+        .map_err(|_| "Could not reach YouTube.".to_string())?;
+    let status = response.status().as_u16();
+    const MAX_BYTES: usize = 1024 * 1024;
+    let mut body = Vec::new();
+    response
+        .take(MAX_BYTES as u64 + 1)
+        .read_to_end(&mut body)
+        .map_err(|_| "Could not read the YouTube response.".to_string())?;
+    if body.len() > MAX_BYTES {
+        return Err("The YouTube response was too large.".into());
+    }
+    if !(200..300).contains(&status) {
+        return Err(api_error(status, &body));
+    }
+    serde_json::from_slice(&body).map_err(|_| "Could not read the YouTube response.".into())
+}
+
+fn channel_from_api(items: &[Value], fallback_id: &str) -> Result<Subscription, String> {
+    let item = items
+        .first()
+        .ok_or("No channel matched that name or link.")?;
+    let id = item["id"]
+        .as_str()
+        .map(str::to_owned)
+        .or_else(|| item["id"]["channelId"].as_str().map(str::to_owned))
+        .unwrap_or_else(|| fallback_id.to_owned());
+    let title = decode_title(item["snippet"]["title"].as_str().unwrap_or_default());
+    let playlist = item["contentDetails"]["relatedPlaylists"]["uploads"]
+        .as_str()
+        .unwrap_or_default()
+        .to_owned();
+    if id.is_empty() || title.is_empty() || playlist.is_empty() {
+        return Err("That channel does not expose an uploads playlist.".into());
+    }
+    Ok(Subscription {
+        channel_id: id,
+        title,
+        uploads_playlist_id: playlist,
+    })
+}
+
+fn resolve_channel(input: &str) -> Result<Subscription, String> {
+    let input = input.trim();
+    if input.is_empty() || input.len() > 250 {
+        return Err("Enter a channel name, handle, or link.".into());
+    }
+    let key = api_key().ok_or("Add a YouTube API key in Settings first.")?;
+    let input_kind = channel_input(input);
+    let mut url =
+        Url::parse("https://www.googleapis.com/youtube/v3/channels").expect("constant channels URL");
+    let mut fallback_id = String::new();
+    {
+        let mut pairs = url.query_pairs_mut();
+        pairs.extend_pairs([("part", "snippet,contentDetails"), ("key", &key)]);
+        match &input_kind {
+            ChannelInput::Id(id) => {
+                fallback_id = id.clone();
+                pairs.append_pair("id", id);
+            }
+            ChannelInput::Handle(handle) => {
+                pairs.append_pair("forHandle", handle);
+            }
+            ChannelInput::User(user) => {
+                pairs.append_pair("forUsername", user);
+            }
+            ChannelInput::Query(query) => {
+                let mut search = Url::parse("https://www.googleapis.com/youtube/v3/search")
+                    .expect("constant search URL");
+                search.query_pairs_mut().extend_pairs([
+                    ("part", "snippet"),
+                    ("type", "channel"),
+                    ("q", query),
+                    ("maxResults", "1"),
+                    ("key", &key),
+                ]);
+                let result = get_json(search)?;
+                let items = result["items"].as_array().ok_or("No channel found.")?;
+                let id = items
+                    .first()
+                    .and_then(|item| item["id"]["channelId"].as_str())
+                    .ok_or("No channel matched that name.")?;
+                fallback_id = id.to_owned();
+                pairs.append_pair("id", id);
+            }
+        }
+    }
+    let result = get_json(url)?;
+    let items = result["items"].as_array().ok_or("No channel found.")?;
+    channel_from_api(items, &fallback_id)
+}
+
+fn channel_uploads(channel: &Subscription, key: &str) -> Result<Vec<FeedVideo>, String> {
+    let mut url = Url::parse("https://www.googleapis.com/youtube/v3/playlistItems")
+        .expect("constant playlistItems URL");
+    url.query_pairs_mut().extend_pairs([
+        ("part", "snippet"),
+        ("playlistId", &channel.uploads_playlist_id),
+        ("maxResults", "12"),
+        ("key", key),
+    ]);
+    let result = get_json(url)?;
+    let items = result["items"].as_array().ok_or("No uploads returned.")?;
+    Ok(items
+        .iter()
+        .filter_map(|item| {
+            let id = item["snippet"]["resourceId"]["videoId"].as_str()?;
+            if !valid_id(id) {
+                return None;
+            }
+            Some(FeedVideo {
+                id: id.to_owned(),
+                title: decode_title(item["snippet"]["title"].as_str().unwrap_or_default()),
+                channel: channel.title.clone(),
+                published_at: item["snippet"]["publishedAt"]
+                    .as_str()
+                    .unwrap_or_default()
+                    .to_owned(),
+            })
+        })
+        .collect())
+}
+
+fn subscription_feed(database: &crate::db::Database) -> Result<Value, String> {
+    let key = api_key().ok_or("Add a YouTube API key in Settings to discover videos.")?;
+    let channels = subscriptions(&database.connect()?)?;
+    if channels.is_empty() {
+        return Err("Add a channel in Settings to build your feed.".into());
+    }
+    let mut videos = Vec::new();
+    for channel in &channels {
+        if let Ok(mut uploaded) = channel_uploads(channel, &key) {
+            videos.append(&mut uploaded);
+        }
+    }
+    videos.sort_by(|left, right| right.published_at.cmp(&left.published_at));
+    Ok(json!({"videos": videos}))
+}
+
 fn search(query: &str, page: &str) -> Result<SearchPage, String> {
     let key = api_key().ok_or("Add a YouTube API key in Settings to discover videos.")?;
     let query = query.trim();
@@ -844,6 +1192,41 @@ mod tests {
         assert_eq!(page.videos.len(), 1);
         assert_eq!(page.videos[0].title, "One & Two");
         assert_eq!(page.next_page, "next");
+    }
+
+    #[test]
+    fn parses_channel_links_handles_and_ids() {
+        assert!(matches!(channel_input("@TalkToMeInKorean"), ChannelInput::Handle(_)));
+        assert!(matches!(
+            channel_input("https://www.youtube.com/@TalkToMeInKorean/videos"),
+            ChannelInput::Handle(_)
+        ));
+        assert!(matches!(
+            channel_input("https://www.youtube.com/channel/UC5r3WHrX4Z7peSYpDlgktGw"),
+            ChannelInput::Id(_)
+        ));
+        assert!(matches!(channel_input("UC5r3WHrX4Z7peSYpDlgktGw"), ChannelInput::Id(_)));
+        assert!(matches!(channel_input("Talk To Me In Korean"), ChannelInput::Query(_)));
+    }
+
+    #[test]
+    fn subscriptions_round_trip_in_sqlite() {
+        let connection = Connection::open_in_memory().unwrap();
+        connection.execute_batch(include_str!("schema.sql")).unwrap();
+        add_subscription(&connection, "UC1", "Channel One", "UU1").unwrap();
+        add_subscription(&connection, "UC2", "Channel Two", "UU2").unwrap();
+        let entries = subscriptions(&connection).unwrap();
+        assert_eq!(entries.len(), 2);
+        assert!(entries.iter().any(|entry| entry.channel_id == "UC1"));
+        add_subscription(&connection, "UC1", "Renamed", "UU9").unwrap();
+        let entries = subscriptions(&connection).unwrap();
+        assert_eq!(entries.len(), 2);
+        assert!(entries.iter().any(|entry| entry.title == "Renamed"
+            && entry.uploads_playlist_id == "UU9"));
+        remove_subscription(&connection, "UC1").unwrap();
+        let entries = subscriptions(&connection).unwrap();
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].channel_id, "UC2");
     }
 
     #[test]
