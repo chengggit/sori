@@ -643,13 +643,6 @@ Popup {
                             }
                             RowLayout {
                                 AppButton {
-                                    objectName: "saveYoutubeApiKey"
-                                    text: "Save key"
-                                    small: true
-                                    enabled: !!youtubeKey.text.trim()
-                                    onClicked: root.saveYoutubeKey()
-                                }
-                                AppButton {
                                     objectName: "removeYoutubeApiKey"
                                     text: "Remove saved key"
                                     small: true
