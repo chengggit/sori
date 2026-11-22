@@ -21,6 +21,8 @@ Item {
     readonly property string pdfUrl: pdfPath ? renderHost.localUrl(pdfPath) : ""
     readonly property bool isPdf: pdfPath !== ""
     property bool bookMode: false
+    property real pdfZoom: 1
+    readonly property var pdfZoomLevels: [0.5, 0.67, 0.75, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 2, 3]
     readonly property int pdfPageIndex: bookMode ? bookReader.currentPage : pdfPageReader.currentPage
     readonly property int pdfPageCount: bookMode ? bookReader.pageCount : pdfPageReader.pageCount
     readonly property real pdfPosition: bookMode ? bookReader.position : pdfPageReader.position
@@ -109,6 +111,7 @@ Item {
         documentError = document.error || ""
         progressError = ""
         pdfPath = document.pdfPath || ""
+        pdfZoom = 1
         restorePosition = document.position ?? 0
         passage.text = document.content ?? ""
         renderHost.setReadingLineHeight(passage.textDocument, Theme.readerLineHeight)
@@ -154,6 +157,17 @@ Item {
         return root.scrollRange
             ? Math.max(0, Math.min(1, viewport.contentY / root.scrollRange))
             : 0
+    }
+
+    function zoomPdf(direction) {
+        const levels = root.pdfZoomLevels
+        if (direction > 0) {
+            const next = levels.find(level => level > root.pdfZoom + 0.001)
+            pdfZoom = next ?? levels[levels.length - 1]
+        } else {
+            const smaller = levels.filter(level => level < root.pdfZoom - 0.001)
+            pdfZoom = smaller.length ? smaller[smaller.length - 1] : levels[0]
+        }
     }
 
     function toggleBookMode() {
@@ -265,6 +279,24 @@ Item {
         onActivated: bookReader.nextPage()
     }
 
+    Shortcut {
+        enabled: root.active && root.isPdf
+        sequences: ["Ctrl+Shift+=", "Ctrl+=", "Ctrl++"]
+        onActivated: root.zoomPdf(1)
+    }
+
+    Shortcut {
+        enabled: root.active && root.isPdf
+        sequences: ["Ctrl+Shift+-", "Ctrl+-"]
+        onActivated: root.zoomPdf(-1)
+    }
+
+    Shortcut {
+        enabled: root.active && root.isPdf
+        sequence: "Ctrl+0"
+        onActivated: pdfZoom = 1
+    }
+
     Timer {
         id: saveProgress
         interval: 500
@@ -317,6 +349,30 @@ Item {
             }
 
             AppButton {
+                text: "−"
+                variant: "outline"
+                small: true
+                Accessible.name: "Zoom out PDF"
+                enabled: root.pdfZoom > root.pdfZoomLevels[0]
+                onClicked: root.zoomPdf(-1)
+            }
+
+            AppText {
+                text: Math.round(root.pdfZoom * 100) + "%"
+                color: Theme.mutedForeground
+                font.pixelSize: 12
+            }
+
+            AppButton {
+                text: "+"
+                variant: "outline"
+                small: true
+                Accessible.name: "Zoom in PDF"
+                enabled: root.pdfZoom < root.pdfZoomLevels[root.pdfZoomLevels.length - 1]
+                onClicked: root.zoomPdf(1)
+            }
+
+            AppButton {
                 text: root.bookMode ? "Scroll" : "Book"
                 variant: "outline"
                 small: true
@@ -341,6 +397,7 @@ Item {
             pdfPath: root.pdfPath
             pdfUrl: root.pdfUrl
             pdfText: root.pdfText
+            zoom: root.pdfZoom
             restorePosition: root.restorePosition
             onWordRequested: (text, start, end) => analysis.lookup(text, start, end)
             onPositionChanged: {
@@ -360,6 +417,7 @@ Item {
             visible: root.isPdf && root.bookMode
             pdfUrl: root.pdfUrl
             pdfText: root.pdfText
+            zoom: root.pdfZoom
             restorePosition: root.restorePosition
             onWordRequested: (text, start, end) => analysis.lookup(text, start, end)
             onPositionChanged: {

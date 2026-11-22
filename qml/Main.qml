@@ -373,14 +373,18 @@ ApplicationWindow {
     }
     Shortcut {
         sequences: ["Ctrl+Shift+=", "Ctrl+=", "Ctrl++"]
+        // The reader handles PDF zoom itself so the surrounding UI stays put.
+        enabled: root.page !== "reader" || !readerPage.isPdf
         onActivated: root.zoomPage(1)
     }
     Shortcut {
         sequences: ["Ctrl+Shift+-", "Ctrl+-"]
+        enabled: root.page !== "reader" || !readerPage.isPdf
         onActivated: root.zoomPage(-1)
     }
     Shortcut {
         sequence: "Ctrl+0"
+        enabled: root.page !== "reader" || !readerPage.isPdf
         onActivated: root.resetPageScale()
     }
 

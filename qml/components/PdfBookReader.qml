@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Controls
 import QtQuick.Pdf
 import QtQuick.Shapes
 import "../style"
@@ -12,6 +13,7 @@ Item {
 
     required property string pdfUrl
     required property var pdfText
+    property real zoom: 1
     property real restorePosition: 0
     property int currentPage: 0
     readonly property int pageCount: pdfDocument.pageCount
@@ -22,9 +24,10 @@ Item {
         const size = pdfDocument.pagePointSize(Math.max(0, currentPage))
         return size.width > 0 ? size.height / size.width : 1.4
     }
-    readonly property real pageWidth: Math.max(0, Math.min(
+    readonly property real fitWidth: Math.max(0, Math.min(
         root.width - 2 * Theme.readerPadding,
         (root.height - 2 * Theme.readerPadding) / Math.max(0.2, root.aspect)))
+    readonly property real pageWidth: root.fitWidth * zoom
     readonly property real pageHeight: root.pageWidth * root.aspect
 
     signal wordRequested(string text, int start, int end)
@@ -66,6 +69,34 @@ Item {
     function nextPage() { root.goToPage(root.currentPage + 1) }
     function previousPage() { root.goToPage(root.currentPage - 1) }
 
+    function resetScroll() {
+        view.contentX = (view.contentWidth - view.width) / 2
+        view.contentY = (view.contentHeight - view.height) / 2
+    }
+
+    // A wheel notch moves a fixed fraction of the page rather than Qt's slow,
+    // decelerated flick. Trackpad pixel deltas already supply smooth motion.
+    function wheelScroll(vertical, delta, precise) {
+        const animation = vertical ? wheelY : wheelX
+        const maximum = vertical
+            ? view.contentHeight - view.height
+            : view.contentWidth - view.width
+        if (maximum <= 0)
+            return
+        const step = precise ? delta * 2 : delta / 120 * 300 * zoom
+        const property = vertical ? "contentY" : "contentX"
+        const target = animation.running ? animation.to : view[property]
+        animation.stop()
+        const destination = Math.max(0, Math.min(maximum, target - step))
+        if (precise) {
+            view[property] = destination
+        } else {
+            animation.from = view[property]
+            animation.to = destination
+            animation.restart()
+        }
+    }
+
     // Coordinates are page-local. A word tap opens analysis; any other tap on
     // the left half turns back and one on the right half turns forward.
     function tapAt(x, y) {
@@ -91,6 +122,8 @@ Item {
 
     Component.onCompleted: root.restoreProgress()
     onRestorePositionChanged: root.restoreProgress()
+    onZoomChanged: Qt.callLater(root.resetScroll)
+    onCurrentPageChanged: Qt.callLater(root.resetScroll)
 
     PdfDocument {
         id: pdfDocument
@@ -101,8 +134,152 @@ Item {
         }
     }
 
-    // Taps outside the page still turn it; taps on the page are handled by the
-    // page's own handler below (the deeper handler takes the grab).
+    // At 100% the page fits and the view is inert, so clicks turn pages. Above
+    // that, the same view pans the enlarged page by drag, wheel, or scrollbar.
+    Flickable {
+        id: view
+        anchors.fill: parent
+        clip: true
+        interactive: root.zoom > 1
+        contentWidth: Math.max(width, root.pageWidth + 2 * Theme.readerPadding)
+        contentHeight: Math.max(height, root.pageHeight + 2 * Theme.readerPadding)
+        boundsBehavior: Flickable.StopAtBounds
+        onDraggingChanged: if (dragging) { wheelX.stop(); wheelY.stop() }
+        ScrollBar.vertical: AppScrollBar {
+            onPressedChanged: if (pressed) { wheelX.stop(); wheelY.stop() }
+        }
+        ScrollBar.horizontal: AppScrollBar {
+            onPressedChanged: if (pressed) { wheelX.stop(); wheelY.stop() }
+        }
+
+        NumberAnimation {
+            id: wheelX
+            target: view
+            property: "contentX"
+            duration: 180
+            easing.type: Easing.OutCubic
+        }
+        NumberAnimation {
+            id: wheelY
+            target: view
+            property: "contentY"
+            duration: 180
+            easing.type: Easing.OutCubic
+        }
+
+        WheelHandler {
+            acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+            target: null
+            blocking: true
+            enabled: root.zoom > 1
+            onWheel: event => {
+                const precise = event.pixelDelta.x !== 0 || event.pixelDelta.y !== 0
+                let handled = false
+                if (event.angleDelta.y !== 0 || (precise && event.pixelDelta.y !== 0)) {
+                    root.wheelScroll(true,
+                        precise ? event.pixelDelta.y : event.angleDelta.y, precise)
+                    handled = true
+                }
+                if (event.angleDelta.x !== 0 || (precise && event.pixelDelta.x !== 0)) {
+                    root.wheelScroll(false,
+                        precise ? event.pixelDelta.x : event.angleDelta.x, precise)
+                    handled = true
+                }
+                event.accepted = handled
+            }
+        }
+
+        Item {
+            id: pageArea
+            x: (view.contentWidth - root.pageWidth) / 2
+            y: (view.contentHeight - root.pageHeight) / 2
+            width: root.pageWidth
+            height: root.pageHeight
+            property var hoverWord: null
+            readonly property real pageScale: root.pageWidth
+                / Math.max(1, pdfDocument.pagePointSize(root.currentPage).width)
+
+            Rectangle {
+                anchors.fill: parent
+                color: "white"
+            }
+
+            PdfPageImage {
+                id: pageImage
+                anchors.fill: parent
+                document: pdfDocument
+                currentFrame: root.currentPage
+                asynchronous: true
+                fillMode: Image.PreserveAspectFit
+                sourceSize.width: Math.max(1,
+                    Math.round(root.pageWidth * Theme.pageScale * (Screen.devicePixelRatio || 1)))
+                sourceSize.height: 0
+                onStatusChanged: function(status) {
+                    if (status === Image.Ready)
+                        root.ensurePageData(root.currentPage)
+                }
+            }
+
+            AppText {
+                anchors.centerIn: parent
+                visible: pageImage.status === Image.Loading || pageImage.status === Image.Null
+                text: "Rendering page…"
+                color: Theme.mutedForeground
+            }
+
+            AppText {
+                anchors.centerIn: parent
+                width: Math.min(parent.width - 24, 320)
+                visible: pageImage.status === Image.Error
+                text: "Could not render this page."
+                color: Theme.destructive
+                wrapMode: Text.Wrap
+                horizontalAlignment: Text.AlignHCenter
+            }
+
+            Shape {
+                id: wordUnderline
+                visible: pageArea.hoverWord !== null
+                x: pageArea.hoverWord ? pageArea.hoverWord.x * pageArea.pageScale : 0
+                y: pageArea.hoverWord
+                    ? (pageArea.hoverWord.y + pageArea.hoverWord.height) * pageArea.pageScale + 4
+                    : 0
+                width: pageArea.hoverWord ? pageArea.hoverWord.width * pageArea.pageScale : 0
+                height: 2
+
+                ShapePath {
+                    strokeColor: Theme.foreground
+                    strokeWidth: 2
+                    strokeStyle: ShapePath.DashLine
+                    dashPattern: [1, 1]
+                    capStyle: ShapePath.FlatCap
+                    fillColor: "transparent"
+                    startY: 1
+                    PathLine { x: wordUnderline.width; y: 1 }
+                }
+            }
+
+            HoverHandler {
+                id: hover
+                onPointChanged: {
+                    const hit = root.wordAt(root.currentPage, point.position.x, point.position.y)
+                    pageArea.hoverWord = hit ? hit.word : null
+                }
+                onHoveredChanged: if (!hovered)
+                    pageArea.hoverWord = null
+            }
+
+            TapHandler {
+                acceptedButtons: Qt.LeftButton
+                onSingleTapped: (eventPoint, button) => {
+                    root.tapAt(eventPoint.position.x, eventPoint.position.y)
+                }
+            }
+        }
+    }
+
+    // Taps in the margin outside the page still turn it; taps on the page
+    // are handled by the page's own handler (the deeper handler takes the grab).
     TapHandler {
         acceptedButtons: Qt.LeftButton
         enabled: root.pageCount > 1
@@ -112,93 +289,6 @@ Item {
                     && local.y >= 0 && local.y <= pageArea.height)
                 return
             root.tapAt(local.x, local.y)
-        }
-    }
-
-    Item {
-        id: pageArea
-        anchors.centerIn: parent
-        width: root.pageWidth
-        height: root.pageHeight
-        property var hoverWord: null
-        readonly property real pageScale: root.pageWidth
-            / Math.max(1, pdfDocument.pagePointSize(root.currentPage).width)
-
-        Rectangle {
-            anchors.fill: parent
-            color: "white"
-        }
-
-        PdfPageImage {
-            id: pageImage
-            anchors.fill: parent
-            document: pdfDocument
-            currentFrame: root.currentPage
-            asynchronous: true
-            fillMode: Image.PreserveAspectFit
-            sourceSize.width: Math.max(1,
-                Math.round(root.pageWidth * Theme.pageScale * (Screen.devicePixelRatio || 1)))
-            sourceSize.height: 0
-            onStatusChanged: function(status) {
-                if (status === Image.Ready)
-                    root.ensurePageData(root.currentPage)
-            }
-        }
-
-        AppText {
-            anchors.centerIn: parent
-            visible: pageImage.status === Image.Loading || pageImage.status === Image.Null
-            text: "Rendering page…"
-            color: Theme.mutedForeground
-        }
-
-        AppText {
-            anchors.centerIn: parent
-            width: Math.min(parent.width - 24, 320)
-            visible: pageImage.status === Image.Error
-            text: "Could not render this page."
-            color: Theme.destructive
-            wrapMode: Text.Wrap
-            horizontalAlignment: Text.AlignHCenter
-        }
-
-        Shape {
-            id: wordUnderline
-            visible: pageArea.hoverWord !== null
-            x: pageArea.hoverWord ? pageArea.hoverWord.x * pageArea.pageScale : 0
-            y: pageArea.hoverWord
-                ? (pageArea.hoverWord.y + pageArea.hoverWord.height) * pageArea.pageScale + 4
-                : 0
-            width: pageArea.hoverWord ? pageArea.hoverWord.width * pageArea.pageScale : 0
-            height: 2
-
-            ShapePath {
-                strokeColor: Theme.foreground
-                strokeWidth: 2
-                strokeStyle: ShapePath.DashLine
-                dashPattern: [1, 1]
-                capStyle: ShapePath.FlatCap
-                fillColor: "transparent"
-                startY: 1
-                PathLine { x: wordUnderline.width; y: 1 }
-            }
-        }
-
-        HoverHandler {
-            id: hover
-            onPointChanged: {
-                const hit = root.wordAt(root.currentPage, point.position.x, point.position.y)
-                pageArea.hoverWord = hit ? hit.word : null
-            }
-            onHoveredChanged: if (!hovered)
-                pageArea.hoverWord = null
-        }
-
-        TapHandler {
-            acceptedButtons: Qt.LeftButton
-            onSingleTapped: (eventPoint, button) => {
-                root.tapAt(eventPoint.position.x, eventPoint.position.y)
-            }
         }
     }
 

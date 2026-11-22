@@ -41,6 +41,11 @@ int main(int argc, char **argv)
 #else
     constexpr bool youtubeEmbeddingAvailable = false;
 #endif
+    // Keep fractional device scale factors instead of rounding them to whole
+    // numbers. The zoom transform and PDF page rasterization then target the
+    // real device pixel grid rather than one the compositor has to rescale.
+    QGuiApplication::setHighDpiScaleFactorRoundingPolicy(
+        Qt::HighDpiScaleFactorRoundingPolicy::PassThrough);
     QGuiApplication app(argc, argv);
     // Qt initializes the system locale. libmpv requires C numeric formatting.
     std::setlocale(LC_NUMERIC, "C");

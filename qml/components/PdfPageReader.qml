@@ -11,6 +11,7 @@ Item {
     required property string pdfPath
     required property string pdfUrl
     required property var pdfText
+    property real zoom: 1
     property real restorePosition: 0
     property real position: 0
     property int currentPage: 0
@@ -20,6 +21,7 @@ Item {
 
     readonly property int pageGap: 20
     readonly property real pageWidth: Math.max(0, Math.min(width - 2 * Theme.readerPadding, 920))
+        * zoom
 
     signal wordRequested(string text, int start, int end)
 
@@ -109,6 +111,7 @@ Item {
         anchors.fill: parent
         visible: pdfDocument.status === PdfDocument.Ready
         clip: true
+        contentWidth: Math.max(view.width, root.pageWidth + 2 * Theme.readerPadding)
         model: pdfDocument.pageCount
         spacing: root.pageGap
         boundsBehavior: Flickable.StopAtBounds
