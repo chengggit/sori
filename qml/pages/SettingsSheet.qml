@@ -9,26 +9,59 @@ import "../components"
 Popup {
     id: root
 
+    property string category: "general"
+    readonly property int categoryIndex: ({general: 0, dictionaries: 1, connections: 2})[root.category] ?? 0
+    readonly property bool compact: parent && parent.width < 600
+    readonly property var categories: [
+        { id: "general", label: "General", icon: "settings" },
+        { id: "dictionaries", label: "Dictionaries", icon: "book-open" },
+        { id: "connections", label: "Connections", icon: "link" }
+    ]
+
+    property bool krdictExpanded: false
+    readonly property bool showKrdictFields: Analysis.defaultDictionary === "krdict"
+        || Analysis.krdictConfigured || root.krdictExpanded
+
     property string dictionaryError: ""
     property string youtubeError: ""
     property string youtubeMessage: ""
     property string krdictError: ""
     property string krdictMessage: ""
+
+    function resetScroll() {
+        for (const page of [generalPage, dictionariesPage, connectionsPage]) {
+            if (page.flickableItem)
+                page.flickableItem.contentY = 0
+        }
+    }
+
     onOpened: {
+        root.category = "general"
+        root.krdictExpanded = false
+        root.resetScroll()
         youtubeKey.clear()
         youtubeError = YouTube.settingsError
         youtubeMessage = ""
-        krdictKey.clear()
+        krdictKey.text = Analysis.krdictKey
         krdictError = Analysis.dictionarySettingsError
         krdictMessage = ""
     }
     onClosed: { youtubeKey.clear(); krdictKey.clear() }
+    onCategoryChanged: root.resetScroll()
 
     function saveKrdictKey() {
-        krdictError = Analysis.saveKrdictKey(krdictKey.text)
         krdictMessage = ""
+        if (!krdictKey.text.trim()) {
+            krdictError = Analysis.removeKrdictKey()
+            if (!krdictError) {
+                krdictKey.clear()
+                krdictMessage = "KRDict key removed."
+            }
+            return
+        }
+        krdictError = Analysis.saveKrdictKey(krdictKey.text)
         if (!krdictError) {
-            krdictKey.clear()
+            krdictKey.text = Analysis.krdictKey
             krdictMessage = "KRDict API key saved."
         }
     }
@@ -42,9 +75,8 @@ Popup {
         }
     }
 
-    width: Math.min(510, parent ? parent.width - 40 : 510)
-    implicitHeight: header.implicitHeight + 40 + 1 + settingsScroll.contentHeight
-    height: Math.min(implicitHeight, 520, parent ? parent.height - 32 : 520)
+    width: Math.min(720, parent ? parent.width - 40 : 720)
+    height: Math.min(560, parent ? parent.height - 32 : 560)
     x: parent ? Math.round((parent.width - width) / 2) : 0
     y: parent ? Math.round((parent.height - height) / 2) : 0
     modal: true
@@ -113,6 +145,41 @@ Popup {
         }
     }
 
+    component CategoryButton: AppButton {
+        id: button
+
+        required property var entry
+        objectName: "settingsCategory" + entry.id
+        text: entry.label
+        iconName: entry.icon
+        variant: root.category === entry.id ? "secondary" : "ghost"
+        small: true
+        leftPadding: 10
+        rightPadding: 8
+        Layout.fillWidth: !root.compact
+        Accessible.name: entry.label
+        onClicked: root.category = entry.id
+
+        contentItem: RowLayout {
+            spacing: 8
+
+            Icon {
+                name: entry.icon
+                size: 14
+                color: button.contentColor
+            }
+
+            AppText {
+                Layout.fillWidth: true
+                text: entry.label
+                color: button.contentColor
+                font.pixelSize: 13
+                verticalAlignment: Text.AlignVCenter
+                elide: Text.ElideRight
+            }
+        }
+    }
+
     background: Rectangle {
         radius: Theme.radiusLarge
         color: Theme.card
@@ -140,12 +207,6 @@ Popup {
                     font.weight: Font.DemiBold
                 }
 
-                AppText {
-                    Layout.fillWidth: true
-                    text: "Customize appearance, YouTube discovery, and dictionary lookups."
-                    color: Theme.mutedForeground
-                    wrapMode: Text.Wrap
-                }
             }
 
             AppButton {
@@ -162,379 +223,466 @@ Popup {
 
         Rectangle { Layout.fillWidth: true; Layout.preferredHeight: 1; color: Theme.border }
 
-        AppScrollView {
-            id: settingsScroll
+        RowLayout {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            contentWidth: availableWidth
-            contentHeight: form.implicitHeight + 40
-            ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
-            clip: true
+            spacing: 0
 
             ColumnLayout {
-                id: form
-                x: 20
-                y: 20
-                width: settingsScroll.availableWidth - 40
-                spacing: 20
+                id: sidebar
+                visible: !root.compact
+                Layout.preferredWidth: 170
+                Layout.fillHeight: true
+                Layout.margins: 16
+                spacing: 4
 
-                ColumnLayout {
+                CategoryButton { entry: root.categories[0] }
+                CategoryButton { entry: root.categories[1] }
+                CategoryButton { entry: root.categories[2] }
+
+                Item { Layout.fillHeight: true }
+            }
+
+            Rectangle {
+                visible: !root.compact
+                Layout.preferredWidth: 1
+                Layout.fillHeight: true
+                color: Theme.border
+            }
+
+            ColumnLayout {
+                Layout.fillWidth: true
+                Layout.fillHeight: true
+                spacing: 0
+
+                RowLayout {
+                    visible: root.compact
                     Layout.fillWidth: true
-                    spacing: 8
-                    AppText { text: "YouTube API key"; font.weight: Font.DemiBold }
-                    AppText {
-                        Layout.fillWidth: true
-                        wrapMode: Text.Wrap
-                        font.pixelSize: 12
-                        color: Theme.mutedForeground
-                        text: YouTube.savedKey ? "A key is saved on this device. Enter a new key to replace it."
-                            : YouTube.configured ? "Using a key from your launch environment or .env.local."
-                            : "Add your YouTube Data API key to enable Home and Explore discovery."
-                    }
-                    AppInput {
-                        id: youtubeKey
-                        objectName: "youtubeApiKeyInput"
-                        Layout.fillWidth: true
-                        echoMode: TextInput.Password
-                        placeholderText: YouTube.savedKey ? "Enter a replacement API key" : "Paste your API key"
-                        Accessible.name: "YouTube API key"
-                        inputMethodHints: Qt.ImhHiddenText | Qt.ImhNoPredictiveText | Qt.ImhNoAutoUppercase
-                        onAccepted: if (text.trim()) root.saveYoutubeKey()
-                    }
-                    RowLayout {
-                        AppButton {
-                            objectName: "saveYoutubeApiKey"
-                            text: "Save key"
-                            small: true
-                            enabled: !!youtubeKey.text.trim()
-                            onClicked: root.saveYoutubeKey()
-                        }
-                        AppButton {
-                            objectName: "removeYoutubeApiKey"
-                            text: "Remove saved key"
-                            small: true
-                            variant: "outline"
-                            visible: YouTube.savedKey
-                            onClicked: {
-                                root.youtubeError = YouTube.removeApiKey()
-                                root.youtubeMessage = ""
-                                if (!root.youtubeError) {
-                                    youtubeKey.clear()
-                                    root.youtubeMessage = YouTube.configured
-                                        ? "Saved key removed. Using the environment key."
-                                        : "Saved key removed."
-                                }
-                            }
-                        }
-                    }
-                    AppText {
-                        Layout.fillWidth: true
-                        wrapMode: Text.Wrap
-                        font.pixelSize: 12
-                        text: root.youtubeError || root.youtubeMessage
-                        visible: text !== ""
-                        color: root.youtubeError ? Theme.destructive : Theme.mutedForeground
-                    }
-                    AppText {
-                        Layout.fillWidth: true
-                        wrapMode: Text.Wrap
-                        font.pixelSize: 12
-                        color: Theme.mutedForeground
-                        text: "Saved locally on this device. Transcript fetching and opening YouTube links do not need an API key."
-                    }
+                    Layout.margins: 12
+                    Layout.bottomMargin: 4
+                    spacing: 4
+
+                    CategoryButton { entry: root.categories[0] }
+                    CategoryButton { entry: root.categories[1] }
+                    CategoryButton { entry: root.categories[2] }
                 }
 
-                ColumnLayout {
+                StackLayout {
+                    id: pages
                     Layout.fillWidth: true
-                    spacing: 8
-                    AppText { text: "Analysis dictionary"; font.weight: Font.DemiBold }
-                    ComboBox {
-                        id: analysisDictionary
-                        objectName: "analysisDictionarySelector"
+                    Layout.fillHeight: true
+                    currentIndex: root.categoryIndex
+
+                    // -- General -------------------------------------------
+                    AppScrollView {
+                        id: generalPage
                         Layout.fillWidth: true
-                        implicitHeight: Theme.inputHeight
-                        model: [{value: "wiktionary", label: "Wiktionary"}, {value: "krdict", label: "KRDict"}]
-                        textRole: "label"
-                        currentIndex: Analysis.defaultDictionary === "krdict" ? 1 : 0
-                        Accessible.name: "Default Analysis dictionary"
-                        leftPadding: 12
-                        rightPadding: 32
-                        onActivated: index => {
-                            root.krdictError = Analysis.setDefaultDictionary(model[index].value)
-                            root.krdictMessage = ""
-                            currentIndex = Qt.binding(() => Analysis.defaultDictionary === "krdict" ? 1 : 0)
-                        }
-                        contentItem: AppText {
-                            text: analysisDictionary.displayText
-                            font.pixelSize: 13
-                            verticalAlignment: Text.AlignVCenter
-                        }
-                        indicator: Icon {
-                            name: "chevron-down"
-                            size: 14
-                            x: analysisDictionary.width - width - 12
-                            y: (analysisDictionary.height - height) / 2
-                            color: Theme.mutedForeground
-                        }
-                        background: Rectangle {
-                            color: Theme.card
-                            radius: Theme.radius
-                            border.color: analysisDictionary.activeFocus ? Theme.accent : Theme.border
-                        }
-                        delegate: ItemDelegate {
-                            required property int index
-                            width: analysisDictionary.width - 8
-                            height: Theme.compactControlHeight
-                            highlighted: analysisDictionary.highlightedIndex === index
-                            contentItem: AppText { text: analysisDictionary.textAt(index); font.pixelSize: 13 }
-                            background: Rectangle {
-                                radius: Theme.radiusSmall
-                                color: parent.highlighted || parent.hovered ? Theme.neutralHover : "transparent"
-                            }
-                        }
-                        popup: Popup {
-                            y: analysisDictionary.height + 4
-                            width: analysisDictionary.width
-                            padding: 4
-                            background: Rectangle { color: Theme.card; border.color: Theme.border; radius: Theme.radius }
-                            contentItem: ListView {
-                                implicitHeight: contentHeight
-                                model: analysisDictionary.delegateModel
-                                currentIndex: analysisDictionary.highlightedIndex
-                                clip: true
-                            }
-                        }
-                    }
-                    AppText {
-                        Layout.fillWidth: true
-                        wrapMode: Text.Wrap
-                        font.pixelSize: 12
-                        color: Theme.mutedForeground
-                        text: "Used for Analysis definitions and quick word lookups. Wiktionary needs no key. Save a KRDict key before selecting KRDict."
-                    }
-                    AppText { text: "KRDict API key"; font.weight: Font.Medium }
-                    AppInput {
-                        id: krdictKey
-                        objectName: "krdictApiKeyInput"
-                        Layout.fillWidth: true
-                        echoMode: TextInput.Password
-                        placeholderText: Analysis.krdictConfigured ? "Enter a replacement KRDict key" : "Paste your 32-character KRDict key"
-                        Accessible.name: "KRDict API key"
-                        inputMethodHints: Qt.ImhHiddenText | Qt.ImhNoPredictiveText | Qt.ImhNoAutoUppercase
-                        onAccepted: if (text.trim()) root.saveKrdictKey()
-                    }
-                    RowLayout {
-                        AppButton {
-                            objectName: "saveKrdictKey"
-                            text: "Save key"
-                            small: true
-                            enabled: !!krdictKey.text.trim()
-                            onClicked: root.saveKrdictKey()
-                        }
-                        AppButton {
-                            objectName: "removeKrdictKey"
-                            text: "Remove saved key"
-                            visible: Analysis.krdictConfigured
-                            variant: "outline"
-                            small: true
-                            onClicked: {
-                                root.krdictError = Analysis.removeKrdictKey()
-                                root.krdictMessage = ""
-                                if (!root.krdictError) {
-                                    krdictKey.clear()
-                                    root.krdictMessage = "KRDict key removed. Using Wiktionary."
-                                }
-                            }
-                        }
-                    }
-                    AppText {
-                        Layout.fillWidth: true
-                        wrapMode: Text.Wrap
-                        text: root.krdictError || root.krdictMessage || (Analysis.krdictConfigured ? "A KRDict key is saved locally on this device." : "")
-                        visible: text !== ""
-                        font.pixelSize: 12
-                        color: root.krdictError ? Theme.destructive : Theme.mutedForeground
-                    }
-                }
+                        Layout.fillHeight: true
+                        contentWidth: availableWidth
+                        contentHeight: generalForm.implicitHeight + 40
+                        clip: true
+                        ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
 
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    spacing: 8
+                        ColumnLayout {
+                            id: generalForm
+                            x: 20
+                            y: 20
+                            width: generalPage.availableWidth - 40
+                            spacing: 20
 
-                    AppText {
-                        text: "Appearance"
-                        font.weight: Font.DemiBold
-                    }
-
-                    ComboBox {
-                        id: appearance
-                        Layout.fillWidth: true
-                        implicitHeight: Theme.inputHeight
-                        leftPadding: 12
-                        rightPadding: 36
-                        topPadding: 0
-                        bottomPadding: 0
-                        Accessible.name: "Appearance"
-                        model: [
-                            { value: "system", label: "System" },
-                            { value: "light", label: "Light" },
-                            { value: "dark", label: "Dark" }
-                        ]
-                        textRole: "label"
-                        valueRole: "value"
-                        currentIndex: Math.max(0, model.findIndex(entry => entry.value === Theme.appearance))
-                        onActivated: index => Theme.appearance = model[index].value
-
-                        contentItem: AppText {
-                            text: appearance.displayText
-                            font.pixelSize: 13
-                            verticalAlignment: Text.AlignVCenter
-                        }
-
-                        indicator: Icon {
-                            x: appearance.width - width - 12
-                            y: (appearance.height - height) / 2
-                            name: "chevron-down"
-                            size: 14
-                            color: Theme.mutedForeground
-                        }
-
-                        background: Rectangle {
-                            radius: Theme.radius
-                            color: Theme.card
-                            border.width: appearance.activeFocus ? 2 : 1
-                            border.color: appearance.activeFocus ? Theme.accent : Theme.border
-                        }
-
-                        delegate: ItemDelegate {
-                            required property int index
-                            width: appearance.width - appearance.popup.leftPadding - appearance.popup.rightPadding
-                            implicitHeight: Theme.compactControlHeight
-                            padding: 8
-                            highlighted: appearance.highlightedIndex === index
-                            hoverEnabled: true
-
-                            contentItem: AppText {
-                                text: appearance.textAt(index)
-                                font.pixelSize: 13
-                                verticalAlignment: Text.AlignVCenter
-                            }
-                            background: Rectangle {
-                                radius: Theme.radiusSmall
-                                color: parent.highlighted || parent.hovered ? Theme.neutralHover : "transparent"
-                            }
-                        }
-
-                        popup: Popup {
-                            y: appearance.height + 4
-                            width: appearance.width
-                            padding: 4
-
-                            background: Rectangle {
-                                color: Theme.card
-                                radius: Theme.radius
-                                border.width: 1
-                                border.color: Theme.border
-                            }
-
-                            contentItem: ListView {
-                                implicitHeight: contentHeight
-                                model: appearance.delegateModel
-                                currentIndex: appearance.highlightedIndex
-                                clip: true
-                            }
-                        }
-                    }
-                }
-
-                ColumnLayout {
-                    Layout.fillWidth: true
-                    spacing: 8
-
-                    AppText {
-                        text: "Embedded lookup tabs"
-                        font.weight: Font.DemiBold
-                    }
-
-                    ColumnLayout {
-                        Layout.fillWidth: true
-                        spacing: 4
-
-                        Repeater {
-                            model: DictionaryTabs.providers
-
-                            delegate: RowLayout {
-                                required property var modelData
-                                required property int index
+                            ColumnLayout {
                                 Layout.fillWidth: true
-                                spacing: Theme.controlGap
+                                spacing: 8
 
-                                SettingsCheck {
-                                    text: parent.modelData.label
-                                    checked: DictionaryTabs.enabled.some(provider => provider.template === parent.modelData.template)
-                                    onToggled: DictionaryTabs.setEnabled(parent.modelData.template, checked)
+                                AppText {
+                                    text: "Appearance"
+                                    font.weight: Font.DemiBold
+                                }
+
+                                ComboBox {
+                                    id: appearance
+                                    Layout.fillWidth: true
+                                    implicitHeight: Theme.inputHeight
+                                    leftPadding: 12
+                                    rightPadding: 36
+                                    topPadding: 0
+                                    bottomPadding: 0
+                                    Accessible.name: "Appearance"
+                                    model: [
+                                        { value: "system", label: "System" },
+                                        { value: "light", label: "Light" },
+                                        { value: "dark", label: "Dark" }
+                                    ]
+                                    textRole: "label"
+                                    valueRole: "value"
+                                    currentIndex: Math.max(0, model.findIndex(entry => entry.value === Theme.appearance))
+                                    onActivated: index => Theme.appearance = model[index].value
+
+                                    contentItem: AppText {
+                                        text: appearance.displayText
+                                        font.pixelSize: 13
+                                        verticalAlignment: Text.AlignVCenter
+                                    }
+
+                                    indicator: Icon {
+                                        x: appearance.width - width - 12
+                                        y: (appearance.height - height) / 2
+                                        name: "chevron-down"
+                                        size: 14
+                                        color: Theme.mutedForeground
+                                    }
+
+                                    background: Rectangle {
+                                        radius: Theme.radius
+                                        color: Theme.card
+                                        border.width: appearance.activeFocus ? 2 : 1
+                                        border.color: appearance.activeFocus ? Theme.accent : Theme.border
+                                    }
+
+                                    delegate: ItemDelegate {
+                                        required property int index
+                                        width: appearance.width - appearance.popup.leftPadding - appearance.popup.rightPadding
+                                        implicitHeight: Theme.compactControlHeight
+                                        padding: 8
+                                        highlighted: appearance.highlightedIndex === index
+                                        hoverEnabled: true
+
+                                        contentItem: AppText {
+                                            text: appearance.textAt(index)
+                                            font.pixelSize: 13
+                                            verticalAlignment: Text.AlignVCenter
+                                        }
+                                        background: Rectangle {
+                                            radius: Theme.radiusSmall
+                                            color: parent.highlighted || parent.hovered ? Theme.neutralHover : "transparent"
+                                        }
+                                    }
+
+                                    popup: Popup {
+                                        y: appearance.height + 4
+                                        width: appearance.width
+                                        padding: 4
+
+                                        background: Rectangle {
+                                            color: Theme.card
+                                            radius: Theme.radius
+                                            border.width: 1
+                                            border.color: Theme.border
+                                        }
+
+                                        contentItem: ListView {
+                                            implicitHeight: contentHeight
+                                            model: appearance.delegateModel
+                                            currentIndex: appearance.highlightedIndex
+                                            clip: true
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // -- Dictionaries --------------------------------------
+                    AppScrollView {
+                        id: dictionariesPage
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        contentWidth: availableWidth
+                        contentHeight: dictionariesForm.implicitHeight + 40
+                        clip: true
+                        ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+
+                        ColumnLayout {
+                            id: dictionariesForm
+                            x: 20
+                            y: 20
+                            width: dictionariesPage.availableWidth - 40
+                            spacing: 20
+
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                spacing: 8
+
+                                AppText {
+                                    text: "Analysis dictionary"
+                                    font.weight: Font.DemiBold
+                                }
+
+                                ComboBox {
+                                    id: analysisDictionary
+                                    objectName: "analysisDictionarySelector"
+                                    Layout.fillWidth: true
+                                    implicitHeight: Theme.inputHeight
+                                    model: [{value: "wiktionary", label: "Wiktionary"}, {value: "krdict", label: "KRDict"}]
+                                    textRole: "label"
+                                    currentIndex: Analysis.defaultDictionary === "krdict" ? 1 : 0
+                                    Accessible.name: "Default Analysis dictionary"
+                                    leftPadding: 12
+                                    rightPadding: 32
+                                    onActivated: index => {
+                                        root.krdictError = Analysis.setDefaultDictionary(model[index].value)
+                                        root.krdictMessage = ""
+                                        currentIndex = Qt.binding(() => Analysis.defaultDictionary === "krdict" ? 1 : 0)
+                                    }
+                                    contentItem: AppText {
+                                        text: analysisDictionary.displayText
+                                        font.pixelSize: 13
+                                        verticalAlignment: Text.AlignVCenter
+                                    }
+                                    indicator: Icon {
+                                        name: "chevron-down"
+                                        size: 14
+                                        x: analysisDictionary.width - width - 12
+                                        y: (analysisDictionary.height - height) / 2
+                                        color: Theme.mutedForeground
+                                    }
+                                    background: Rectangle {
+                                        color: Theme.card
+                                        radius: Theme.radius
+                                        border.color: analysisDictionary.activeFocus ? Theme.accent : Theme.border
+                                    }
+                                    delegate: ItemDelegate {
+                                        required property int index
+                                        width: analysisDictionary.width - 8
+                                        height: Theme.compactControlHeight
+                                        highlighted: analysisDictionary.highlightedIndex === index
+                                        contentItem: AppText { text: analysisDictionary.textAt(index); font.pixelSize: 13 }
+                                        background: Rectangle {
+                                            radius: Theme.radiusSmall
+                                            color: parent.highlighted || parent.hovered ? Theme.neutralHover : "transparent"
+                                        }
+                                    }
+                                    popup: Popup {
+                                        y: analysisDictionary.height + 4
+                                        width: analysisDictionary.width
+                                        padding: 4
+                                        background: Rectangle { color: Theme.card; border.color: Theme.border; radius: Theme.radius }
+                                        contentItem: ListView {
+                                            implicitHeight: contentHeight
+                                            model: analysisDictionary.delegateModel
+                                            currentIndex: analysisDictionary.highlightedIndex
+                                            clip: true
+                                        }
+                                    }
+                                }
+
+                                AppText {
+                                    Layout.fillWidth: true
+                                    wrapMode: Text.Wrap
+                                    font.pixelSize: 12
+                                    color: Theme.mutedForeground
+                                    text: "Used for Analysis definitions and quick word lookups. Wiktionary needs no key."
                                 }
 
                                 AppButton {
-                                    visible: parent.index >= 2
-                                    iconName: "x"
-                                    variant: "ghost"
-                                    Layout.preferredWidth: 24
-                                    Layout.preferredHeight: 24
-                                    Accessible.name: "Remove " + parent.modelData.label
-                                    onClicked: DictionaryTabs.remove(parent.modelData.template)
+                                    visible: !root.showKrdictFields
+                                    text: "Set up KRDict key"
+                                    variant: "outline"
+                                    small: true
+                                    onClicked: root.krdictExpanded = true
+                                }
+
+                                AppText {
+                                    text: "KRDict API key"
+                                    font.weight: Font.Medium
+                                    visible: root.showKrdictFields
+                                }
+                                AppInput {
+                                    id: krdictKey
+                                    objectName: "krdictApiKeyInput"
+                                    Layout.fillWidth: true
+                                    visible: root.showKrdictFields
+                                    echoMode: TextInput.Password
+                                    placeholderText: Analysis.krdictConfigured ? "••••••••••••••••" : "Paste your 32-character KRDict key"
+                                    Accessible.name: "KRDict API key"
+                                    inputMethodHints: Qt.ImhHiddenText | Qt.ImhNoPredictiveText | Qt.ImhNoAutoUppercase
+                                    onEditingFinished: root.saveKrdictKey()
+                                }
+                                AppText {
+                                    Layout.fillWidth: true
+                                    wrapMode: Text.Wrap
+                                    text: root.krdictError
+                                    visible: root.showKrdictFields && text !== ""
+                                    font.pixelSize: 12
+                                    color: root.krdictError ? Theme.destructive : Theme.mutedForeground
+                                }
+                            }
+
+                            ColumnLayout {
+                                Layout.fillWidth: true
+                                spacing: 8
+
+                                AppText {
+                                    text: "Embedded lookup tabs"
+                                    font.weight: Font.DemiBold
+                                }
+
+                                ColumnLayout {
+                                    Layout.fillWidth: true
+                                    spacing: 4
+
+                                    Repeater {
+                                        model: DictionaryTabs.providers
+
+                                        delegate: RowLayout {
+                                            required property var modelData
+                                            required property int index
+                                            Layout.fillWidth: true
+                                            spacing: Theme.controlGap
+
+                                            SettingsCheck {
+                                                text: parent.modelData.label
+                                                checked: DictionaryTabs.enabled.some(provider => provider.template === parent.modelData.template)
+                                                onToggled: DictionaryTabs.setEnabled(parent.modelData.template, checked)
+                                            }
+
+                                            AppButton {
+                                                visible: parent.index >= 2
+                                                iconName: "x"
+                                                variant: "ghost"
+                                                Layout.preferredWidth: 24
+                                                Layout.preferredHeight: 24
+                                                Accessible.name: "Remove " + parent.modelData.label
+                                                onClicked: DictionaryTabs.remove(parent.modelData.template)
+                                            }
+                                        }
+                                    }
+                                }
+
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    Layout.topMargin: 4
+                                    spacing: Theme.controlGap
+
+                                    AppInput {
+                                        id: labelField
+                                        Layout.preferredWidth: 120
+                                        placeholderText: "Name"
+                                        Accessible.name: placeholderText
+                                    }
+
+                                    AppInput {
+                                        id: urlField
+                                        Layout.fillWidth: true
+                                        placeholderText: "HTTPS URL with {word}"
+                                        Accessible.name: placeholderText
+                                        onAccepted: root.addDictionary()
+                                    }
+
+                                    AppButton {
+                                        text: ""
+                                        iconName: "plus"
+                                        variant: "outline"
+                                        Layout.preferredWidth: Theme.inputHeight
+                                        Layout.preferredHeight: Theme.inputHeight
+                                        Accessible.name: "Add dictionary"
+                                        enabled: !!labelField.text.trim() && !!urlField.text.trim()
+                                        onClicked: root.addDictionary()
+                                    }
+                                }
+
+                                AppText {
+                                    visible: !!root.dictionaryError
+                                    text: root.dictionaryError
+                                    color: Theme.destructive
+                                    font.pixelSize: 12
+                                    wrapMode: Text.Wrap
+                                    Layout.fillWidth: true
+                                }
+
+                                AppText {
+                                    text: "Use {word} for the selected word. HTTPS URLs are supported."
+                                    color: Theme.mutedForeground
+                                    font.pixelSize: 12
+                                    wrapMode: Text.Wrap
+                                    Layout.fillWidth: true
                                 }
                             }
                         }
                     }
 
-                    RowLayout {
+                    // -- Connections ---------------------------------------
+                    AppScrollView {
+                        id: connectionsPage
                         Layout.fillWidth: true
-                        Layout.topMargin: 4
-                        spacing: Theme.controlGap
+                        Layout.fillHeight: true
+                        contentWidth: availableWidth
+                        contentHeight: connectionsForm.implicitHeight + 40
+                        clip: true
+                        ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
 
-                        AppInput {
-                            id: labelField
-                            Layout.preferredWidth: 120
-                            placeholderText: "Name"
-                            Accessible.name: placeholderText
+                        ColumnLayout {
+                            id: connectionsForm
+                            x: 20
+                            y: 20
+                            width: connectionsPage.availableWidth - 40
+                            spacing: 8
+
+                            AppText {
+                                text: "YouTube API key"
+                                font.weight: Font.DemiBold
+                            }
+                            AppText {
+                                Layout.fillWidth: true
+                                wrapMode: Text.Wrap
+                                font.pixelSize: 12
+                                color: Theme.mutedForeground
+                                text: YouTube.savedKey ? "A key is saved on this device. Enter a new key to replace it."
+                                    : YouTube.configured ? "Using a key from your launch environment or .env.local."
+                                    : "Add your YouTube Data API key to enable Home and Explore discovery."
+                            }
+                            AppInput {
+                                id: youtubeKey
+                                objectName: "youtubeApiKeyInput"
+                                Layout.fillWidth: true
+                                echoMode: TextInput.Password
+                                placeholderText: YouTube.savedKey ? "Enter a replacement API key" : "Paste your API key"
+                                Accessible.name: "YouTube API key"
+                                inputMethodHints: Qt.ImhHiddenText | Qt.ImhNoPredictiveText | Qt.ImhNoAutoUppercase
+                                onAccepted: if (text.trim()) root.saveYoutubeKey()
+                            }
+                            RowLayout {
+                                AppButton {
+                                    objectName: "saveYoutubeApiKey"
+                                    text: "Save key"
+                                    small: true
+                                    enabled: !!youtubeKey.text.trim()
+                                    onClicked: root.saveYoutubeKey()
+                                }
+                                AppButton {
+                                    objectName: "removeYoutubeApiKey"
+                                    text: "Remove saved key"
+                                    small: true
+                                    variant: "outline"
+                                    visible: YouTube.savedKey
+                                    onClicked: {
+                                        root.youtubeError = YouTube.removeApiKey()
+                                        root.youtubeMessage = ""
+                                        if (!root.youtubeError) {
+                                            youtubeKey.clear()
+                                            root.youtubeMessage = YouTube.configured
+                                                ? "Saved key removed. Using the environment key."
+                                                : "Saved key removed."
+                                        }
+                                    }
+                                }
+                            }
+                            AppText {
+                                Layout.fillWidth: true
+                                wrapMode: Text.Wrap
+                                font.pixelSize: 12
+                                text: root.youtubeError || root.youtubeMessage
+                                visible: text !== ""
+                                color: root.youtubeError ? Theme.destructive : Theme.mutedForeground
+                            }
+                            AppText {
+                                Layout.fillWidth: true
+                                wrapMode: Text.Wrap
+                                font.pixelSize: 12
+                                color: Theme.mutedForeground
+                                text: "Saved on this device. An API key isn't needed for transcript fetching or opening YouTube links."
+                            }
                         }
-
-                        AppInput {
-                            id: urlField
-                            Layout.fillWidth: true
-                            placeholderText: "HTTPS URL with {word}"
-                            Accessible.name: placeholderText
-                            onAccepted: root.addDictionary()
-                        }
-
-                        AppButton {
-                            text: ""
-                            iconName: "plus"
-                            variant: "outline"
-                            Layout.preferredWidth: Theme.inputHeight
-                            Layout.preferredHeight: Theme.inputHeight
-                            Accessible.name: "Add dictionary"
-                            enabled: !!labelField.text.trim() && !!urlField.text.trim()
-                            onClicked: root.addDictionary()
-                        }
-                    }
-
-                    AppText {
-                        visible: !!root.dictionaryError
-                        text: root.dictionaryError
-                        color: Theme.destructive
-                        font.pixelSize: 12
-                        wrapMode: Text.Wrap
-                        Layout.fillWidth: true
-                    }
-
-                    AppText {
-                        text: "Use {word} for the selected word. HTTPS URLs are supported."
-                        color: Theme.mutedForeground
-                        font.pixelSize: 12
-                        wrapMode: Text.Wrap
-                        Layout.fillWidth: true
                     }
                 }
             }
