@@ -80,6 +80,19 @@ Item {
         })
     }
 
+    function scrollByPage(direction) {
+        const minimum = view.originY
+        const maximum = Math.max(minimum, minimum + view.contentHeight - view.height)
+        const target = wheelScroll.running ? wheelScroll.to : view.contentY
+        wheelScroll.stop()
+        view.cancelFlick()
+        const destination = Math.max(minimum, Math.min(maximum,
+            target + direction * view.height * 0.9))
+        wheelScroll.from = view.contentY
+        wheelScroll.to = destination
+        wheelScroll.restart()
+    }
+
     Component.onCompleted: {
         if (pdfPath)
             pdfText.open(pdfPath)

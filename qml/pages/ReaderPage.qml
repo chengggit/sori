@@ -297,6 +297,20 @@ Item {
         onActivated: pdfZoom = 1
     }
 
+    // Shortcuts take precedence over the focused header button, so Space no
+    // longer repeats whatever zoom/page button was last clicked.
+    Shortcut {
+        enabled: root.active && root.isPdf && root.bookMode && root.pdfPageCount > 1
+        sequence: "Space"
+        onActivated: bookReader.nextPage()
+    }
+
+    Shortcut {
+        enabled: root.active && root.isPdf && !root.bookMode
+        sequence: "Space"
+        onActivated: pdfPageReader.scrollByPage(1)
+    }
+
     Timer {
         id: saveProgress
         interval: 500
