@@ -20,6 +20,12 @@ Item {
     property string pdfPath: ""
     readonly property string pdfUrl: pdfPath ? renderHost.localUrl(pdfPath) : ""
     readonly property bool isPdf: pdfPath !== ""
+    property bool bookMode: false
+    property real pdfZoom: 1
+    readonly property var pdfZoomLevels: [0.5, 0.67, 0.75, 0.8, 0.9, 1, 1.1, 1.25, 1.5, 2, 3]
+    readonly property int pdfPageIndex: bookMode ? bookReader.currentPage : pdfPageReader.currentPage
+    readonly property int pdfPageCount: bookMode ? bookReader.pageCount : pdfPageReader.pageCount
+    readonly property real pdfPosition: bookMode ? bookReader.position : pdfPageReader.position
     property real restorePosition: 0
     property bool restoring: false
     property bool progressPending: false
@@ -105,6 +111,7 @@ Item {
         documentError = document.error || ""
         progressError = ""
         pdfPath = document.pdfPath || ""
+        pdfZoom = 1
         restorePosition = document.position ?? 0
         passage.text = document.content ?? ""
         renderHost.setReadingLineHeight(passage.textDocument, Theme.readerLineHeight)
@@ -146,17 +153,46 @@ Item {
 
     function currentPosition() {
         if (root.isPdf)
-            return Math.max(0, Math.min(1, pdfPageReader.position))
+            return Math.max(0, Math.min(1, root.pdfPosition))
         return root.scrollRange
             ? Math.max(0, Math.min(1, viewport.contentY / root.scrollRange))
             : 0
+    }
+
+    function zoomPdf(direction) {
+        const levels = root.pdfZoomLevels
+        if (direction > 0) {
+            const next = levels.find(level => level > root.pdfZoom + 0.001)
+            pdfZoom = next ?? levels[levels.length - 1]
+        } else {
+            const smaller = levels.filter(level => level < root.pdfZoom - 0.001)
+            pdfZoom = smaller.length ? smaller[smaller.length - 1] : levels[0]
+        }
+    }
+
+    function toggleBookMode() {
+        if (!root.isPdf)
+            return
+        root.restorePosition = root.currentPosition()
+        root.progressPending = true
+        root.flushProgress()
+        root.bookMode = !root.bookMode
+        Qt.callLater(() => {
+            if (root.bookMode)
+                bookReader.restoreProgress()
+            else
+                pdfPageReader.restoreProgress()
+        })
     }
 
     function restoreProgress() {
         if (!root.active || !root.restoring)
             return
         if (root.isPdf) {
-            pdfPageReader.restoreProgress()
+            if (root.bookMode)
+                bookReader.restoreProgress()
+            else
+                pdfPageReader.restoreProgress()
         } else {
             viewport.contentY = root.restorePosition * root.scrollRange
         }
@@ -230,6 +266,51 @@ Item {
         }
     }
 
+    Shortcut {
+        enabled: root.active && root.isPdf && root.bookMode && root.pdfPageIndex > 0
+        sequence: "Left"
+        onActivated: bookReader.previousPage()
+    }
+
+    Shortcut {
+        enabled: root.active && root.isPdf && root.bookMode
+            && root.pdfPageIndex < root.pdfPageCount - 1
+        sequence: "Right"
+        onActivated: bookReader.nextPage()
+    }
+
+    Shortcut {
+        enabled: root.active && root.isPdf
+        sequences: ["Ctrl+Shift+=", "Ctrl+=", "Ctrl++"]
+        onActivated: root.zoomPdf(1)
+    }
+
+    Shortcut {
+        enabled: root.active && root.isPdf
+        sequences: ["Ctrl+Shift+-", "Ctrl+-"]
+        onActivated: root.zoomPdf(-1)
+    }
+
+    Shortcut {
+        enabled: root.active && root.isPdf
+        sequence: "Ctrl+0"
+        onActivated: pdfZoom = 1
+    }
+
+    // Shortcuts take precedence over the focused header button, so Space no
+    // longer repeats whatever zoom/page button was last clicked.
+    Shortcut {
+        enabled: root.active && root.isPdf && root.bookMode && root.pdfPageCount > 1
+        sequence: "Space"
+        onActivated: bookReader.nextPage()
+    }
+
+    Shortcut {
+        enabled: root.active && root.isPdf && !root.bookMode
+        sequence: "Space"
+        onActivated: pdfPageReader.scrollByPage(1)
+    }
+
     Timer {
         id: saveProgress
         interval: 500
@@ -246,14 +327,70 @@ Item {
         RowLayout {
             Layout.fillWidth: true
             visible: root.isPdf
+            spacing: 8
+
+            AppButton {
+                iconName: "arrow-left"
+                variant: "outline"
+                small: true
+                visible: root.bookMode
+                Accessible.name: "Previous page"
+                enabled: root.pdfPageIndex > 0
+                onClicked: bookReader.previousPage()
+            }
 
             AppText {
-                text: pdfPageReader.pageCount > 0
-                    ? "Page " + (pdfPageReader.currentPage + 1)
-                        + " / " + pdfPageReader.pageCount
+                text: root.pdfPageCount > 0
+                    ? "Page " + (root.pdfPageIndex + 1) + " / " + root.pdfPageCount
                     : "PDF"
                 color: Theme.mutedForeground
                 font.pixelSize: 12
+            }
+
+            AppButton {
+                iconName: "arrow-left"
+                rotation: 180
+                variant: "outline"
+                small: true
+                visible: root.bookMode
+                Accessible.name: "Next page"
+                enabled: root.pdfPageCount > 0 && root.pdfPageIndex < root.pdfPageCount - 1
+                onClicked: bookReader.nextPage()
+            }
+
+            Item {
+                Layout.fillWidth: true
+            }
+
+            AppButton {
+                text: "−"
+                variant: "outline"
+                small: true
+                Accessible.name: "Zoom out PDF"
+                enabled: root.pdfZoom > root.pdfZoomLevels[0]
+                onClicked: root.zoomPdf(-1)
+            }
+
+            AppText {
+                text: Math.round(root.pdfZoom * 100) + "%"
+                color: Theme.mutedForeground
+                font.pixelSize: 12
+            }
+
+            AppButton {
+                text: "+"
+                variant: "outline"
+                small: true
+                Accessible.name: "Zoom in PDF"
+                enabled: root.pdfZoom < root.pdfZoomLevels[root.pdfZoomLevels.length - 1]
+                onClicked: root.zoomPdf(1)
+            }
+
+            AppButton {
+                text: root.bookMode ? "Scroll" : "Book"
+                variant: "outline"
+                small: true
+                onClicked: root.toggleBookMode()
             }
         }
 
@@ -270,15 +407,36 @@ Item {
             objectName: "pdfPageReader"
             Layout.fillWidth: true
             Layout.fillHeight: true
-            visible: root.isPdf
+            visible: root.isPdf && !root.bookMode
             pdfPath: root.pdfPath
             pdfUrl: root.pdfUrl
             pdfText: root.pdfText
+            zoom: root.pdfZoom
             restorePosition: root.restorePosition
             onWordRequested: (text, start, end) => analysis.lookup(text, start, end)
             onPositionChanged: {
                 if (root.active && root.documentId && !root.restoring
                         && !pdfPageReader.restoring && !root.progressPending) {
+                    root.progressPending = true
+                    saveProgress.start()
+                }
+            }
+        }
+
+        PdfBookReader {
+            id: bookReader
+            objectName: "pdfBookReader"
+            Layout.fillWidth: true
+            Layout.fillHeight: true
+            visible: root.isPdf && root.bookMode
+            pdfUrl: root.pdfUrl
+            pdfText: root.pdfText
+            zoom: root.pdfZoom
+            restorePosition: root.restorePosition
+            onWordRequested: (text, start, end) => analysis.lookup(text, start, end)
+            onPositionChanged: {
+                if (root.active && root.documentId && !root.restoring
+                        && !root.progressPending) {
                     root.progressPending = true
                     saveProgress.start()
                 }
@@ -306,7 +464,49 @@ Item {
                     saveProgress.start()
                 }
             }
-            ScrollBar.vertical: AppScrollBar {}
+            onDraggingChanged: if (dragging) wheelScroll.stop()
+
+            NumberAnimation {
+                id: wheelScroll
+                target: viewport
+                property: "contentY"
+                duration: 180
+                easing.type: Easing.OutCubic
+            }
+
+            WheelHandler {
+                acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+                target: null
+                blocking: true
+                onWheel: event => {
+                    if (event.angleDelta.y === 0 && event.pixelDelta.y === 0) {
+                        event.accepted = false
+                        return
+                    }
+                    event.accepted = true
+                    const precise = event.pixelDelta.y !== 0
+                    // A wheel notch is 120 angle units. Scroll by distance,
+                    // rather than a flick velocity that Qt caps and decelerates.
+                    const distance = precise ? event.pixelDelta.y * 2 : event.angleDelta.y / 120 * 300
+                    const previousTarget = wheelScroll.running ? wheelScroll.to : viewport.contentY
+                    wheelScroll.stop()
+                    viewport.cancelFlick()
+                    const minimum = viewport.originY
+                    const maximum = Math.max(minimum, minimum + viewport.contentHeight - viewport.height)
+                    const destination = Math.max(minimum, Math.min(maximum,
+                        (precise ? viewport.contentY : previousTarget) - distance))
+                    if (precise) {
+                        viewport.contentY = destination
+                    } else {
+                        wheelScroll.from = viewport.contentY
+                        wheelScroll.to = destination
+                        wheelScroll.restart()
+                    }
+                }
+            }
+            ScrollBar.vertical: AppScrollBar {
+                onPressedChanged: if (pressed) wheelScroll.stop()
+            }
 
             TextArea {
                 id: passage

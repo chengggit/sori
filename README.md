@@ -252,10 +252,12 @@ TXT attachments also work on YouTube Watch. PDF transcripts are not supported ye
 Import UTF-8 text files, PDFs, or paste text in My Library. PDFs open in the
 original page view: layout, images, tables, and page breaks are rendered as they
 appear in the PDF, and Korean words with an embedded text layer are clickable for
-analysis and vocabulary saving. PDFs are kept as page-only documents (up to
-50 MiB); no text is extracted from them at import time. Scanned PDFs remain
-readable as pages but have no clickable words. Open a document to read it and
-resume from its saved reading position. Sori uses the same local SQLite
+analysis and vocabulary saving. Use **Book** to show one page at a time and turn
+it by clicking the left or right half of the view, the on-screen arrows, or the
+Left/Right keys; use **Scroll** for the continuous page view. PDFs are kept as
+page-only documents (up to 50 MiB); no text is extracted from them at import
+time. Scanned PDFs remain readable as pages but have no clickable words. Open a
+document to read it and resume from its saved reading position. Sori uses the same local SQLite
 database as the earlier desktop app, under `com.sori.app/library.sqlite3` in
 your user data directory (`$XDG_DATA_HOME` or `~/.local/share` on Linux).
 

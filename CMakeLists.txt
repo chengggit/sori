@@ -98,6 +98,7 @@ qt_add_resources(sori "watch" PREFIX "/" FILES
     qml/components/PageFrame.qml
     qml/components/PageHeader.qml
     qml/components/PdfPageReader.qml
+    qml/components/PdfBookReader.qml
     qml/components/VocabularyEditor.qml
     qml/components/VocabularyDetails.qml
     qml/components/VocabularyForm.qml

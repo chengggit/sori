@@ -11,6 +11,7 @@ Item {
     required property string pdfPath
     required property string pdfUrl
     required property var pdfText
+    property real zoom: 1
     property real restorePosition: 0
     property real position: 0
     property int currentPage: 0
@@ -20,6 +21,7 @@ Item {
 
     readonly property int pageGap: 20
     readonly property real pageWidth: Math.max(0, Math.min(width - 2 * Theme.readerPadding, 920))
+        * zoom
 
     signal wordRequested(string text, int start, int end)
 
@@ -78,6 +80,19 @@ Item {
         })
     }
 
+    function scrollByPage(direction) {
+        const minimum = view.originY
+        const maximum = Math.max(minimum, minimum + view.contentHeight - view.height)
+        const target = wheelScroll.running ? wheelScroll.to : view.contentY
+        wheelScroll.stop()
+        view.cancelFlick()
+        const destination = Math.max(minimum, Math.min(maximum,
+            target + direction * view.height * 0.9))
+        wheelScroll.from = view.contentY
+        wheelScroll.to = destination
+        wheelScroll.restart()
+    }
+
     Component.onCompleted: {
         if (pdfPath)
             pdfText.open(pdfPath)
@@ -109,14 +124,57 @@ Item {
         anchors.fill: parent
         visible: pdfDocument.status === PdfDocument.Ready
         clip: true
+        contentWidth: Math.max(view.width, root.pageWidth + 2 * Theme.readerPadding)
         model: pdfDocument.pageCount
         spacing: root.pageGap
         boundsBehavior: Flickable.StopAtBounds
         cacheBuffer: height
-        ScrollBar.vertical: AppScrollBar {}
         onContentYChanged: root.updatePosition()
         onWidthChanged: root.updatePosition()
         onHeightChanged: root.updatePosition()
+        onDraggingChanged: if (dragging) wheelScroll.stop()
+
+        NumberAnimation {
+            id: wheelScroll
+            target: view
+            property: "contentY"
+            duration: 180
+            easing.type: Easing.OutCubic
+        }
+
+        WheelHandler {
+            acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+            target: null
+            blocking: true
+            onWheel: event => {
+                if (event.angleDelta.y === 0 && event.pixelDelta.y === 0) {
+                    event.accepted = false
+                    return
+                }
+                event.accepted = true
+                const precise = event.pixelDelta.y !== 0
+                // A wheel notch is 120 angle units. Scroll by distance,
+                // rather than a flick velocity that Qt caps and decelerates.
+                const distance = precise ? event.pixelDelta.y * 2 : event.angleDelta.y / 120 * 300
+                const previousTarget = wheelScroll.running ? wheelScroll.to : view.contentY
+                wheelScroll.stop()
+                view.cancelFlick()
+                const minimum = view.originY
+                const maximum = Math.max(minimum, minimum + view.contentHeight - view.height)
+                const destination = Math.max(minimum, Math.min(maximum,
+                    (precise ? view.contentY : previousTarget) - distance))
+                if (precise) {
+                    view.contentY = destination
+                } else {
+                    wheelScroll.from = view.contentY
+                    wheelScroll.to = destination
+                    wheelScroll.restart()
+                }
+            }
+        }
+        ScrollBar.vertical: AppScrollBar {
+            onPressedChanged: if (pressed) wheelScroll.stop()
+        }
 
         delegate: Item {
             id: pageItem
