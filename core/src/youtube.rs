@@ -205,8 +205,7 @@ impl YouTube {
         error
     }
 
-    #[qslot]
-    fn subscription_feed(&mut self) -> i32 {
+    fn request_feed(&mut self, tokens: Value) -> i32 {
         self.request = self.request.wrapping_add(1).max(1);
         let request = self.request;
         let database = self.database.clone();
@@ -214,13 +213,23 @@ impl YouTube {
         std::thread::spawn(move || {
             let result = database
                 .ok_or_else(|| "Settings are not available.".to_string())
-                .and_then(|database| subscription_feed(&database))
+                .and_then(|database| subscription_feed(&database, &tokens))
                 .unwrap_or_else(|error| json!({"error": error}));
             let _ = handle.invoke_mut(move |model| {
                 model.subscription_feed_finished(request, &result)
             });
         });
         request
+    }
+
+    #[qslot]
+    fn subscription_feed(&mut self) -> i32 {
+        self.request_feed(json!({}))
+    }
+
+    #[qslot]
+    fn subscription_feed_page(&mut self, tokens: Value) -> i32 {
+        self.request_feed(tokens)
     }
 }
 
@@ -943,6 +952,7 @@ fn live_by_title(title: &str) -> bool {
 struct VideoDetails {
     seconds: Option<u64>,
     live: bool,
+    completed_live: bool,
 }
 
 /// Drop Shorts and live broadcasts using one videos.list call per 50 videos.
@@ -966,7 +976,7 @@ fn filter_uploads(videos: Vec<FeedVideo>, key: &str) -> Vec<FeedVideo> {
         let mut url =
             Url::parse("https://www.googleapis.com/youtube/v3/videos").expect("constant videos URL");
         url.query_pairs_mut().extend_pairs([
-            ("part", "snippet,contentDetails"),
+            ("part", "snippet,contentDetails,liveStreamingDetails"),
             ("id", &ids),
             ("key", key),
         ]);
@@ -982,6 +992,9 @@ fn filter_uploads(videos: Vec<FeedVideo>, key: &str) -> Vec<FeedVideo> {
                                     .and_then(parse_duration),
                                 live: item["snippet"]["liveBroadcastContent"].as_str()
                                     != Some("none"),
+                                completed_live: item["liveStreamingDetails"]["actualEndTime"]
+                                    .as_str()
+                                    .is_some(),
                             },
                         );
                     }
@@ -992,22 +1005,35 @@ fn filter_uploads(videos: Vec<FeedVideo>, key: &str) -> Vec<FeedVideo> {
     candidates
         .into_iter()
         .filter(|video| match details.get(&video.id) {
-            Some(info) => !info.live && info.seconds.map_or(true, |seconds| seconds > 180),
+            Some(info) => !info.live
+                && !info.completed_live
+                && info.seconds.map_or(true, |seconds| seconds > 180),
             None => true,
         })
         .collect()
 }
 
-fn channel_uploads(channel: &Subscription, key: &str) -> Result<Vec<FeedVideo>, String> {
+fn channel_uploads(
+    channel: &Subscription,
+    key: &str,
+    page_token: &str,
+) -> Result<(Vec<FeedVideo>, String), String> {
     let mut url = Url::parse("https://www.googleapis.com/youtube/v3/playlistItems")
         .expect("constant playlistItems URL");
-    url.query_pairs_mut().extend_pairs([
-        ("part", "snippet"),
-        ("playlistId", &channel.uploads_playlist_id),
-        ("maxResults", "12"),
-        ("key", key),
-    ]);
+    {
+        let mut pairs = url.query_pairs_mut();
+        pairs.extend_pairs([
+            ("part", "snippet"),
+            ("playlistId", &channel.uploads_playlist_id),
+            ("maxResults", "12"),
+            ("key", key),
+        ]);
+        if !page_token.is_empty() {
+            pairs.append_pair("pageToken", page_token);
+        }
+    }
     let result = get_json(url)?;
+    let next_page = result["nextPageToken"].as_str().unwrap_or_default().to_owned();
     let items = result["items"].as_array().ok_or("No uploads returned.")?;
     let videos: Vec<FeedVideo> = items
         .iter()
@@ -1027,23 +1053,38 @@ fn channel_uploads(channel: &Subscription, key: &str) -> Result<Vec<FeedVideo>, 
             })
         })
         .collect();
-    Ok(filter_uploads(videos, key))
+    Ok((filter_uploads(videos, key), next_page))
 }
 
-fn subscription_feed(database: &crate::db::Database) -> Result<Value, String> {
+fn subscription_feed(
+    database: &crate::db::Database,
+    tokens: &Value,
+) -> Result<Value, String> {
     let key = api_key().ok_or("Add a YouTube API key in Settings to discover videos.")?;
     let channels = subscriptions(&database.connect()?)?;
     if channels.is_empty() {
         return Err("Add a channel in Settings to build your feed.".into());
     }
+    let loading_more = tokens.as_object().is_some_and(|entries| !entries.is_empty());
     let mut videos = Vec::new();
+    let mut next_tokens = serde_json::Map::new();
     for channel in &channels {
-        if let Ok(mut uploaded) = channel_uploads(channel, &key) {
+        let token = tokens
+            .get(&channel.channel_id)
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        if loading_more && token.is_empty() {
+            continue;
+        }
+        if let Ok((mut uploaded, next)) = channel_uploads(channel, &key, token) {
             videos.append(&mut uploaded);
+            if !next.is_empty() {
+                next_tokens.insert(channel.channel_id.clone(), json!(next));
+            }
         }
     }
     videos.sort_by(|left, right| right.published_at.cmp(&left.published_at));
-    Ok(json!({"videos": videos}))
+    Ok(json!({"videos": videos, "nextPageTokens": Value::Object(next_tokens)}))
 }
 
 fn search(query: &str, page: &str) -> Result<SearchPage, String> {

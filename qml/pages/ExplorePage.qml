@@ -20,6 +20,7 @@ Item {
     property var videos: []
     property string currentQuery: ""
     property string nextPage: ""
+    property var nextPageTokens: ({})
     property string error: ""
     property bool loadingMore: false
     property bool paginationFailed: false
@@ -75,8 +76,16 @@ Item {
 
     // Newest upload sits first; everything below is shuffled so Refresh gives
     // a different mix from the same set of subscribed channels.
-    function showFeed(feedVideos) {
-        videos = feedVideos;
+    function showFeed(feedVideos, reposition) {
+        const unique = [];
+        const seen = new Set();
+        for (const video of feedVideos) {
+            if (!seen.has(video.id)) {
+                seen.add(video.id);
+                unique.push(video);
+            }
+        }
+        videos = unique;
         videoModel.clear();
         if (videos.length) {
             videoModel.append({ video: videos[0] });
@@ -90,7 +99,8 @@ Item {
             for (const video of rest)
                 videoModel.append({ video: video });
         }
-        Qt.callLater(positionAtTop);
+        if (reposition !== false)
+            Qt.callLater(positionAtTop);
     }
 
     function refreshDiscovery() {
@@ -98,6 +108,7 @@ Item {
             videos = [];
             videoModel.clear();
             nextPage = "";
+            nextPageTokens = ({});
             currentQuery = "";
             return;
         }
@@ -105,6 +116,7 @@ Item {
         videos = [];
         videoModel.clear();
         nextPage = "";
+        nextPageTokens = ({});
         currentQuery = "subscriptions";
         request = YouTube.subscriptionFeed();
     }
@@ -131,14 +143,22 @@ Item {
     }
 
     function loadMoreNearEnd() {
-        if (!visible || request || !nextPage || !results.footerItem)
+        if (!visible || request || !results.footerItem)
             return;
         if (results.footerItem.y - (results.contentY + results.height) > paginationDistance) {
             paginationFailed = false;
             return;
         }
-        if (!paginationFailed)
-            browse(currentQuery, nextPage);
+        if (discovery) {
+            if (Object.keys(root.nextPageTokens).length === 0)
+                return;
+            root.loadingMore = true;
+            request = YouTube.subscriptionFeedPage(root.nextPageTokens);
+            return;
+        }
+        if (!nextPage || paginationFailed)
+            return;
+        browse(currentQuery, nextPage);
     }
 
     function showFirstPage(firstPage) {
@@ -223,10 +243,15 @@ Item {
         function onSubscriptionFeedFinished(request, result) {
             if (request !== root.request)
                 return;
+            const wasLoadingMore = root.loadingMore;
             root.error = result.error ?? "";
             root.request = 0;
-            if (!root.error)
-                root.showFeed(result.videos ?? []);
+            root.loadingMore = false;
+            if (root.error)
+                return;
+            const loaded = wasLoadingMore ? root.videos : [];
+            root.showFeed(loaded.concat(result.videos ?? []), !wasLoadingMore);
+            root.nextPageTokens = result.nextPageTokens ?? ({});
         }
     }
 
