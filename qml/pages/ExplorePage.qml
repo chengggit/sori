@@ -12,6 +12,7 @@ Item {
     signal openYouTubeRequested(string url, string title, string channel)
     required property var searchCache
     readonly property int cacheLifetime: 24 * 60 * 60 * 1000
+    readonly property int subscriptionCacheLifetime: 15 * 60 * 1000
     readonly property int paginationDistance: 500
     property bool discovery: false
     property Component leadingContent
@@ -103,7 +104,12 @@ Item {
             Qt.callLater(positionAtTop);
     }
 
-    function refreshDiscovery() {
+    function subscriptionCacheKey() {
+        const ids = (YouTube.subscriptions ?? []).map(entry => entry.channelId).join(",");
+        return "subscriptions:" + ids;
+    }
+
+    function refreshDiscovery(force) {
         if (!YouTube.configured || root.subscriptionCount === 0) {
             videos = [];
             videoModel.clear();
@@ -112,18 +118,27 @@ Item {
             currentQuery = "";
             return;
         }
+        const key = root.subscriptionCacheKey();
+        if (!force) {
+            const cached = root.freshCacheEntries().find(entry => entry.query === key);
+            if (cached) {
+                root.showFeed(cached.videos ?? [], false);
+                root.nextPageTokens = cached.nextPageTokens ?? ({});
+                return;
+            }
+        }
         // Keep the current feed on screen while refreshing so the view does
         // not collapse to zero height and jump back to the header.
         error = "";
         nextPage = "";
         nextPageTokens = ({});
-        currentQuery = "subscriptions";
+        currentQuery = key;
         request = YouTube.subscriptionFeed();
     }
 
     function ensureDiscovery() {
         if (discovery && visible && YouTube.configured && !request && !videos.length)
-            refreshDiscovery();
+            refreshDiscovery(false);
     }
     Component.onCompleted: Qt.callLater(ensureDiscovery)
     onVisibleChanged: Qt.callLater(ensureDiscovery)
@@ -252,6 +267,17 @@ Item {
             const loaded = wasLoadingMore ? root.videos : [];
             root.showFeed(loaded.concat(result.videos ?? []), false);
             root.nextPageTokens = result.nextPageTokens ?? ({});
+            if (!wasLoadingMore) {
+                const entries = root.freshCacheEntries()
+                    .filter(entry => entry.query !== root.currentQuery);
+                entries.unshift({
+                    query: root.currentQuery,
+                    expiresAt: Date.now() + root.subscriptionCacheLifetime,
+                    videos: result.videos ?? [],
+                    nextPageTokens: root.nextPageTokens
+                });
+                root.searchCache.firstPages = JSON.stringify(entries.slice(0, 30));
+            }
         }
     }
 
@@ -541,7 +567,7 @@ Item {
                             variant: "outline"
                             compact: true
                             enabled: YouTube.configured && !root.request
-                            onClicked: root.refreshDiscovery()
+                            onClicked: root.refreshDiscovery(true)
                         }
                     }
                 }
