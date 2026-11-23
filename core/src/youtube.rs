@@ -61,6 +61,7 @@ impl YouTube {
             });
         self.settings_error = result.err().unwrap_or_default();
         self.configuration_changed();
+        self.subscriptions_changed();
     }
 
     fn saved_key(&self) -> bool {
