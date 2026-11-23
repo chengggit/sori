@@ -213,8 +213,7 @@ Popup {
     background: Rectangle {
         radius: Theme.radiusLarge
         color: Theme.card
-        border.width: 1
-        border.color: Theme.border
+        border.width: 0
     }
 
     contentItem: ColumnLayout {

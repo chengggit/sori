@@ -71,6 +71,7 @@ ItemDelegate {
     background: Rectangle {
         radius: Theme.radiusSmall
         color: card.visualFocus ? Theme.hero : "transparent"
+        border.width: 0
     }
 
     contentItem: ColumnLayout {
@@ -285,8 +286,7 @@ ItemDelegate {
         background: Rectangle {
             radius: Theme.radius
             color: Theme.card
-            border.width: 1
-            border.color: Theme.border
+            border.width: 0
         }
 
         MenuItem {
@@ -306,6 +306,7 @@ ItemDelegate {
             background: Rectangle {
                 radius: Theme.radiusSmall
                 color: openItem.hovered ? Theme.neutralHover : "transparent"
+                border.width: 0
             }
         }
 
@@ -329,6 +330,7 @@ ItemDelegate {
             background: Rectangle {
                 radius: Theme.radiusSmall
                 color: editItem.hovered ? Theme.neutralHover : "transparent"
+                border.width: 0
             }
         }
 
@@ -350,6 +352,7 @@ ItemDelegate {
             background: Rectangle {
                 radius: Theme.radiusSmall
                 color: removeItem.hovered ? Theme.neutralHover : "transparent"
+                border.width: 0
             }
         }
     }

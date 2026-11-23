@@ -306,8 +306,7 @@ Item {
         background: Rectangle {
             color: Theme.card
             radius: Theme.radiusLarge
-            border.width: 1
-            border.color: Theme.border
+            border.width: 0
         }
 
         Overlay.modal: Rectangle {

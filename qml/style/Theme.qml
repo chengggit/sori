@@ -33,7 +33,7 @@ QtObject {
     readonly property color card: dark ? "#171717" : "#fbfcfb"
     readonly property color foreground: dark ? "#fafafa" : "#0a0a0a"
     readonly property color mutedForeground: dark ? "#a1a1a1" : "#595d59"
-    readonly property color border: dark ? "#1a1a1a" : "#e1e4e0"
+    readonly property color border: dark ? "#303030" : "#e1e4e0"
     readonly property color sidebarBorder: dark ? "#2e2e2e" : border
     readonly property color sidebarSelection: dark ? "#262626" : "#e1e7d7"
     readonly property color sidebarActiveText: dark ? foreground : dashboardAccent

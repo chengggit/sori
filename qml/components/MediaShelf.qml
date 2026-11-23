@@ -125,8 +125,7 @@ ColumnLayout {
             height: shelf.rowHeight
             radius: Theme.radius
             color: "transparent"
-            border.width: 1
-            border.color: Theme.border
+            border.width: 0
 
             ColumnLayout {
                 anchors.centerIn: parent

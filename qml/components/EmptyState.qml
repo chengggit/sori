@@ -14,8 +14,7 @@ Rectangle {
     implicitHeight: content.implicitHeight + 64
     color: Theme.card
     radius: Theme.radiusLarge
-    border.width: 1
-    border.color: Theme.border
+    border.width: 0
 
     ColumnLayout {
         id: content

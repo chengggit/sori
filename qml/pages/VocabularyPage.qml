@@ -240,8 +240,7 @@ Item {
         background: Rectangle {
             color: Theme.card
             radius: Theme.radiusLarge
-            border.width: 1
-            border.color: Theme.border
+            border.width: 0
         }
 
         contentItem: ColumnLayout {
@@ -405,8 +404,8 @@ Item {
                         radius: Theme.radius
                         color: card.hovered || card.visualFocus
                             ? Theme.neutralHover : Theme.card
-                        border.width: 1
-                        border.color: card.visualFocus ? Theme.accent : Theme.border
+                        border.width: card.visualFocus ? 1 : 0
+                        border.color: Theme.accent
 
                         Behavior on color {
                             ColorAnimation { duration: 120; easing.type: Easing.OutCubic }
@@ -521,8 +520,7 @@ Item {
                         background: Rectangle {
                             color: Theme.card
                             radius: Theme.radiusSmall
-                            border.width: 1
-                            border.color: Theme.border
+                            border.width: 0
                         }
 
                         MenuItem {
