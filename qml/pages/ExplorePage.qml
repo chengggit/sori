@@ -112,9 +112,9 @@ Item {
             currentQuery = "";
             return;
         }
+        // Keep the current feed on screen while refreshing so the view does
+        // not collapse to zero height and jump back to the header.
         error = "";
-        videos = [];
-        videoModel.clear();
         nextPage = "";
         nextPageTokens = ({});
         currentQuery = "subscriptions";
@@ -250,7 +250,7 @@ Item {
             if (root.error)
                 return;
             const loaded = wasLoadingMore ? root.videos : [];
-            root.showFeed(loaded.concat(result.videos ?? []), !wasLoadingMore);
+            root.showFeed(loaded.concat(result.videos ?? []), false);
             root.nextPageTokens = result.nextPageTokens ?? ({});
         }
     }
@@ -500,13 +500,14 @@ Item {
                 GridLayout {
                     Layout.fillWidth: true
                     visible: root.discovery
-                    columns: width >= discoverHeading.implicitWidth + discoverActions.implicitWidth + columnSpacing ? 2 : 1
+                    columns: 2
                     columnSpacing: Theme.controlGap
                     rowSpacing: Theme.controlGap
 
                     ColumnLayout {
                         id: discoverHeading
                         Layout.fillWidth: true
+                        Layout.minimumWidth: 0
                         spacing: 5
                         AppText {
                             text: "DISCOVER"
@@ -516,23 +517,16 @@ Item {
                             font.letterSpacing: 1
                         }
                         AppText {
+                            Layout.fillWidth: true
                             text: "Korean videos on YouTube"
                             font.pixelSize: 24
                             font.weight: Font.DemiBold
-                        }
-                        AppText {
-                            visible: root.discovery && root.videos.length > 0
-                            Layout.fillWidth: true
-                            text: root.videos.length > 0 && root.videos[0]
-                                ? "Newest from " + root.videos[0].channel : ""
-                            color: Theme.mutedForeground
-                            font.pixelSize: 12
                             elide: Text.ElideRight
                         }
                     }
                     RowLayout {
                         id: discoverActions
-                        Layout.alignment: Qt.AlignBottom
+                        Layout.alignment: Qt.AlignRight | Qt.AlignBottom
                         spacing: Theme.controlGap
                         AppButton {
                             text: "Paste YouTube link"
