@@ -1053,7 +1053,7 @@ fn channel_uploads(
             })
         })
         .collect();
-    Ok((filter_uploads(videos, key), next_page))
+    Ok((videos, next_page))
 }
 
 fn subscription_feed(
@@ -1066,23 +1066,50 @@ fn subscription_feed(
         return Err("Add a channel in Settings to build your feed.".into());
     }
     let loading_more = tokens.as_object().is_some_and(|entries| !entries.is_empty());
+    let key = key.as_str();
+
+    // Channel uploads are independent; fetch them concurrently instead of
+    // waiting for one network round trip per channel.
+    let fetched: Vec<(String, Vec<FeedVideo>, String)> = std::thread::scope(|scope| {
+        let handles: Vec<_> = channels
+            .iter()
+            .filter(|channel| {
+                !loading_more
+                    || tokens
+                        .get(&channel.channel_id)
+                        .and_then(Value::as_str)
+                        .is_some()
+            })
+            .map(|channel| {
+                let token = tokens
+                    .get(&channel.channel_id)
+                    .and_then(Value::as_str)
+                    .unwrap_or_default();
+                scope.spawn(move || {
+                    let result = channel_uploads(channel, &key, token);
+                    (channel.channel_id.clone(), result)
+                })
+            })
+            .collect();
+        handles
+            .into_iter()
+            .filter_map(|handle| handle.join().ok())
+            .filter_map(|(id, result)| {
+                result.ok().map(|(uploaded, next)| (id, uploaded, next))
+            })
+            .collect()
+    });
+
     let mut videos = Vec::new();
     let mut next_tokens = serde_json::Map::new();
-    for channel in &channels {
-        let token = tokens
-            .get(&channel.channel_id)
-            .and_then(Value::as_str)
-            .unwrap_or_default();
-        if loading_more && token.is_empty() {
-            continue;
-        }
-        if let Ok((mut uploaded, next)) = channel_uploads(channel, &key, token) {
-            videos.append(&mut uploaded);
-            if !next.is_empty() {
-                next_tokens.insert(channel.channel_id.clone(), json!(next));
-            }
+    for (id, mut uploaded, next) in fetched {
+        videos.append(&mut uploaded);
+        if !next.is_empty() {
+            next_tokens.insert(id, json!(next));
         }
     }
+    // One batched details lookup for every channel together.
+    let mut videos = filter_uploads(videos, key);
     videos.sort_by(|left, right| right.published_at.cmp(&left.published_at));
     Ok(json!({"videos": videos, "nextPageTokens": Value::Object(next_tokens)}))
 }
