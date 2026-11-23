@@ -36,8 +36,7 @@ ItemDelegate {
         return card.seconds > 0 ? Player.formatTime(card.seconds) + " watched" : "Not started";
     }
     readonly property color cornerFill: card.visualFocus ? Theme.hero : Theme.background
-    readonly property color coverColor: card.tintIndex % 3 === 0 ? Theme.hero
-        : card.tintIndex % 3 === 1 ? Theme.accentSoft : Theme.chip
+    readonly property color coverColor: Theme.hero
     readonly property string watermark: card.title.trim().substring(0, 1)
     readonly property bool revealed: card.hovered || card.visualFocus || actions.opened
 
