@@ -10,11 +10,14 @@ Popup {
     id: root
 
     property string category: "general"
-    readonly property int categoryIndex: ({general: 0, dictionaries: 1, connections: 2})[root.category] ?? 0
+    readonly property int categoryIndex: ({
+        general: 0, dictionaries: 1, channels: 2, connections: 3
+    })[root.category] ?? 0
     readonly property bool compact: parent && parent.width < 600
     readonly property var categories: [
         { id: "general", label: "General", icon: "settings" },
         { id: "dictionaries", label: "Dictionaries", icon: "book-open" },
+        { id: "channels", label: "Channels", icon: "play" },
         { id: "connections", label: "Connections", icon: "link" }
     ]
 
@@ -27,9 +30,11 @@ Popup {
     property string youtubeMessage: ""
     property string krdictError: ""
     property string krdictMessage: ""
+    property string channelError: ""
+    property string channelMessage: ""
 
     function resetScroll() {
-        for (const page of [generalPage, dictionariesPage, connectionsPage]) {
+        for (const page of [generalPage, dictionariesPage, channelsPage, connectionsPage]) {
             if (page.flickableItem)
                 page.flickableItem.contentY = 0
         }
@@ -45,8 +50,11 @@ Popup {
         krdictKey.text = Analysis.krdictKey
         krdictError = Analysis.dictionarySettingsError
         krdictMessage = ""
+        channelInput.clear()
+        channelError = ""
+        channelMessage = ""
     }
-    onClosed: { youtubeKey.clear(); krdictKey.clear() }
+    onClosed: { youtubeKey.clear(); krdictKey.clear(); channelInput.clear() }
     onCategoryChanged: root.resetScroll()
 
     function saveKrdictKey() {
@@ -64,6 +72,28 @@ Popup {
             krdictKey.text = Analysis.krdictKey
             krdictMessage = "KRDict API key saved."
         }
+    }
+
+    function addChannel() {
+        const text = channelInput.text.trim()
+        if (!text)
+            return
+        const result = YouTube.resolveChannel(text)
+        channelError = result.error ?? ""
+        channelMessage = ""
+        if (channelError)
+            return
+        channelError = YouTube.addSubscription(
+            result.channelId, result.title, result.uploadsPlaylistId)
+        if (!channelError) {
+            channelInput.clear()
+            channelMessage = result.title + " added."
+        }
+    }
+
+    function removeChannel(id) {
+        channelError = YouTube.removeSubscription(id)
+        channelMessage = channelError ? "" : "Channel removed."
     }
 
     function saveYoutubeKey() {
@@ -239,6 +269,7 @@ Popup {
                 CategoryButton { entry: root.categories[0] }
                 CategoryButton { entry: root.categories[1] }
                 CategoryButton { entry: root.categories[2] }
+                CategoryButton { entry: root.categories[3] }
 
                 Item { Layout.fillHeight: true }
             }
@@ -265,6 +296,7 @@ Popup {
                     CategoryButton { entry: root.categories[0] }
                     CategoryButton { entry: root.categories[1] }
                     CategoryButton { entry: root.categories[2] }
+                    CategoryButton { entry: root.categories[3] }
                 }
 
                 StackLayout {
@@ -596,6 +628,88 @@ Popup {
                                     font.pixelSize: 12
                                     wrapMode: Text.Wrap
                                     Layout.fillWidth: true
+                                }
+                            }
+                        }
+                    }
+
+                    // -- Channels ------------------------------------------
+                    AppScrollView {
+                        id: channelsPage
+                        Layout.fillWidth: true
+                        Layout.fillHeight: true
+                        contentWidth: availableWidth
+                        contentHeight: channelsForm.implicitHeight + 40
+                        clip: true
+                        ScrollBar.horizontal.policy: ScrollBar.AlwaysOff
+
+                        ColumnLayout {
+                            id: channelsForm
+                            x: 20
+                            y: 20
+                            width: channelsPage.availableWidth - 40
+                            spacing: 8
+
+                            AppText {
+                                text: "Subscribed channels"
+                                font.weight: Font.DemiBold
+                            }
+                            AppText {
+                                Layout.fillWidth: true
+                                wrapMode: Text.Wrap
+                                font.pixelSize: 12
+                                color: Theme.mutedForeground
+                                text: "Home shows the newest uploads from these channels."
+                            }
+
+                            AppInput {
+                                id: channelInput
+                                objectName: "channelInput"
+                                Layout.fillWidth: true
+                                placeholderText: "Channel link, @handle, or name"
+                                Accessible.name: "YouTube channel"
+                                onAccepted: root.addChannel()
+                            }
+                            AppButton {
+                                objectName: "addChannel"
+                                text: "Add channel"
+                                small: true
+                                enabled: !!channelInput.text.trim()
+                                onClicked: root.addChannel()
+                            }
+
+                            AppText {
+                                Layout.fillWidth: true
+                                wrapMode: Text.Wrap
+                                font.pixelSize: 12
+                                text: root.channelError || root.channelMessage
+                                visible: text !== ""
+                                color: root.channelError ? Theme.destructive : Theme.mutedForeground
+                            }
+
+                            Repeater {
+                                model: YouTube.subscriptions ?? []
+
+                                RowLayout {
+                                    required property var modelData
+                                    Layout.fillWidth: true
+                                    spacing: Theme.controlGap
+
+                                    AppText {
+                                        Layout.fillWidth: true
+                                        text: modelData.title
+                                        font.pixelSize: 13
+                                        elide: Text.ElideRight
+                                    }
+                                    AppButton {
+                                        iconName: "x"
+                                        variant: "ghost"
+                                        small: true
+                                        Layout.preferredWidth: 24
+                                        Layout.preferredHeight: 24
+                                        Accessible.name: "Remove " + modelData.title
+                                        onClicked: root.removeChannel(modelData.channelId)
+                                    }
                                 }
                             }
                         }

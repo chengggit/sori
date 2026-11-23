@@ -15,17 +15,23 @@ Item {
     readonly property int paginationDistance: 500
     property bool discovery: false
     property Component leadingContent
-    property int discoveryIndex: 0
-    readonly property var discoveryQueries: ["한국 집밥 요리 브이로그", "한국 일상 브이로그", "한국 여행 브이로그"]
+    property string feedKey: ""
     property int request: 0
     property var videos: []
     property string currentQuery: ""
     property string nextPage: ""
+    property var nextPageTokens: ({})
     property string error: ""
     property bool loadingMore: false
     property bool paginationFailed: false
     property string linkError: ""
-    readonly property string statusText: error || (!YouTube.configured ? "Add a YouTube API key in Settings to discover videos." : request && !loadingMore ? "Searching YouTube…" : currentQuery && !videos.length ? "No videos found." : "")
+    readonly property int subscriptionCount: (YouTube.subscriptions ?? []).length
+    readonly property string statusText: error || (!YouTube.configured
+        ? "Add a YouTube API key in Settings to discover videos."
+        : discovery && subscriptionCount === 0
+            ? "Add a YouTube channel in Settings to build your feed."
+            : request ? "Loading videos…"
+            : currentQuery && !videos.length ? "No videos found." : "")
 
     readonly property var topics: [
         {
@@ -68,9 +74,51 @@ Item {
         dynamicRoles: true
     }
 
+    // Newest upload sits first; everything below is shuffled so Refresh gives
+    // a different mix from the same set of subscribed channels.
+    function showFeed(feedVideos, reposition) {
+        const unique = [];
+        const seen = new Set();
+        for (const video of feedVideos) {
+            if (!seen.has(video.id)) {
+                seen.add(video.id);
+                unique.push(video);
+            }
+        }
+        videos = unique;
+        videoModel.clear();
+        if (videos.length) {
+            videoModel.append({ video: videos[0] });
+            const rest = videos.slice(1);
+            for (let i = rest.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                const temporary = rest[i];
+                rest[i] = rest[j];
+                rest[j] = temporary;
+            }
+            for (const video of rest)
+                videoModel.append({ video: video });
+        }
+        if (reposition !== false)
+            Qt.callLater(positionAtTop);
+    }
+
     function refreshDiscovery() {
-        browse(discoveryQueries[discoveryIndex]);
-        discoveryIndex = (discoveryIndex + 1) % discoveryQueries.length;
+        if (!YouTube.configured || root.subscriptionCount === 0) {
+            videos = [];
+            videoModel.clear();
+            nextPage = "";
+            nextPageTokens = ({});
+            currentQuery = "";
+            return;
+        }
+        // Keep the current feed on screen while refreshing so the view does
+        // not collapse to zero height and jump back to the header.
+        error = "";
+        nextPage = "";
+        nextPageTokens = ({});
+        currentQuery = "subscriptions";
+        request = YouTube.subscriptionFeed();
     }
 
     function ensureDiscovery() {
@@ -95,14 +143,22 @@ Item {
     }
 
     function loadMoreNearEnd() {
-        if (!visible || request || !nextPage || !results.footerItem)
+        if (!visible || request || !results.footerItem)
             return;
         if (results.footerItem.y - (results.contentY + results.height) > paginationDistance) {
             paginationFailed = false;
             return;
         }
-        if (!paginationFailed)
-            browse(currentQuery, nextPage);
+        if (discovery) {
+            if (Object.keys(root.nextPageTokens).length === 0)
+                return;
+            root.loadingMore = true;
+            request = YouTube.subscriptionFeedPage(root.nextPageTokens);
+            return;
+        }
+        if (!nextPage || paginationFailed)
+            return;
+        browse(currentQuery, nextPage);
     }
 
     function showFirstPage(firstPage) {
@@ -129,6 +185,7 @@ Item {
             return;
         error = "";
         currentQuery = term;
+        feedKey = "query:" + term;
         loadingMore = !!pageToken;
         if (!loadingMore) {
             wheelScroll.stop();
@@ -137,7 +194,7 @@ Item {
             videos = [];
             videoModel.clear();
             nextPage = "";
-            const cached = freshCacheEntries().find(entry => entry.query === term);
+            const cached = freshCacheEntries().find(entry => entry.query === feedKey);
             if (cached) {
                 showFirstPage(cached);
                 return;
@@ -169,9 +226,9 @@ Item {
                     root.nextPage = result.nextPage === root.nextPage ? "" : result.nextPage;
                 } else {
                     root.showFirstPage(result);
-                    const entries = root.freshCacheEntries().filter(entry => entry.query !== root.currentQuery);
+                    const entries = root.freshCacheEntries().filter(entry => entry.query !== root.feedKey);
                     entries.unshift({
-                        query: root.currentQuery,
+                        query: root.feedKey,
                         expiresAt: Date.now() + root.cacheLifetime,
                         videos: result.videos,
                         nextPage: root.nextPage
@@ -181,6 +238,20 @@ Item {
             }
             root.loadingMore = false;
             root.request = 0;
+        }
+
+        function onSubscriptionFeedFinished(request, result) {
+            if (request !== root.request)
+                return;
+            const wasLoadingMore = root.loadingMore;
+            root.error = result.error ?? "";
+            root.request = 0;
+            root.loadingMore = false;
+            if (root.error)
+                return;
+            const loaded = wasLoadingMore ? root.videos : [];
+            root.showFeed(loaded.concat(result.videos ?? []), false);
+            root.nextPageTokens = result.nextPageTokens ?? ({});
         }
     }
 
@@ -400,7 +471,7 @@ Item {
             cellWidth: Math.floor(width / columns)
             readonly property real tileWidth: cellWidth - Theme.dashboardColumnGap + Theme.dashboardColumnGap / columns
             readonly property int titleHeight: 2 * Theme.videoTitleLineHeight
-            cellHeight: Math.ceil(tileWidth * 9 / 16) + titleHeight + Theme.videoChannelHeight + Theme.controlGap + Theme.dashboardRowGap
+            cellHeight: Math.ceil(tileWidth * 9 / 16) + titleHeight + Theme.videoChannelHeight + Theme.controlGap + 4 + Theme.dashboardRowGap
             ScrollBar.vertical: AppScrollBar {
                 id: resultsScrollBar
                 onPressedChanged: if (pressed) wheelScroll.stop()
@@ -429,13 +500,14 @@ Item {
                 GridLayout {
                     Layout.fillWidth: true
                     visible: root.discovery
-                    columns: width >= discoverHeading.implicitWidth + discoverActions.implicitWidth + columnSpacing ? 2 : 1
+                    columns: 2
                     columnSpacing: Theme.controlGap
                     rowSpacing: Theme.controlGap
 
                     ColumnLayout {
                         id: discoverHeading
                         Layout.fillWidth: true
+                        Layout.minimumWidth: 0
                         spacing: 5
                         AppText {
                             text: "DISCOVER"
@@ -445,14 +517,16 @@ Item {
                             font.letterSpacing: 1
                         }
                         AppText {
+                            Layout.fillWidth: true
                             text: "Korean videos on YouTube"
                             font.pixelSize: 24
                             font.weight: Font.DemiBold
+                            elide: Text.ElideRight
                         }
                     }
                     RowLayout {
                         id: discoverActions
-                        Layout.alignment: Qt.AlignBottom
+                        Layout.alignment: Qt.AlignRight | Qt.AlignBottom
                         spacing: Theme.controlGap
                         AppButton {
                             text: "Paste YouTube link"
@@ -462,7 +536,7 @@ Item {
                             onClicked: root.showLinkForm()
                         }
                         AppButton {
-                            text: "Refresh Discover"
+                            text: "Refresh"
                             iconName: "refresh"
                             variant: "outline"
                             compact: true
@@ -605,7 +679,7 @@ Item {
                             Layout.fillWidth: true
                             text: tile.modelData.title
                             Layout.topMargin: Theme.controlGap
-                            Layout.preferredHeight: results.titleHeight
+                            Layout.preferredHeight: Math.min(results.titleHeight, videoTitle.implicitHeight)
                             verticalAlignment: Text.AlignTop
                             lineHeightMode: Text.FixedHeight
                             lineHeight: Theme.videoTitleLineHeight
@@ -640,10 +714,17 @@ Item {
 
                         AppText {
                             Layout.fillWidth: true
+                            Layout.topMargin: 4
                             text: tile.modelData.channel
                             color: Theme.mutedForeground
                             font.pixelSize: 12
                             elide: Text.ElideRight
+                        }
+
+                        // Keep artwork and titles top-aligned; short titles
+                        // leave their unused second-line space below the channel.
+                        Item {
+                            Layout.fillHeight: true
                         }
                     }
 

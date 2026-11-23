@@ -17,7 +17,7 @@ Rectangle {
     signal searchAccepted(string text)
 
     implicitHeight: Theme.headerHeight
-    color: root.searchVisible ? Theme.background : Theme.sidebar
+    color: Theme.sidebar
 
     Rectangle {
         anchors.bottom: parent.bottom
