@@ -1,5 +1,6 @@
 use qtbridge::{qobject, QmlObject};
 use regex::Regex;
+use std::collections::HashMap;
 use reqwest::blocking::Client;
 use rusqlite::{params, Connection, OptionalExtension};
 use serde::{Deserialize, Serialize};
@@ -904,6 +905,99 @@ fn resolve_channel(input: &str) -> Result<Subscription, String> {
     channel_from_api(items, &fallback_id)
 }
 
+fn parse_duration(value: &str) -> Option<u64> {
+    let pattern = Regex::new(r"^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$").ok()?;
+    let captures = pattern.captures(value)?;
+    let hours = captures
+        .get(1)
+        .and_then(|value| value.as_str().parse::<u64>().ok())
+        .unwrap_or(0);
+    let minutes = captures
+        .get(2)
+        .and_then(|value| value.as_str().parse::<u64>().ok())
+        .unwrap_or(0);
+    let seconds = captures
+        .get(3)
+        .and_then(|value| value.as_str().parse::<u64>().ok())
+        .unwrap_or(0);
+    if captures.get(1).is_none() && captures.get(2).is_none() && captures.get(3).is_none() {
+        return None;
+    }
+    Some(hours * 3600 + minutes * 60 + seconds)
+}
+
+fn short_by_title(title: &str) -> bool {
+    let lower = title.to_lowercase();
+    lower.contains("#shorts")
+        || lower.contains("쇼츠")
+        || lower.split_whitespace().any(|word| word == "shorts")
+}
+
+fn live_by_title(title: &str) -> bool {
+    let lower = title.to_lowercase();
+    lower.contains("라이브")
+        || lower.contains("#live")
+        || lower.split_whitespace().any(|word| word == "live")
+}
+
+struct VideoDetails {
+    seconds: Option<u64>,
+    live: bool,
+}
+
+/// Drop Shorts and live broadcasts using one videos.list call per 50 videos.
+/// Title keywords are a fallback when the details are unavailable.
+fn filter_uploads(videos: Vec<FeedVideo>, key: &str) -> Vec<FeedVideo> {
+    let candidates: Vec<FeedVideo> = videos
+        .into_iter()
+        .filter(|video| !short_by_title(&video.title) && !live_by_title(&video.title))
+        .collect();
+    if candidates.is_empty() {
+        return candidates;
+    }
+
+    let mut details: HashMap<String, VideoDetails> = HashMap::new();
+    for chunk in candidates.chunks(50) {
+        let ids = chunk
+            .iter()
+            .map(|video| video.id.as_str())
+            .collect::<Vec<_>>()
+            .join(",");
+        let mut url =
+            Url::parse("https://www.googleapis.com/youtube/v3/videos").expect("constant videos URL");
+        url.query_pairs_mut().extend_pairs([
+            ("part", "snippet,contentDetails"),
+            ("id", &ids),
+            ("key", key),
+        ]);
+        if let Ok(result) = get_json(url) {
+            if let Some(items) = result["items"].as_array() {
+                for item in items {
+                    if let Some(id) = item["id"].as_str() {
+                        details.insert(
+                            id.to_owned(),
+                            VideoDetails {
+                                seconds: item["contentDetails"]["duration"]
+                                    .as_str()
+                                    .and_then(parse_duration),
+                                live: item["snippet"]["liveBroadcastContent"].as_str()
+                                    != Some("none"),
+                            },
+                        );
+                    }
+                }
+            }
+        }
+    }
+    candidates
+        .into_iter()
+        .filter(|video| match details.get(&video.id) {
+            Some(info) => !info.live && info.seconds.map_or(true, |seconds| seconds > 180),
+            None => true,
+        })
+        .collect()
+}
+
 fn channel_uploads(channel: &Subscription, key: &str) -> Result<Vec<FeedVideo>, String> {
     let mut url = Url::parse("https://www.googleapis.com/youtube/v3/playlistItems")
         .expect("constant playlistItems URL");
@@ -915,7 +1009,7 @@ fn channel_uploads(channel: &Subscription, key: &str) -> Result<Vec<FeedVideo>, 
     ]);
     let result = get_json(url)?;
     let items = result["items"].as_array().ok_or("No uploads returned.")?;
-    Ok(items
+    let videos: Vec<FeedVideo> = items
         .iter()
         .filter_map(|item| {
             let id = item["snippet"]["resourceId"]["videoId"].as_str()?;
@@ -932,7 +1026,8 @@ fn channel_uploads(channel: &Subscription, key: &str) -> Result<Vec<FeedVideo>, 
                     .to_owned(),
             })
         })
-        .collect())
+        .collect();
+    Ok(filter_uploads(videos, key))
 }
 
 fn subscription_feed(database: &crate::db::Database) -> Result<Value, String> {
@@ -1208,6 +1303,21 @@ mod tests {
         ));
         assert!(matches!(channel_input("UC5r3WHrX4Z7peSYpDlgktGw"), ChannelInput::Id(_)));
         assert!(matches!(channel_input("Talk To Me In Korean"), ChannelInput::Query(_)));
+    }
+
+    #[test]
+    fn parses_durations_and_detects_shorts_by_title() {
+        assert_eq!(parse_duration("PT58S"), Some(58));
+        assert_eq!(parse_duration("PT3M20S"), Some(200));
+        assert_eq!(parse_duration("PT1H2M3S"), Some(3723));
+        assert_eq!(parse_duration("PT"), None);
+        assert!(short_by_title(" photographed #Shorts"));
+        assert!(short_by_title("쇼츠 모음"));
+        assert!(short_by_title("Funny SHORTS compilation"));
+        assert!(!short_by_title("제주도 여행 브이로그"));
+        assert!(live_by_title("라이브 방송"));
+        assert!(live_by_title("Live from Seoul"));
+        assert!(!live_by_title("서울 여행 브이로그"));
     }
 
     #[test]
