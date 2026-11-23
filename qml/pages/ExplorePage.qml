@@ -471,7 +471,7 @@ Item {
             cellWidth: Math.floor(width / columns)
             readonly property real tileWidth: cellWidth - Theme.dashboardColumnGap + Theme.dashboardColumnGap / columns
             readonly property int titleHeight: 2 * Theme.videoTitleLineHeight
-            cellHeight: Math.ceil(tileWidth * 9 / 16) + titleHeight + Theme.videoChannelHeight + Theme.controlGap + Theme.dashboardRowGap
+            cellHeight: Math.ceil(tileWidth * 9 / 16) + titleHeight + Theme.videoChannelHeight + Theme.controlGap + 4 + Theme.dashboardRowGap
             ScrollBar.vertical: AppScrollBar {
                 id: resultsScrollBar
                 onPressedChanged: if (pressed) wheelScroll.stop()
@@ -679,7 +679,7 @@ Item {
                             Layout.fillWidth: true
                             text: tile.modelData.title
                             Layout.topMargin: Theme.controlGap
-                            Layout.preferredHeight: results.titleHeight
+                            Layout.preferredHeight: Math.min(results.titleHeight, videoTitle.implicitHeight)
                             verticalAlignment: Text.AlignTop
                             lineHeightMode: Text.FixedHeight
                             lineHeight: Theme.videoTitleLineHeight
@@ -714,10 +714,17 @@ Item {
 
                         AppText {
                             Layout.fillWidth: true
+                            Layout.topMargin: 4
                             text: tile.modelData.channel
                             color: Theme.mutedForeground
                             font.pixelSize: 12
                             elide: Text.ElideRight
+                        }
+
+                        // Keep artwork and titles top-aligned; short titles
+                        // leave their unused second-line space below the channel.
+                        Item {
+                            Layout.fillHeight: true
                         }
                     }
 
