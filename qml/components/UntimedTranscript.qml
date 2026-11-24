@@ -7,6 +7,7 @@ import "../style"
 Rectangle {
     id: root
     required property real videoId
+    property Component headerComponent: null
     property string youtubeId: ""
     property string pendingYoutubeId: ""
     property var renderHost: null
@@ -60,11 +61,26 @@ Rectangle {
     Component.onDestruction: flush()
     Timer { id: saveDelay; interval: 500; onTriggered: root.flush() }
 
+    Loader {
+        id: header
+        x: Theme.readerPadding
+        y: 16
+        width: parent.width - 2 * Theme.readerPadding
+        sourceComponent: root.headerComponent
+        visible: status === Loader.Ready
+    }
+
     Flickable {
         id: viewport
         objectName: "untimedTranscriptViewport"
-        anchors.fill: parent
-        anchors.margins: 16
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        anchors.top: header.visible ? header.bottom : parent.top
+        anchors.leftMargin: Theme.readerPadding
+        anchors.rightMargin: Theme.readerPadding
+        anchors.bottomMargin: Theme.readerPadding
+        anchors.topMargin: header.visible ? 12 : Theme.readerPadding
         clip: true
         contentWidth: width
         contentHeight: passage.implicitHeight

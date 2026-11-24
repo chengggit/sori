@@ -8,6 +8,8 @@ Rectangle {
     id: root
     required property var subtitles
     required property var player
+    property Component headerComponent: null
+    property bool showEmptyAction: true
     signal lookupRequested(string text, int start, int end)
     signal addRequested()
     property string emptyAction: "Add subtitle files"
@@ -105,10 +107,18 @@ Rectangle {
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 12
-        spacing: 8
+        anchors.margins: Theme.readerPadding
+        anchors.topMargin: 16
+        spacing: 12
 
-        AppText { text: "Transcript"; font.weight: Font.DemiBold; Layout.fillWidth: true }
+        Loader {
+            Layout.fillWidth: true
+            sourceComponent: root.headerComponent ?? defaultHeader
+        }
+        Component {
+            id: defaultHeader
+            AppText { text: "Transcript"; font.weight: Font.DemiBold }
+        }
 
         AppText {
             visible: root.subtitles.loading
@@ -117,7 +127,7 @@ Rectangle {
         }
 
         AppButton {
-            visible: !root.subtitles.loading && lines.count === 0
+            visible: root.showEmptyAction && !root.subtitles.loading && lines.count === 0
             text: root.emptyAction
             variant: "outline"
             onClicked: root.addRequested()

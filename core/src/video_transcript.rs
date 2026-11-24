@@ -110,6 +110,12 @@ mod tests {
         let saved = attach(&connection, 1, &path).unwrap();
         assert_eq!(saved["content"], "안녕하세요.\n한국어 공부");
         assert_eq!(saved["title"], "podcast.txt");
+        for extension in ["pdf", "srt", "vtt"] {
+            let unsupported = path.with_extension(extension);
+            std::fs::write(&unsupported, "한국어 공부").unwrap();
+            assert!(attach(&connection, 1, &unsupported).unwrap_err().contains("TXT"));
+            assert_eq!(read(&connection, 1).unwrap()["content"], "안녕하세요.\n한국어 공부");
+        }
         save_position(&connection, 1, 0.4).unwrap();
         assert!(save_position(&connection, 1, f64::NAN).is_err());
         assert!(save_position(&connection, 1, 1.1).is_err());

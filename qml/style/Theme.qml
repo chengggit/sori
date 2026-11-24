@@ -44,7 +44,7 @@ QtObject {
     readonly property color accentHover: dark ? "#bedaab" : "#4d693a"
     readonly property color accentPressed: dark ? "#cce5b9" : "#466233"
     readonly property color accentSoft: dark ? "#34432b" : "#dde4d3"
-    readonly property color accentSoftHover: dark ? "#3c4d31" : "#dce7d3"
+    readonly property color accentSoftHover: dark ? "#3c4d31" : "#d0ddc3"
     readonly property color accentSoftPressed: dark ? "#465a39" : "#ccd9be"
     readonly property color disabledAccent: dark ? "#627255" : "#a8b0a2"
     readonly property color hero: dark ? "#1f2619" : "#e4ecdc"

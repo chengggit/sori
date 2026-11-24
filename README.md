@@ -247,7 +247,7 @@ clicking **Resume follow**, clicking a timestamp, or leaving the transcript idle
 for five seconds resumes it.
 Image-based subtitle tracks are not supported.
 
-For text without timestamps, use **Add transcript (TXT)** below a local video.
+For text without timestamps, use **Add transcript** in the Transcript header below a local video.
 UTF-8 TXT files up to 2 MiB are stored with the video, including their reading
 position. The text scrolls independently of playback; click Korean words to use
 the same analysis and vocabulary sidebar. Switch between the text transcript
@@ -322,7 +322,7 @@ YouTube Watch uses the same aligned video/transcript column and Reader sidebar
 as local Watch. Korean manual or automatic captions load automatically when a
 video opens, using the local cache when available. There is no English fallback. Timestamps seek the embedded player;
 follow scrolling tracks playback. Successful results are cached in SQLite.
-**Add TXT** provides an independent reading transcript with saved scroll position.
+**Add transcript** in the Transcript header provides an independent reading transcript with saved scroll position.
 Words saved from either view retain the YouTube source.
 
 The Rust worker calls the maintained

@@ -110,6 +110,28 @@ Item {
         }
     }
 
+    function removeTextTranscript() {
+        textReader.flush()
+        transcriptError = Library.removeYoutubeTextTranscript(youtubeId).error
+        if (!transcriptError) {
+            savedTranscript = Object.assign({}, savedTranscript, {content: null, title: null, position: 0})
+            showText = false
+        }
+    }
+    Component {
+        id: transcriptHeader
+        TranscriptHeader {
+            hasText: !!root.savedTranscript.content
+            showingText: root.showText
+            filename: root.savedTranscript.title ?? ""
+            canRetry: root.transcriptError !== "" && !root.fetchRequest
+            onAddRequested: textPicker.open()
+            onRemoveRequested: root.removeTextTranscript()
+            onToggleRequested: root.showText = !root.showText
+            onRetryRequested: root.fetchKoreanTranscript()
+        }
+    }
+
     ColumnLayout {
         id: content
         x: (root.viewingWidth - width) / 2
@@ -185,55 +207,9 @@ Item {
             wrapMode: Text.Wrap
             color: Theme.mutedForeground
         }
-        Flow {
-            Layout.fillWidth: true
-            spacing: 8
-            AppButton {
-                visible: !!root.savedTranscript.content
-                text: root.showText ? "Show subtitles" : "Show text transcript"
-                variant: "ghost"
-                small: true
-                onClicked: root.showText = !root.showText
-            }
-            AppButton {
-                visible: root.transcriptError !== "" && !root.fetchRequest
-                text: "Retry transcript"
-                small: true
-                variant: "outline"
-                onClicked: root.fetchKoreanTranscript()
-            }
-            AppButton {
-                text: root.savedTranscript.content ? "Replace TXT" : "Add TXT"
-                variant: "outline"
-                small: true
-                onClicked: textPicker.open()
-            }
-            AppButton {
-                visible: !!root.savedTranscript.content
-                iconName: "trash"
-                variant: "ghost"
-                small: true
-                Accessible.name: "Remove text transcript"
-                onClicked: {
-                    textReader.flush()
-                    root.transcriptError = Library.removeYoutubeTextTranscript(root.youtubeId).error
-                    if (!root.transcriptError) {
-                        root.savedTranscript = Object.assign({}, root.savedTranscript, {content: null, title: null, position: 0})
-                        root.showText = false
-                    }
-                }
-            }
-        }
-        AppText {
-            visible: !!root.savedTranscript.content && root.showText
-            text: root.savedTranscript.title ?? ""
-            color: Theme.mutedForeground
-            font.pixelSize: 12
-            Layout.fillWidth: true
-            elide: Text.ElideRight
-        }
         UntimedTranscript {
             id: textReader
+            headerComponent: transcriptHeader
             Layout.fillWidth: true
             Layout.fillHeight: true
             visible: root.showText
@@ -246,6 +222,8 @@ Item {
             onSaveFailed: error => root.transcriptError = error
         }
         SubtitleTranscript {
+            showEmptyAction: false
+            headerComponent: transcriptHeader
             Layout.fillWidth: true
             Layout.fillHeight: true
             visible: !root.showText
