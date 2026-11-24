@@ -14,6 +14,12 @@ fn param(kind: mpv_render_param_type, data: *mut c_void) -> mpv_render_param {
 
 // Qt calls these functions on its render thread with its OpenGL context current.
 // The player and update callback data remain alive until the renderer is freed.
+/// Create a renderer on the Qt render thread with a current OpenGL context.
+///
+/// # Safety
+/// `context` must be writable and `player` must be a live initialized mpv handle.
+/// The resolver and callback must obey the mpv ABI. The player, native display,
+/// and callback data must outlive the renderer; callback data must be thread-safe.
 #[no_mangle]
 pub unsafe extern "C" fn sori_mpv_renderer_create(
     context: *mut *mut mpv_render_context,
@@ -47,6 +53,11 @@ pub unsafe extern "C" fn sori_mpv_renderer_create(
     status
 }
 
+/// Render into the current Qt framebuffer.
+///
+/// # Safety
+/// `context` must be live and exclusively used on its owning render thread.
+/// Its OpenGL context and the supplied framebuffer must be current and valid.
 #[no_mangle]
 pub unsafe extern "C" fn sori_mpv_renderer_draw(
     context: *mut mpv_render_context,
@@ -74,6 +85,11 @@ pub unsafe extern "C" fn sori_mpv_renderer_draw(
     mpv_render_context_render(context, params.as_mut_ptr())
 }
 
+/// Release a renderer and unregister its update callback.
+///
+/// # Safety
+/// `context` must be live, non-null, and freed exactly once on its owning render
+/// thread with its OpenGL context current. No draw call may run concurrently.
 #[no_mangle]
 pub unsafe extern "C" fn sori_mpv_renderer_free(context: *mut mpv_render_context) {
     mpv_render_context_set_update_callback(context, None, null_mut());
@@ -81,6 +97,11 @@ pub unsafe extern "C" fn sori_mpv_renderer_free(context: *mut mpv_render_context
 }
 
 // On failure, leave the output handle null and return an mpv error code.
+/// Create an initialized mpv player.
+///
+/// # Safety
+/// `output` must point to writable storage for one handle. On success the caller
+/// owns the returned player and must free it after all renderers are released.
 #[no_mangle]
 pub unsafe extern "C" fn sori_mpv_player_create(output: *mut *mut mpv_handle) -> c_int {
     *output = null_mut();
@@ -112,6 +133,11 @@ pub unsafe extern "C" fn sori_mpv_player_create(output: *mut *mut mpv_handle) ->
     status
 }
 
+/// Destroy an initialized mpv player.
+///
+/// # Safety
+/// `player` must be a live non-null handle owned by the caller and freed once.
+/// All renderers must already be freed and no other calls may use the player.
 #[no_mangle]
 pub unsafe extern "C" fn sori_mpv_player_free(player: *mut mpv_handle) {
     mpv_terminate_destroy(player);

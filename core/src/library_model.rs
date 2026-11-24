@@ -266,7 +266,7 @@ impl Library {
         let handle = self.get_thread_handle();
         std::thread::spawn(move || {
             let metadata = youtube::fetch_metadata(&id);
-            let _ = handle.invoke_mut(move |model| {
+            handle.invoke_mut(move |model| {
                 model.pending_metadata.remove(&id);
                 model.last_metadata_attempt.insert(id.clone(), Instant::now());
                 let Ok(metadata) = metadata else {
@@ -319,7 +319,7 @@ impl Library {
         let handle = self.get_thread_handle();
         std::thread::spawn(move || {
             let duration = youtube::fetch_duration(&id);
-            let _ = handle.invoke_mut(move |model| {
+            handle.invoke_mut(move |model| {
                 model.pending_durations.remove(&id);
                 model.last_duration_attempt.insert(id.clone(), Instant::now());
                 let Ok(duration) = duration else {
@@ -392,7 +392,7 @@ impl Library {
                 // The entry was removed while the worker was decoding the frame.
                 let _ = std::fs::remove_file(&output);
             }
-            let _ = handle.invoke_mut(move |model| {
+            handle.invoke_mut(move |model| {
                 model.pending_thumbnails.remove(&id);
                 if model
                     .videos

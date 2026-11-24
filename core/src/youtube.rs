@@ -126,7 +126,7 @@ impl YouTube {
         std::thread::spawn(move || {
             let result = crate::youtube_transcript::fetch(&id, &language)
                 .unwrap_or_else(|error| json!({"error": error}));
-            let _ = handle.invoke_mut(move |model| model.transcript_finished(request, &result));
+            handle.invoke_mut(move |model| model.transcript_finished(request, &result));
         });
         request
     }
@@ -151,7 +151,7 @@ impl YouTube {
             let result = search(&query, &page)
                 .map(|result| json!(result))
                 .unwrap_or_else(|error| json!({"error": error}));
-            let _ = handle.invoke_mut(move |model| model.search_finished(request, &result));
+            handle.invoke_mut(move |model| model.search_finished(request, &result));
         });
         request
     }
@@ -224,7 +224,7 @@ impl YouTube {
                 .ok_or_else(|| "Settings are not available.".to_string())
                 .and_then(|database| subscription_feed(&database, &tokens))
                 .unwrap_or_else(|error| json!({"error": error}));
-            let _ = handle.invoke_mut(move |model| {
+            handle.invoke_mut(move |model| {
                 model.subscription_feed_finished(request, &result)
             });
         });
@@ -1016,7 +1016,7 @@ fn filter_uploads(videos: Vec<FeedVideo>, key: &str) -> Vec<FeedVideo> {
         .filter(|video| match details.get(&video.id) {
             Some(info) => !info.live
                 && !info.completed_live
-                && info.seconds.map_or(true, |seconds| seconds > 180),
+                && info.seconds.is_none_or(|seconds| seconds > 180),
             None => true,
         })
         .collect()
@@ -1095,7 +1095,7 @@ fn subscription_feed(
                     .and_then(Value::as_str)
                     .unwrap_or_default();
                 scope.spawn(move || {
-                    let result = channel_uploads(channel, &key, token);
+                    let result = channel_uploads(channel, key, token);
                     (channel.channel_id.clone(), result)
                 })
             })
