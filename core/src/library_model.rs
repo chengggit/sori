@@ -3,7 +3,6 @@ use qtbridge::{qobject, QmlObject};
 use rusqlite::Connection;
 use serde_json::{json, Value};
 use std::collections::{HashMap, HashSet};
-use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
@@ -105,7 +104,7 @@ impl Library {
             .database
             .as_ref()
             .ok_or_else(|| "Could not open the library database.".to_string())
-            .and_then(|database| import_document_file(database, Path::new(&path)));
+            .and_then(|database| crate::document_import::import_file(database, Path::new(&path)));
         match result {
             Ok(()) => {
                 self.refresh();
@@ -552,45 +551,6 @@ impl Library {
     }
 }
 
-fn import_document_file(database: &Database, path: &Path) -> Result<(), String> {
-    let filename = path
-        .file_name()
-        .and_then(|name| name.to_str())
-        .ok_or("Choose a .txt or .pdf file.")?;
-    let extension = filename
-        .rsplit_once('.')
-        .map(|(_, extension)| extension)
-        .unwrap_or_default();
-    let connection = database.connect()?;
-    if extension.eq_ignore_ascii_case("pdf") {
-        let metadata = std::fs::metadata(path)
-            .map_err(|error| format!("Could not read this PDF: {error}"))?;
-        if metadata.len() > documents::MAX_PDF_BYTES {
-            return Err("Choose a PDF no larger than 50 MiB.".into());
-        }
-        let id = documents::import_pdf(&connection, filename)?;
-        let directory = database.pdf_directory();
-        std::fs::create_dir_all(&directory)
-            .map_err(|error| format!("Could not save this PDF: {error}"))?;
-        let target = directory.join(format!("{id}.pdf"));
-        if path != target.as_path() {
-            std::fs::copy(path, &target)
-                .map_err(|error| format!("Could not save this PDF: {error}"))?;
-        }
-        let target = target.to_string_lossy().into_owned();
-        documents::set_pdf_path(&connection, id, Some(target.as_str()))?;
-        Ok(())
-    } else if extension.eq_ignore_ascii_case("txt") {
-        let file = std::fs::File::open(path).map_err(|error| error.to_string())?;
-        let mut bytes = Vec::new();
-        file.take(documents::MAX_TEXT_BYTES as u64 + 1)
-            .read_to_end(&mut bytes)
-            .map_err(|error| error.to_string())?;
-        documents::import(&connection, filename, &bytes)
-    } else {
-        Err("Choose a .txt or .pdf file.".into())
-    }
-}
 
 impl Library {
     fn connection(&self) -> Result<Connection, String> {

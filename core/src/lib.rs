@@ -123,6 +123,7 @@ mod db;
 mod dictionary;
 mod krdict;
 mod documents;
+mod document_import;
 mod library_model;
 mod nlp;
 mod progress;
