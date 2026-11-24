@@ -226,7 +226,8 @@ Item {
         ScrollView {
             id: scroller
             Layout.fillWidth: true
-            Layout.fillHeight: true
+            Layout.fillHeight: visible
+            Layout.preferredHeight: 0
             visible: !root.libraryEmpty && !root.nothingMatches
             contentWidth: availableWidth
             clip: true
@@ -277,7 +278,7 @@ Item {
 
         EmptyState {
             Layout.fillWidth: true
-            Layout.preferredHeight: 288
+            Layout.preferredHeight: visible ? 288 : 0
             Layout.alignment: Qt.AlignTop
             visible: root.libraryEmpty || root.nothingMatches
             iconName: "library"
@@ -289,7 +290,8 @@ Item {
 
         Item {
             visible: root.libraryEmpty || root.nothingMatches
-            Layout.fillHeight: true
+            Layout.fillHeight: visible
+            Layout.preferredHeight: 0
         }
     }
 }
