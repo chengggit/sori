@@ -1,9 +1,8 @@
 use rusqlite::{params, Connection, OptionalExtension};
 use serde_json::{json, Value};
-use std::io::Read;
 use std::path::Path;
-use std::process::{Command, Stdio};
-use std::time::{Duration, Instant};
+use std::process::Command;
+use std::time::Duration;
 
 pub fn validate_id(id: &str) -> Result<(), String> {
     if id.len() == 11
@@ -103,44 +102,9 @@ pub fn fetch(id: &str, language: &str) -> Result<Value, String> {
         use std::os::windows::process::CommandExt;
         command.creation_flags(0x08000000); // CREATE_NO_WINDOW
     }
-    let mut child = command.stdin(Stdio::null()).stderr(Stdio::null()).stdout(Stdio::piped())
-        .spawn().map_err(|_| if bundled.is_some() {
-            "Transcript support could not start. Reinstall Sori.".to_string()
-        } else {
-            "Transcript helper is missing. Reinstall Sori, or see README.md for development setup.".to_string()
-        })?;
-    let output = child.stdout.take().unwrap();
-    let reader = std::thread::spawn(move || {
-        let mut bytes = Vec::new();
-        output
-            .take(2 * 1024 * 1024 + 1)
-            .read_to_end(&mut bytes)
-            .map(|_| bytes)
-    });
-    let start = Instant::now();
-    let status = loop {
-        match child.try_wait() {
-            Ok(Some(status)) => break Ok(status),
-            Ok(None) if start.elapsed() < Duration::from_secs(40) => {
-                std::thread::sleep(Duration::from_millis(50))
-            }
-            _ => {
-                let _ = child.kill();
-                let _ = child.wait();
-                break Err("YouTube transcript request timed out.");
-            }
-        }
-    };
-    let bytes = reader
-        .join()
-        .map_err(|_| "Could not read transcript helper output.")?
-        .map_err(|_| "Could not read transcript helper output.")?;
-    if !status?.success() {
-        return Err("The transcript helper failed. Check the Python setup in README.md.".into());
-    }
-    if bytes.len() > 2 * 1024 * 1024 {
-        return Err("The transcript exceeds 2 MiB.".into());
-    }
+    let bytes = crate::process::output(&mut command, "YouTube transcript helper", 2 * 1024 * 1024,
+        Duration::from_secs(40))
+        .map_err(|error| format!("{error} See README.md for transcript helper setup."))?;
     validate(serde_json::from_slice(&bytes).map_err(|_| "Invalid transcript helper output.")?)
 }
 
