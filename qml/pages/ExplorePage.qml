@@ -487,27 +487,6 @@ Item {
             }
             onDraggingChanged: if (dragging) wheelScroll.stop()
 
-            BusyIndicator {
-                id: loadingSpinner
-                objectName: "discoveryLoadingSpinner"
-                parent: results
-                width: 36
-                height: 36
-                x: (results.width - width) / 2
-                y: {
-                    const headerBottom = results.headerItem
-                        ? results.headerItem.y + results.headerItem.height - results.contentY : 0
-                    const top = Math.max(0, Math.min(results.height, headerBottom))
-                    return top + (results.height - top - height) / 2
-                }
-                z: 1
-                running: root.request !== 0 && !root.loadingMore
-                visible: running
-                palette.dark: Theme.accent
-                palette.highlight: Theme.accent
-                Accessible.name: "Loading videos"
-            }
-
             NumberAnimation {
                 id: wheelScroll
                 target: results
@@ -633,6 +612,58 @@ Item {
                     Layout.fillWidth: true
                     color: root.error ? Theme.destructive : Theme.mutedForeground
                     wrapMode: Text.Wrap
+                }
+
+                Item {
+                    id: loadingRow
+                    objectName: "discoveryLoadingRow"
+                    readonly property bool busy: root.request !== 0 && !root.loadingMore
+                    Layout.fillWidth: true
+                    Layout.preferredHeight: busy ? 56 : 0
+                    clip: true
+
+                    Behavior on Layout.preferredHeight {
+                        NumberAnimation { duration: 220; easing.type: Easing.InOutCubic }
+                    }
+
+                    Item {
+                        id: loadingSpinner
+                        objectName: "discoveryLoadingSpinner"
+                        visible: loadingRow.height > 0
+                        readonly property bool running: visible
+                        width: 28
+                        height: 28
+                        x: (loadingRow.width - width) / 2
+                        y: loadingRow.height - height - 12
+                        Accessible.name: "Loading videos"
+
+                        Shape {
+                            anchors.fill: parent
+                            preferredRendererType: Shape.CurveRenderer
+                            ShapePath {
+                                objectName: "discoverySpinnerArc"
+                                strokeColor: Theme.accent
+                                strokeWidth: 2.5
+                                capStyle: ShapePath.RoundCap
+                                fillColor: "transparent"
+                                PathAngleArc {
+                                    centerX: loadingSpinner.width / 2
+                                    centerY: loadingSpinner.height / 2
+                                    radiusX: 11
+                                    radiusY: 11
+                                    startAngle: -90
+                                    sweepAngle: 270
+                                }
+                            }
+                        }
+                        RotationAnimator on rotation {
+                            from: 0
+                            to: 360
+                            duration: 850
+                            loops: Animation.Infinite
+                            running: loadingSpinner.running
+                        }
+                    }
                 }
 
                 Item {

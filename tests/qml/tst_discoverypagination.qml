@@ -1,6 +1,7 @@
 import QtQuick
 import QtTest
 import sori_core
+import "../../qml/style"
 import "../../qml/pages" as Pages
 
 TestCase {
@@ -32,20 +33,33 @@ TestCase {
         return entries
     }
 
-    function test_initial_loading_uses_centered_spinner() {
+    function test_loading_slides_down_at_top_and_back_up() {
         cache.firstPages = "[]"
         const page = createTemporaryObject(pageComponent, testCase, {width: width, height: height})
         verify(page !== null)
         tryVerify(() => page.request !== 0)
         const spinner = findChild(page, "discoveryLoadingSpinner")
+        const row = findChild(page, "discoveryLoadingRow")
         const grid = findChild(page, "discoveryResults")
-        verify(spinner !== null)
+        verify(spinner !== null && row !== null)
+        tryCompare(row, "height", 56)
         verify(spinner.visible && spinner.running)
         compare(page.statusText, "")
         compare(spinner.x, (grid.width - spinner.width) / 2)
-        verify(spinner.y >= 0 && spinner.y + spinner.height <= grid.height)
+        verify(spinner.mapToItem(grid, 0, 0).y + spinner.height <= grid.headerItem.height)
+        compare(findChild(spinner, "discoverySpinnerArc").strokeColor, Theme.accent)
         YouTube.subscriptionFeedFinished(page.request, {ok:true, error:"", data:{videos: videos(0, 4), nextPageTokens:{}}})
-        tryCompare(spinner, "visible", false)
+        tryCompare(row, "height", 0)
+        verify(!spinner.visible)
+
+        page.refreshDiscovery(true)
+        wait(80)
+        verify(row.height > 0 && row.height < 56, "Refresh should slide down")
+        tryCompare(row, "height", 56)
+        YouTube.subscriptionFeedFinished(page.request, {ok:false, data:null, error:"Test failure"})
+        wait(80)
+        verify(row.height > 0 && row.height < 56, "Completion should slide back up")
+        tryCompare(row, "height", 0)
     }
 
     function test_more_videos_preserve_existing_grid() {
@@ -59,6 +73,7 @@ TestCase {
         const grid = findChild(page, "discoveryResults")
         verify(grid !== null)
         tryCompare(grid, "count", 40)
+        tryCompare(findChild(page, "discoveryLoadingRow"), "height", 0)
         grid.forceLayout()
         grid.positionViewAtEnd()
         grid.forceLayout()
