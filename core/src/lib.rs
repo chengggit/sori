@@ -127,6 +127,7 @@ mod document_import;
 mod library_model;
 mod nlp;
 mod progress;
+mod process;
 mod reader;
 mod subtitles;
 mod video_library;

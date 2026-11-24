@@ -59,6 +59,17 @@ pub(super) fn parse(input: &str) -> Vec<Cue> {
     cues
 }
 
+pub(super) fn command_output(
+    program: &str,
+    args: impl IntoIterator<Item = impl AsRef<std::ffi::OsStr>>,
+    limit: usize,
+) -> Result<Vec<u8>, String> {
+    crate::process::output(
+        std::process::Command::new(program).args(args), program, limit,
+        std::time::Duration::from_secs(30),
+    )
+}
+
 #[cfg(test)]
 mod tests {
     use super::parse;
@@ -74,40 +85,3 @@ mod tests {
     }
 }
 
-pub(super) fn command_output(
-    program: &str,
-    args: impl IntoIterator<Item = impl AsRef<std::ffi::OsStr>>,
-    limit: usize,
-) -> Result<Vec<u8>, String> {
-    use std::io::Read;
-    use std::process::{Command, Stdio};
-
-    let mut child = Command::new(program)
-        .args(args)
-        .stdin(Stdio::null())
-        .stderr(Stdio::null())
-        .stdout(Stdio::piped())
-        .spawn()
-        .map_err(|error| format!("Could not start {program}: {error}"))?;
-    let mut output = Vec::new();
-    let read = child
-        .stdout
-        .take()
-        .unwrap()
-        .take(limit as u64 + 1)
-        .read_to_end(&mut output);
-    if read.is_err() || output.len() > limit {
-        let _ = child.kill();
-    }
-    let status = child
-        .wait()
-        .map_err(|error| format!("Could not wait for {program}: {error}"))?;
-    read.map_err(|error| format!("Could not read output from {program}: {error}"))?;
-    if output.len() > limit {
-        return Err(format!("{program} output exceeds the size limit"));
-    }
-    if !status.success() {
-        return Err(format!("{program} could not process the media"));
-    }
-    Ok(output)
-}
