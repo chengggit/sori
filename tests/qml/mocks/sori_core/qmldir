@@ -1,0 +1,2 @@
+module sori_core
+singleton YouTube 1.0 YouTube.qml
