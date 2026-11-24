@@ -756,9 +756,7 @@ Popup {
                                 wrapMode: Text.Wrap
                                 font.pixelSize: 12
                                 color: Theme.mutedForeground
-                                text: YouTube.savedKey ? "A key is saved on this device. Enter a new key to replace it."
-                                    : YouTube.configured ? "Using a key from your launch environment or .env.local."
-                                    : "Add your YouTube Data API key to enable Home and Explore discovery."
+                                text: "Add your YouTube Data API key to enable Home and Explore discovery."
                             }
                             AppInput {
                                 id: youtubeKey
@@ -802,7 +800,7 @@ Popup {
                                 wrapMode: Text.Wrap
                                 font.pixelSize: 12
                                 color: Theme.mutedForeground
-                                text: "Saved on this device. An API key isn't needed for transcript fetching or opening YouTube links."
+                                text: "An API key isn't needed for transcript fetching or opening YouTube links."
                             }
                         }
                     }
