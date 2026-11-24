@@ -171,12 +171,21 @@ impl YouTube {
         json!(entries)
     }
 
+    #[qsignal]
+    fn channel_resolved(&mut self, request: i32, result: &Value);
+
     #[qslot]
-    fn resolve_channel(&self, input: String) -> Value {
-        match resolve_channel(&input) {
-            Ok(channel) => json!(channel),
-            Err(error) => json!({ "error": error }),
-        }
+    fn resolve_channel(&mut self, input: String) -> i32 {
+        self.request = self.request.wrapping_add(1).max(1);
+        let request = self.request;
+        let handle = self.get_thread_handle();
+        std::thread::spawn(move || {
+            let result = resolve_channel(&input)
+                .map(|channel| json!(channel))
+                .unwrap_or_else(|error| json!({ "error": error }));
+            handle.invoke_mut(move |model| model.channel_resolved(request, &result));
+        });
+        request
     }
 
     #[qslot]
