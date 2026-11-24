@@ -73,6 +73,12 @@ pub fn remove_key(db: &mut Connection) -> Result<(), String> {
     transaction.commit().map_err(|e| e.to_string())
 }
 
+/// Only accept canonical entry links emitted by this provider.
+pub fn is_source_url(url: &str) -> bool {
+    url.strip_prefix("https://krdict.korean.go.kr/eng/dicSearch/SearchView?ParaWordNo=")
+        .is_some_and(|code| !code.is_empty() && code.bytes().all(|byte| byte.is_ascii_digit()))
+}
+
 pub fn lookup(term: &str, key: &str) -> Result<Vec<Definition>, String> {
     let term = term.trim();
     if term.is_empty() || term.chars().count() > 100 || term.chars().any(char::is_control) {
