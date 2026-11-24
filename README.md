@@ -124,11 +124,16 @@ configuration so Qt modules can be discovered together.
 
 ### Testing changes
 
-`./scripts/dev test` runs the Rust and QML regression suites. It also runs the
+`./scripts/dev test` builds the native bridge test and runs the Rust, bridge,
+and QML regression suites. It also runs the
 Python helper tests when `.venv-youtube` exists (or `SORI_TEST_PYTHON` selects
 an environment with `youtube-transcript-api`). Python remains optional. Tests requiring live
 services or native Kiwi resources are ignored by default. Use
 `ctest --preset dev --verbose` to see individual Rust test results.
+
+For direct CTest use, first build the native test with
+`cmake --build --preset dev --target sori-bridge-test`. The bridge suite checks
+real Rust/Qt response contracts without network access or a user database.
 
 Run the QML regression suite with your Qt SDK’s `qmltestrunner`:
 

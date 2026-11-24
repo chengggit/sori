@@ -1,4 +1,5 @@
 import QtQuick
+import "style/Reply.js" as Reply
 import QtCore
 import QtQuick.Controls
 import QtQuick.Dialogs
@@ -120,7 +121,7 @@ ApplicationWindow {
     function openVideoPath(path) {
         if (player.loading)
             return
-        const imported = Library.importVideo(path)
+        const imported = Reply.valueOrError(Library.importVideo(path))
         if (!imported.id) {
             showVideoOpenError(imported.error || "Could not add this video to the library.")
             return
@@ -140,7 +141,7 @@ ApplicationWindow {
             return "Wait for the current video to finish opening."
         if (page === "watch")
             saveVideoProgress()
-        const video = Library.readVideo(id)
+        const video = Reply.valueOrError(Library.readVideo(id))
         if (video.error)
             return video.error
         video.id = id
@@ -151,7 +152,7 @@ ApplicationWindow {
     function openYouTube(url, title, channel) {
         if (player.loading)
             return
-        const canonical = YouTube.resolveLink(url)
+        const canonical = YouTube.resolveLink(url).data
         if (!canonical)
             return
         if (page === "watch")
@@ -198,7 +199,7 @@ ApplicationWindow {
             return
         const seconds = player.ended ? 0 : player.position
         if (currentVideo?.id)
-            videoError = Library.saveVideoProgress(currentVideo.id, seconds, player.duration)
+            videoError = Library.saveVideoProgress(currentVideo.id, seconds, player.duration).error
     }
 
     function attachSubtitles(url) {
@@ -207,7 +208,7 @@ ApplicationWindow {
             subtitles.attach(path)
             return
         }
-        const result = Library.saveVideoSubtitles(currentVideo.id, path)
+        const result = Reply.valueOrError(Library.saveVideoSubtitles(currentVideo.id, path))
         videoError = result.error || ""
         if (result.text)
             subtitles.attachSaved(result.text)
@@ -568,7 +569,7 @@ ApplicationWindow {
                         onBackRequested: root.goBack("home")
                         onCheckpoint: (entry, seconds, duration) => {
                             root.videoError = Library.saveYoutubeProgress(entry.youtubeId, entry.title,
-                                                                          entry.channel, seconds, duration)
+                                                                          entry.channel, seconds, duration).error
                         }
                         saveError: root.videoError
                     }

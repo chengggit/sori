@@ -1,4 +1,5 @@
 import QtQuick
+import "../style/Reply.js" as Reply
 import QtQuick.Controls
 import QtQuick.Dialogs as Native
 import QtQuick.Layouts
@@ -34,7 +35,7 @@ Item {
     }
 
     function editDocument(document) {
-        const result = Library.readDocument(document.id);
+        const result = Reply.valueOrError(Library.readDocument(document.id));
         if (result.error) {
             error = result.error;
             return;
@@ -76,7 +77,7 @@ Item {
         parent: Overlay.overlay
         onChooseFileRequested: textPicker.open()
         onSaveRequested: (title, content) => {
-            error = importing ? Library.addDocument(title, content) : Library.updateDocument(root.selectedDocument.id, title, content);
+            error = importing ? Library.addDocument(title, content).error : Library.updateDocument(root.selectedDocument.id, title, content).error;
             if (!error) {
                 if (importing)
                     search.clear();
@@ -101,7 +102,7 @@ Item {
                 editor.error = "Choose a .txt or .pdf file.";
                 return;
             }
-            editor.error = Library.importDocument(path);
+            editor.error = Library.importDocument(path).error;
             if (!editor.error) {
                 search.clear();
                 root.error = "";
@@ -175,7 +176,7 @@ Item {
                     variant: "primary"
                     small: true
                     onClicked: {
-                        root.error = root.selectedDocument.video ? Library.removeVideo(root.selectedDocument.id) : Library.removeDocument(root.selectedDocument.id);
+                        root.error = root.selectedDocument.video ? Library.removeVideo(root.selectedDocument.id).error : Library.removeDocument(root.selectedDocument.id).error;
                         confirmRemovalDialog.close();
                     }
                 }

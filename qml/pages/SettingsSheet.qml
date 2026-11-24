@@ -1,4 +1,5 @@
 import QtQuick
+import "../style/Reply.js" as Reply
 import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Shapes
@@ -61,14 +62,14 @@ Popup {
     function saveKrdictKey() {
         krdictMessage = ""
         if (!krdictKey.text.trim()) {
-            krdictError = Analysis.removeKrdictKey()
+            krdictError = Analysis.removeKrdictKey().error
             if (!krdictError) {
                 krdictKey.clear()
                 krdictMessage = "KRDict key removed."
             }
             return
         }
-        krdictError = Analysis.saveKrdictKey(krdictKey.text)
+        krdictError = Analysis.saveKrdictKey(krdictKey.text).error
         if (!krdictError) {
             krdictKey.text = Analysis.krdictKey
             krdictMessage = "KRDict API key saved."
@@ -87,6 +88,7 @@ Popup {
     Connections {
         target: YouTube
         function onChannelResolved(request, result) {
+            result = Reply.valueOrError(result)
             if (request !== root.channelRequest)
                 return
             root.channelRequest = 0
@@ -94,7 +96,7 @@ Popup {
             if (root.channelError)
                 return
             root.channelError = YouTube.addSubscription(
-                result.channelId, result.title, result.uploadsPlaylistId)
+                result.channelId, result.title, result.uploadsPlaylistId).error
             if (!root.channelError) {
                 channelInput.clear()
                 root.channelMessage = result.title + " added."
@@ -103,12 +105,12 @@ Popup {
     }
 
     function removeChannel(id) {
-        channelError = YouTube.removeSubscription(id)
+        channelError = YouTube.removeSubscription(id).error
         channelMessage = channelError ? "" : "Channel removed."
     }
 
     function saveYoutubeKey() {
-        youtubeError = YouTube.saveApiKey(youtubeKey.text)
+        youtubeError = YouTube.saveApiKey(youtubeKey.text).error
         youtubeMessage = ""
         if (!youtubeError) {
             youtubeKey.clear()
@@ -130,7 +132,7 @@ Popup {
         const template = urlField.text.trim()
         if (!label || !template)
             return
-        if (!Analysis.dictionaryLookupUrl(template, "test")) {
+        if (!Analysis.dictionaryLookupUrl(template, "test").data) {
             dictionaryError = "Enter an HTTPS address without a username or password."
         } else if (DictionaryTabs.providers.some(provider => provider.template === template)) {
             dictionaryError = "That dictionary is already listed."
@@ -463,7 +465,7 @@ Popup {
                                     leftPadding: 12
                                     rightPadding: 32
                                     onActivated: index => {
-                                        root.krdictError = Analysis.setDefaultDictionary(model[index].value)
+                                        root.krdictError = Analysis.setDefaultDictionary(model[index].value).error
                                         root.krdictMessage = ""
                                         currentIndex = Qt.binding(() => Analysis.defaultDictionary === "krdict" ? 1 : 0)
                                     }
@@ -776,7 +778,7 @@ Popup {
                                     variant: "outline"
                                     visible: YouTube.savedKey
                                     onClicked: {
-                                        root.youtubeError = YouTube.removeApiKey()
+                                        root.youtubeError = YouTube.removeApiKey().error
                                         root.youtubeMessage = ""
                                         if (!root.youtubeError) {
                                             youtubeKey.clear()

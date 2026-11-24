@@ -9,6 +9,7 @@ pub struct YouTube {
     request: i32,
     database: Option<crate::db::Database>,
     settings_error: String,
+    subscriptions: Vec<Value>,
 }
 
 #[qobject(Singleton, ConvertToCamelCase)]
@@ -26,7 +27,7 @@ impl YouTube {
     );
     qproperty!(
         "subscriptions",
-        Read = subscription_list,
+        Member = subscriptions,
         Notify = subscriptions_changed
     );
 
@@ -40,17 +41,18 @@ impl YouTube {
     fn subscription_feed_finished(&mut self, request: i32, result: &Value);
 
     #[qslot]
-    fn initialize(&mut self, directory: String) {
+    fn initialize(&mut self, directory: String) -> Value {
         let result =
             crate::db::Database::initialize(PathBuf::from(directory)).and_then(|database| {
                 let key = read_saved_api_key(&database.connect()?)?;
                 self.database = Some(database);
                 set_saved_api_key(key);
-                Ok(())
+                self.reload_subscriptions()
             });
-        self.settings_error = result.err().unwrap_or_default();
+        self.settings_error = result.as_ref().err().cloned().unwrap_or_default();
         self.configuration_changed();
         self.subscriptions_changed();
+        crate::bridge::reply(result)
     }
 
     fn saved_key(&self) -> bool {
@@ -58,7 +60,7 @@ impl YouTube {
     }
 
     #[qslot]
-    fn save_api_key(&mut self, key: String) -> String {
+    fn save_api_key(&mut self, key: String) -> Value {
         let result = self
             .database
             .as_ref()
@@ -68,15 +70,14 @@ impl YouTube {
                 set_saved_api_key(Some(key));
                 Ok(())
             });
-        let error = result.err().unwrap_or_default();
-        if error.is_empty() {
+        if result.is_ok() {
             self.configuration_changed();
         }
-        error
+        crate::bridge::reply(result)
     }
 
     #[qslot]
-    fn remove_api_key(&mut self) -> String {
+    fn remove_api_key(&mut self) -> Value {
         let result = self
             .database
             .as_ref()
@@ -86,11 +87,10 @@ impl YouTube {
                 set_saved_api_key(None);
                 Ok(())
             });
-        let error = result.err().unwrap_or_default();
-        if error.is_empty() {
+        if result.is_ok() {
             self.configuration_changed();
         }
-        error
+        crate::bridge::reply(result)
     }
 
     #[qsignal]
@@ -105,8 +105,8 @@ impl YouTube {
         let request = self.request;
         let handle = self.get_thread_handle();
         std::thread::spawn(move || {
-            let result = crate::youtube_transcript::fetch(&id, &language)
-                .unwrap_or_else(crate::bridge::error);
+            let result = crate::youtube_transcript::fetch(&id, &language);
+            let result = crate::bridge::reply(result);
             handle.invoke_mut(move |model| model.transcript_finished(request, &result));
         });
         request
@@ -117,10 +117,12 @@ impl YouTube {
     }
 
     #[qslot]
-    fn resolve_link(&self, link: String) -> String {
-        video_id(&link)
-            .and_then(|id| watch_url(&id))
-            .unwrap_or_default()
+    fn resolve_link(&self, link: String) -> Value {
+        crate::bridge::reply(
+            video_id(&link)
+                .and_then(|id| watch_url(&id))
+                .ok_or_else(|| "Enter a valid YouTube video link.".to_string()),
+        )
     }
 
     #[qslot]
@@ -129,9 +131,8 @@ impl YouTube {
         let request = self.request;
         let handle = self.get_thread_handle();
         std::thread::spawn(move || {
-            let result = search(&query, &page)
-                .map(|result| json!(result))
-                .unwrap_or_else(crate::bridge::error);
+            let result = search(&query, &page).map(|result| json!(result));
+            let result = crate::bridge::reply(result);
             handle.invoke_mut(move |model| model.search_finished(request, &result));
         });
         request
@@ -144,12 +145,11 @@ impl YouTube {
             .connect()
     }
 
-    fn subscription_list(&self) -> Value {
-        let entries = self
-            .connection()
-            .and_then(|connection| subscriptions(&connection))
-            .unwrap_or_default();
-        json!(entries)
+    fn reload_subscriptions(&mut self) -> Result<(), String> {
+        let entries = subscriptions(&self.connection()?)?;
+        self.subscriptions = entries.into_iter().map(|entry| json!(entry)).collect();
+        self.subscriptions_changed();
+        Ok(())
     }
 
     #[qsignal]
@@ -161,38 +161,29 @@ impl YouTube {
         let request = self.request;
         let handle = self.get_thread_handle();
         std::thread::spawn(move || {
-            let result = resolve_channel(&input)
-                .map(|channel| json!(channel))
-                .unwrap_or_else(crate::bridge::error);
+            let result = resolve_channel(&input).map(|channel| json!(channel));
+            let result = crate::bridge::reply(result);
             handle.invoke_mut(move |model| model.channel_resolved(request, &result));
         });
         request
     }
 
     #[qslot]
-    fn add_subscription(&mut self, id: String, title: String, playlist: String) -> String {
-        let error = self
+    fn add_subscription(&mut self, id: String, title: String, playlist: String) -> Value {
+        let result = self
             .connection()
             .and_then(|connection| add_subscription(&connection, &id, &title, &playlist))
-            .err()
-            .unwrap_or_default();
-        if error.is_empty() {
-            self.subscriptions_changed();
-        }
-        error
+            .and_then(|()| self.reload_subscriptions());
+        crate::bridge::reply(result)
     }
 
     #[qslot]
-    fn remove_subscription(&mut self, id: String) -> String {
-        let error = self
+    fn remove_subscription(&mut self, id: String) -> Value {
+        let result = self
             .connection()
             .and_then(|connection| remove_subscription(&connection, &id))
-            .err()
-            .unwrap_or_default();
-        if error.is_empty() {
-            self.subscriptions_changed();
-        }
-        error
+            .and_then(|()| self.reload_subscriptions());
+        crate::bridge::reply(result)
     }
 
     fn request_feed(&mut self, tokens: Value) -> i32 {
@@ -203,8 +194,8 @@ impl YouTube {
         std::thread::spawn(move || {
             let result = database
                 .ok_or_else(|| "Settings are not available.".to_string())
-                .and_then(|database| subscription_feed(&database, &tokens))
-                .unwrap_or_else(crate::bridge::error);
+                .and_then(|database| subscription_feed(&database, &tokens));
+            let result = crate::bridge::reply(result);
             handle.invoke_mut(move |model| model.subscription_feed_finished(request, &result));
         });
         request

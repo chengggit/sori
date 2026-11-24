@@ -1,4 +1,5 @@
 import QtQuick
+import "../style/Reply.js" as Reply
 import QtQuick.Controls
 import QtQuick.Layouts
 import sori_core
@@ -71,7 +72,7 @@ Popup {
                 custom: true
             } : null
         }
-        const saved = Library.saveWord(sourceKind, sourceId, input)
+        const saved = Reply.valueOrError(Library.saveWord(sourceKind, sourceId, input))
         saveError = saved.error || ""
         if (!saveError)
             savedWord = saved
@@ -80,13 +81,15 @@ Popup {
     Connections {
         target: Analysis
         function onFinished(request, result) {
+            result = Reply.valueOrError(result)
             if (request === root.request) {
                 root.result = result
                 if (root.canSave)
-                    root.savedWord = Library.findWord(root.sourceKind, root.sourceId, result.word, result.context)
+                    root.savedWord = Reply.valueOrError(Library.findWord(root.sourceKind, root.sourceId, result.word, result.context))
             }
         }
         function onDictionaryFinished(request, result) {
+            result = Reply.valueOrError(result)
             if (request !== root.dictionaryRequest)
                 return
             root.dictionaryRequest = 0

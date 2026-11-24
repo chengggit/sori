@@ -1,9 +1,10 @@
-use crate::{db::Database, documents, progress, video_library, vocabulary, youtube};
+use crate::{
+    library_jobs::{self, LibraryJobs},
+    library_service::LibraryService,
+    youtube,
+};
 use qtbridge::{qobject, QmlObject};
-use rusqlite::Connection;
-use serde_json::{json, Value};
-use std::collections::{HashMap, HashSet};
-use std::path::{Path, PathBuf};
+use serde_json::Value;
 use std::time::{Duration, Instant};
 
 const THUMBNAIL_RETRY_DELAY: Duration = Duration::from_secs(60);
@@ -17,35 +18,21 @@ fn youtube_metadata_missing(entry: &Value) -> bool {
 
 #[derive(Default)]
 pub struct Library {
-    database: Option<Database>,
-    documents: Vec<Value>,
-    videos: Vec<Value>,
-    vocabulary: Vec<Value>,
-    youtube_history: Vec<Value>,
-    pending_thumbnails: HashSet<i64>,
-    pending_metadata: HashSet<String>,
-    pending_durations: HashSet<String>,
-    last_thumbnail_attempt: HashMap<i64, Instant>,
-    last_metadata_attempt: HashMap<String, Instant>,
-    last_duration_attempt: HashMap<String, Instant>,
-    error: String,
+    service: LibraryService,
+    jobs: LibraryJobs,
 }
 
 #[qobject(Singleton, ConvertToCamelCase)]
 impl Library {
-    qproperty!("documents", Member = documents, Notify = library_changed);
-    qproperty!("videos", Member = videos, Notify = videos_changed);
+    qproperty!("documents", Read = documents, Notify = library_changed);
+    qproperty!("videos", Read = videos, Notify = videos_changed);
     qproperty!(
         "recentVideos",
         Read = recent_videos,
         Notify = videos_changed
     );
-    qproperty!("error", Member = error, Notify = library_changed);
-    qproperty!(
-        "vocabulary",
-        Member = vocabulary,
-        Notify = vocabulary_changed
-    );
+    qproperty!("error", Read = error, Notify = library_changed);
+    qproperty!("vocabulary", Read = vocabulary, Notify = vocabulary_changed);
 
     #[qsignal]
     fn library_changed(&mut self);
@@ -55,7 +42,7 @@ impl Library {
 
     qproperty!(
         "youtubeHistory",
-        Member = youtube_history,
+        Read = youtube_history,
         Notify = youtube_history_changed
     );
 
@@ -68,8 +55,24 @@ impl Library {
     #[qsignal]
     fn vocabulary_changed(&mut self);
 
+    fn documents(&self) -> Vec<Value> {
+        self.service.documents.clone()
+    }
+    fn videos(&self) -> Vec<Value> {
+        self.service.videos.clone()
+    }
+    fn vocabulary(&self) -> Vec<Value> {
+        self.service.vocabulary.clone()
+    }
+    fn youtube_history(&self) -> Vec<Value> {
+        self.service.youtube_history.clone()
+    }
+    fn error(&self) -> String {
+        self.service.error.clone()
+    }
     fn recent_videos(&self) -> Vec<Value> {
-        self.videos
+        self.service
+            .videos
             .iter()
             .filter(|video| {
                 !video["watchedAt"].is_null() || video["seconds"].as_f64().unwrap_or_default() > 0.0
@@ -77,149 +80,87 @@ impl Library {
             .cloned()
             .collect()
     }
-
     #[qslot]
-    fn initialize(&mut self, directory: String) {
-        if self.database.is_some() {
-            return;
-        }
-        match Database::initialize(PathBuf::from(directory)) {
-            Ok(database) => {
-                self.database = Some(database);
-                self.refresh();
-                self.refresh_videos();
-                self.refresh_youtube_history();
-                self.refresh_vocabulary();
-            }
-            Err(error) => {
-                self.error = error;
-                self.library_changed();
-            }
-        }
+    fn initialize(&mut self, directory: String) -> Value {
+        let result = self.service.initialize(directory);
+        self.publish_changes();
+        crate::bridge::reply(result)
     }
 
     #[qslot]
-    fn import_document(&mut self, path: String) -> String {
-        let result = self
-            .database
-            .as_ref()
-            .ok_or_else(|| "Could not open the library database.".to_string())
-            .and_then(|database| crate::document_import::import_file(database, Path::new(&path)));
-        match result {
-            Ok(()) => {
-                self.refresh();
-                String::new()
-            }
-            Err(error) => error,
-        }
+    fn import_document(&mut self, path: String) -> Value {
+        let result = self.service.import_document(path);
+        self.publish_changes();
+        crate::bridge::reply(result)
     }
 
     #[qslot]
-    fn add_document(&mut self, title: String, content: String) -> String {
-        let title = title.trim();
-        let title = if title.is_empty() {
-            "Pasted text"
-        } else {
-            title
-        };
-        self.change(|connection| {
-            documents::import(connection, &format!("{title}.txt"), content.as_bytes())
-        })
+    fn add_document(&mut self, title: String, content: String) -> Value {
+        let result = self.service.add_document(title, content);
+        self.publish_changes();
+        crate::bridge::reply(result)
     }
 
     #[qslot]
-    fn update_document(&mut self, id: i64, title: String, content: String) -> String {
-        self.change(|connection| documents::update(connection, id, &title, &content))
+    fn update_document(&mut self, id: i64, title: String, content: String) -> Value {
+        let result = self.service.update_document(id, title, content);
+        self.publish_changes();
+        crate::bridge::reply(result)
     }
 
     #[qslot]
-    fn remove_document(&mut self, id: i64) -> String {
-        let pdf_path = self
-            .connection()
-            .ok()
-            .and_then(|connection| documents::read_pdf_path(&connection, id).ok().flatten());
-        let error = self.change(|connection| documents::remove(connection, id));
-        if error.is_empty() {
-            if let (Some(database), Some(path)) = (&self.database, pdf_path) {
-                let path = Path::new(&path);
-                if path.starts_with(database.pdf_directory()) {
-                    let _ = std::fs::remove_file(path);
-                }
-            }
-            self.refresh_vocabulary();
-        }
-        error
+    fn remove_document(&mut self, id: i64) -> Value {
+        let result = self.service.remove_document(id);
+        self.publish_changes();
+        crate::bridge::reply(result)
     }
 
     #[qslot]
-    fn read_document(&self, id: i64) -> Value {
-        let read = || -> Result<Value, String> {
-            let connection = self.connection()?;
-            Ok(json!({
-                "content": documents::read(&connection, id)?,
-                "pdfPath": documents::read_pdf_path(&connection, id)?,
-                "position": progress::read(&connection, id)?,
-            }))
-        };
-        read().unwrap_or_else(crate::bridge::error)
+    fn read_document(&mut self, id: i64) -> Value {
+        let result = self.service.read_document(id);
+        self.publish_changes();
+        crate::bridge::reply(result)
     }
 
     #[qslot]
-    fn save_reading_progress(&self, id: i64, position: f64) -> String {
-        self.connection()
-            .and_then(|connection| progress::save(&connection, id, position))
-            .err()
-            .unwrap_or_default()
+    fn save_reading_progress(&mut self, id: i64, position: f64) -> Value {
+        let result = self.service.save_reading_progress(id, position);
+        self.publish_changes();
+        crate::bridge::reply(result)
     }
 
     #[qslot]
     fn import_video(&mut self, path: String) -> Value {
-        match self
-            .connection()
-            .and_then(|connection| video_library::import(&connection, Path::new(&path)))
-        {
-            Ok(id) => {
-                self.refresh_videos();
-                json!({ "id": id })
-            }
-            Err(error) => crate::bridge::error(error),
-        }
+        let result = self.service.import_video(path);
+        self.publish_changes();
+        crate::bridge::reply(result)
     }
 
     #[qslot]
-    fn read_video(&self, id: i64) -> Value {
-        crate::bridge::reply(self.connection().and_then(|connection| video_library::read(&connection, id)))
+    fn read_video(&mut self, id: i64) -> Value {
+        let result = self.service.read_video(id);
+        self.publish_changes();
+        crate::bridge::reply(result)
     }
 
     #[qslot]
-    fn remove_video(&mut self, id: i64) -> String {
-        let error = self.change_videos(|connection| video_library::remove(connection, id));
-        if error.is_empty() {
-            self.last_thumbnail_attempt.remove(&id);
-            if let Some(database) = &self.database {
-                let _ = std::fs::remove_file(video_library::thumbnail_path(
-                    &database.thumbnail_directory(),
-                    id,
-                ));
-            }
+    fn remove_video(&mut self, id: i64) -> Value {
+        let result = self.service.remove_video(id);
+        if result.is_ok() {
+            self.jobs.last_thumbnail_attempt.remove(&id);
         }
-        error
+        self.publish_changes();
+        crate::bridge::reply(result)
     }
 
     #[qslot]
-    fn save_video_progress(&mut self, id: i64, seconds: f64, duration: f64) -> String {
-        match self.connection().and_then(|connection| {
-            video_library::save_progress(&connection, id, seconds, duration)?;
-            video_library::summary(&connection, id)
-        }) {
-            Ok(summary) => {
-                update_cached_entry(&mut self.videos, "id", json!(summary));
-                self.videos_changed();
-                self.ensure_video_thumbnail(id);
-                String::new()
-            }
-            Err(error) => error,
+    fn save_video_progress(&mut self, id: i64, seconds: f64, duration: f64) -> Value {
+        let result = self.service.save_video_progress(id, seconds, duration);
+        if result.is_ok() {
+            self.ensure_video_thumbnail(id);
         }
+        self.publish_changes();
+        crate::bridge::reply(result)
     }
 
     #[qslot]
@@ -230,468 +171,291 @@ impl Library {
         channel: String,
         seconds: f64,
         duration: f64,
-    ) -> String {
-        match self.connection().and_then(|connection| {
-            youtube::save_watch_progress(&connection, &id, &title, &channel, seconds, duration)?;
-            youtube::watch_entry(&connection, &id)
-        }) {
-            Ok(entry) => {
-                update_cached_entry(&mut self.youtube_history, "youtubeId", entry);
-                self.youtube_history_changed();
-                String::new()
-            }
-            Err(error) => error,
-        }
+    ) -> Value {
+        let result = self
+            .service
+            .save_youtube_progress(id, title, channel, seconds, duration);
+        self.publish_changes();
+        crate::bridge::reply(result)
     }
 
     #[qslot]
-    fn ensure_youtube_metadata(&mut self, id: String) {
-        let id = id.trim().to_owned();
-        if youtube::watch_url(&id).is_none() || self.pending_metadata.contains(&id) {
-            return;
-        }
-        let known = self
-            .youtube_history
-            .iter()
-            .find(|entry| entry["youtubeId"] == id.as_str());
-        if known.is_some_and(|entry| !youtube_metadata_missing(entry)) {
-            return;
-        }
-        if self
-            .last_metadata_attempt
-            .get(&id)
-            .is_some_and(|attempt| attempt.elapsed() < YOUTUBE_RETRY_DELAY)
-        {
-            return;
-        }
+    fn read_youtube_transcript(&mut self, id: String) -> Value {
+        let result = self.service.read_youtube_transcript(id);
+        self.publish_changes();
+        crate::bridge::reply(result)
+    }
 
-        self.pending_metadata.insert(id.clone());
+    #[qslot]
+    fn cache_youtube_transcript(&mut self, id: String, data: Value) -> Value {
+        let result = self.service.cache_youtube_transcript(id, data);
+        self.publish_changes();
+        crate::bridge::reply(result)
+    }
+
+    #[qslot]
+    fn attach_youtube_transcript(&mut self, id: String, path: String) -> Value {
+        let result = self.service.attach_youtube_transcript(id, path);
+        self.publish_changes();
+        crate::bridge::reply(result)
+    }
+
+    #[qslot]
+    fn save_youtube_transcript_position(&mut self, id: String, position: f64) -> Value {
+        let result = self.service.save_youtube_transcript_position(id, position);
+        self.publish_changes();
+        crate::bridge::reply(result)
+    }
+
+    #[qslot]
+    fn remove_youtube_text_transcript(&mut self, id: String) -> Value {
+        let result = self.service.remove_youtube_text_transcript(id);
+        self.publish_changes();
+        crate::bridge::reply(result)
+    }
+
+    #[qslot]
+    fn find_youtube_word(&mut self, id: String, word: String, context: String) -> Value {
+        let result = self.service.find_youtube_word(id, word, context);
+        self.publish_changes();
+        crate::bridge::reply(result)
+    }
+
+    #[qslot]
+    fn save_youtube_word(&mut self, id: String, title: String, input: Value) -> Value {
+        let result = self.service.save_youtube_word(id, title, input);
+        self.publish_changes();
+        crate::bridge::reply(result)
+    }
+
+    #[qslot]
+    fn read_video_transcript(&mut self, id: i64) -> Value {
+        let result = self.service.read_video_transcript(id);
+        self.publish_changes();
+        crate::bridge::reply(result)
+    }
+
+    #[qslot]
+    fn save_video_transcript(&mut self, id: i64, path: String) -> Value {
+        let result = self.service.save_video_transcript(id, path);
+        self.publish_changes();
+        crate::bridge::reply(result)
+    }
+
+    #[qslot]
+    fn save_transcript_position(&mut self, id: i64, position: f64) -> Value {
+        let result = self.service.save_transcript_position(id, position);
+        self.publish_changes();
+        crate::bridge::reply(result)
+    }
+
+    #[qslot]
+    fn remove_video_transcript(&mut self, id: i64) -> Value {
+        let result = self.service.remove_video_transcript(id);
+        self.publish_changes();
+        crate::bridge::reply(result)
+    }
+
+    #[qslot]
+    fn save_video_subtitles(&mut self, id: i64, path: String) -> Value {
+        let result = self.service.save_video_subtitles(id, path);
+        self.publish_changes();
+        crate::bridge::reply(result)
+    }
+
+    #[qslot]
+    fn save_word(&mut self, kind: String, id: i64, input: Value) -> Value {
+        let result = self.service.save_word(kind, id, input);
+        self.publish_changes();
+        crate::bridge::reply(result)
+    }
+
+    #[qslot]
+    fn find_word(&mut self, kind: String, id: i64, word: String, context: String) -> Value {
+        let result = self.service.find_word(kind, id, word, context);
+        self.publish_changes();
+        crate::bridge::reply(result)
+    }
+
+    #[qslot]
+    fn edit_word(&mut self, id: i64, input: Value) -> Value {
+        let result = self.service.edit_word(id, input);
+        self.publish_changes();
+        crate::bridge::reply(result)
+    }
+
+    #[qslot]
+    fn remove_word(&mut self, id: i64) -> Value {
+        let result = self.service.remove_word(id);
+        self.publish_changes();
+        crate::bridge::reply(result)
+    }
+
+    #[qsignal]
+    fn background_finished(&mut self, job: &String, key: &String, response: &Value);
+
+    #[qslot]
+    fn ensure_youtube_metadata(&mut self, id: String) -> Value {
+        let id = id.trim().to_owned();
+        if youtube::watch_url(&id).is_none() {
+            return crate::bridge::reply::<bool>(Err("Invalid YouTube video ID.".into()));
+        }
+        if self.jobs.pending_metadata.contains(&id)
+            || self
+                .jobs
+                .last_metadata_attempt
+                .get(&id)
+                .is_some_and(|time| time.elapsed() < YOUTUBE_RETRY_DELAY)
+            || self
+                .service
+                .youtube_history
+                .iter()
+                .any(|entry| entry["youtubeId"] == id && !youtube_metadata_missing(entry))
+        {
+            return crate::bridge::reply(Ok(false));
+        }
+        let Some(database) = self.service.database.clone() else {
+            return crate::bridge::reply::<bool>(Err("Library unavailable.".into()));
+        };
+        self.jobs.pending_metadata.insert(id.clone());
         let handle = self.get_thread_handle();
         std::thread::spawn(move || {
-            let metadata = youtube::fetch_metadata(&id);
+            let result = library_jobs::youtube_metadata(&database, &id);
             handle.invoke_mut(move |model| {
-                model.pending_metadata.remove(&id);
-                model.last_metadata_attempt.insert(id.clone(), Instant::now());
-                let Ok(metadata) = metadata else {
-                    return;
-                };
-                if let Ok(connection) = model.connection() {
-                    let _ = youtube::update_metadata(
-                        &connection,
-                        &id,
-                        &metadata.title,
-                        &metadata.channel,
-                    );
+                model.jobs.pending_metadata.remove(&id);
+                model
+                    .jobs
+                    .last_metadata_attempt
+                    .insert(id.clone(), Instant::now());
+                match result {
+                    Ok(metadata) => {
+                        let refresh = model.service.refresh_youtube_history();
+                        model.youtube_metadata_changed(&id, &metadata.title, &metadata.channel);
+                        model.finish_job("youtubeMetadata", &id, refresh);
+                    }
+                    Err(error) => model.finish_job("youtubeMetadata", &id, Err(error)),
                 }
-                model.refresh_youtube_history();
-                model.youtube_metadata_changed(&id, &metadata.title, &metadata.channel);
             });
         });
+        crate::bridge::reply(Ok(true))
     }
 
     #[qslot]
-    fn ensure_youtube_duration(&mut self, id: String) {
+    fn ensure_youtube_duration(&mut self, id: String) -> Value {
         let id = id.trim().to_owned();
-        if youtube::watch_url(&id).is_none()
-            || !youtube::has_api_key()
-            || self.pending_durations.contains(&id)
+        if youtube::watch_url(&id).is_none() {
+            return crate::bridge::reply::<bool>(Err("Invalid YouTube video ID.".into()));
+        }
+        if !youtube::has_api_key()
+            || self.jobs.pending_durations.contains(&id)
+            || self
+                .jobs
+                .last_duration_attempt
+                .get(&id)
+                .is_some_and(|time| time.elapsed() < YOUTUBE_RETRY_DELAY)
         {
-            return;
+            return crate::bridge::reply(Ok(false));
         }
         let Some(entry) = self
+            .service
             .youtube_history
             .iter()
-            .find(|entry| entry["youtubeId"] == id.as_str())
+            .find(|entry| entry["youtubeId"] == id)
         else {
-            return;
+            return crate::bridge::reply(Ok(false));
         };
-        let seconds = entry["seconds"].as_f64().unwrap_or(0.0);
-        let duration = entry["duration"].as_f64().unwrap_or(0.0);
+        let seconds = entry["seconds"].as_f64().unwrap_or_default();
+        let duration = entry["duration"].as_f64().unwrap_or_default();
         if duration > 0.0 && duration >= seconds {
-            return;
+            return crate::bridge::reply(Ok(false));
         }
-        if self
-            .last_duration_attempt
-            .get(&id)
-            .is_some_and(|attempt| attempt.elapsed() < YOUTUBE_RETRY_DELAY)
-        {
-            return;
-        }
-
-        self.pending_durations.insert(id.clone());
+        let Some(database) = self.service.database.clone() else {
+            return crate::bridge::reply::<bool>(Err("Library unavailable.".into()));
+        };
+        self.jobs.pending_durations.insert(id.clone());
         let handle = self.get_thread_handle();
         std::thread::spawn(move || {
-            let duration = youtube::fetch_duration(&id);
+            let result = library_jobs::youtube_duration(&database, &id);
             handle.invoke_mut(move |model| {
-                model.pending_durations.remove(&id);
-                model.last_duration_attempt.insert(id.clone(), Instant::now());
-                let Ok(duration) = duration else {
-                    return;
-                };
-                if let Ok(connection) = model.connection() {
-                    let _ = youtube::update_duration(&connection, &id, duration);
-                }
-                model.refresh_youtube_history();
+                model.jobs.pending_durations.remove(&id);
+                model
+                    .jobs
+                    .last_duration_attempt
+                    .insert(id.clone(), Instant::now());
+                let result = result.and_then(|()| model.service.refresh_youtube_history());
+                model.finish_job("youtubeDuration", &id, result);
             });
         });
+        crate::bridge::reply(Ok(true))
     }
 
     #[qslot]
-    fn ensure_video_thumbnail(&mut self, id: i64) {
-        if self.pending_thumbnails.contains(&id)
+    fn ensure_video_thumbnail(&mut self, id: i64) -> Value {
+        if self.jobs.pending_thumbnails.contains(&id)
             || self
+                .jobs
                 .last_thumbnail_attempt
                 .get(&id)
-                .is_some_and(|attempt| attempt.elapsed() < THUMBNAIL_RETRY_DELAY)
+                .is_some_and(|time| time.elapsed() < THUMBNAIL_RETRY_DELAY)
         {
-            return;
+            return crate::bridge::reply(Ok(false));
         }
-        let Some(database) = self.database.clone() else {
-            return;
+        let Some(database) = self.service.database.clone() else {
+            return crate::bridge::reply::<bool>(Err("Library unavailable.".into()));
         };
-        let Ok(metadata) = database
-            .connect()
-            .and_then(|connection| video_library::metadata(&connection, id))
-        else {
-            return;
-        };
-        let has_thumbnail = metadata
-            .thumbnail
-            .as_deref()
-            .map(Path::new)
-            .is_some_and(video_library::has_thumbnail);
-        if metadata.duration > 0.0 && has_thumbnail {
-            return;
-        }
-
-        self.pending_thumbnails.insert(id);
-        let output = video_library::thumbnail_path(&database.thumbnail_directory(), id);
+        self.jobs.pending_thumbnails.insert(id);
         let handle = self.get_thread_handle();
         std::thread::spawn(move || {
-            let probed_duration = if metadata.duration <= 0.0 {
-                video_library::probe_duration(&metadata.path).unwrap_or(0.0)
-            } else {
-                0.0
-            };
-            let thumbnail = if has_thumbnail {
-                None
-            } else {
-                video_library::prepare_thumbnail(
-                    &metadata.path,
-                    &output,
-                    metadata.duration.max(probed_duration),
-                )
-                .ok()
-                .map(|()| output.as_path())
-            };
-            let result = if probed_duration > 0.0 || thumbnail.is_some() {
-                database.connect().and_then(|connection| {
-                    video_library::update_metadata(&connection, id, probed_duration, thumbnail)
-                })
-            } else {
-                Ok(false)
-            };
-            if matches!(result, Ok(false)) && thumbnail.is_some() {
-                // The entry was removed while the worker was decoding the frame.
-                let _ = std::fs::remove_file(&output);
-            }
+            let result = library_jobs::video_thumbnail(&database, id);
             handle.invoke_mut(move |model| {
-                model.pending_thumbnails.remove(&id);
+                model.jobs.pending_thumbnails.remove(&id);
                 if model
+                    .service
                     .videos
                     .iter()
-                    .any(|video| video["id"].as_i64() == Some(id))
+                    .any(|entry| entry["id"].as_i64() == Some(id))
                 {
-                    model.last_thumbnail_attempt.insert(id, Instant::now());
+                    model.jobs.last_thumbnail_attempt.insert(id, Instant::now());
                 }
-                if matches!(result, Ok(true)) {
-                    model.refresh_videos();
-                }
+                let result = result.and_then(|changed| {
+                    if changed {
+                        model.service.refresh_videos()
+                    } else {
+                        Ok(())
+                    }
+                });
+                model.finish_job("videoThumbnail", &id.to_string(), result);
             });
         });
+        crate::bridge::reply(Ok(true))
     }
 
-    #[qslot]
-    fn read_youtube_transcript(&self, id: String) -> Value {
-        self.connection().and_then(|db| crate::youtube_transcript::read(&db, &id)).unwrap_or_else(crate::bridge::error)
-    }
-    #[qslot]
-    fn cache_youtube_transcript(&self, id: String, data: Value) -> String {
-        self.connection().and_then(|db| crate::youtube_transcript::cache(&db, &id, data)).err().unwrap_or_default()
-    }
-    #[qslot]
-    fn attach_youtube_transcript(&self, id: String, path: String) -> Value {
-        self.connection().and_then(|db| crate::youtube_transcript::attach(&db, &id, Path::new(&path))).unwrap_or_else(crate::bridge::error)
-    }
-    #[qslot]
-    fn save_youtube_transcript_position(&self, id: String, position: f64) -> String {
-        self.connection().and_then(|db| crate::youtube_transcript::save_position(&db, &id, position)).err().unwrap_or_default()
-    }
-    #[qslot]
-    fn remove_youtube_text_transcript(&self, id: String) -> String {
-        self.connection().and_then(|db| crate::youtube_transcript::remove_text(&db, &id)).err().unwrap_or_default()
-    }
-    #[qslot]
-    fn find_youtube_word(&self, id: String, word: String, context: String) -> Value {
-        self.connection().and_then(|db| vocabulary::find_video_entry(&db, vocabulary::VideoSource::Youtube {id, title: String::new()}, &word, &context))
-            .map(|entry| json!(entry)).unwrap_or_else(crate::bridge::error)
-    }
-    #[qslot]
-    fn save_youtube_word(&mut self, id: String, title: String, mut input: Value) -> Value {
-        let result = self.connection().and_then(|db| {
-            input.as_object_mut().ok_or("Invalid vocabulary entry.")?.insert("source".into(), json!({"kind":"youtube", "id":id, "title":title}));
-            let input = serde_json::from_value(input).map_err(|e| e.to_string())?;
-            vocabulary::save_video(&db, input)
-        });
-        match result {
-            Ok(entry) => { self.refresh_vocabulary(); json!(entry) },
-            Err(error) => crate::bridge::error(error)
+    fn finish_job(&mut self, job: &str, key: &str, result: Result<(), String>) {
+        if let Err(error) = &result {
+            self.service.error = error.clone();
+            self.service.changes.library = true;
         }
+        self.publish_changes();
+        self.background_finished(
+            &job.to_string(),
+            &key.to_string(),
+            &crate::bridge::reply(result),
+        );
     }
 
-    #[qslot]
-    fn read_video_transcript(&self, id: i64) -> Value {
-        self.connection()
-            .and_then(|connection| crate::video_transcript::read(&connection, id))
-            .unwrap_or_else(crate::bridge::error)
-    }
-
-    #[qslot]
-    fn save_video_transcript(&self, id: i64, path: String) -> Value {
-        self.connection()
-            .and_then(|connection| {
-                crate::video_transcript::attach(&connection, id, Path::new(&path))
-            })
-            .unwrap_or_else(crate::bridge::error)
-    }
-
-    #[qslot]
-    fn save_transcript_position(&self, id: i64, position: f64) -> String {
-        self.connection()
-            .and_then(|connection| {
-                crate::video_transcript::save_position(&connection, id, position)
-            })
-            .err()
-            .unwrap_or_default()
-    }
-
-    #[qslot]
-    fn remove_video_transcript(&self, id: i64) -> String {
-        self.connection()
-            .and_then(|connection| crate::video_transcript::remove(&connection, id))
-            .err()
-            .unwrap_or_default()
-    }
-
-    #[qslot]
-    fn save_video_subtitles(&self, id: i64, path: String) -> Value {
-        self.connection()
-            .and_then(|connection| video_library::save_sidecar(&connection, id, Path::new(&path)))
-            .map(|text| json!({ "text": text }))
-            .unwrap_or_else(crate::bridge::error)
-    }
-
-    #[qslot]
-    fn save_word(&mut self, kind: String, id: i64, mut input: Value) -> Value {
-        let result = self.connection().and_then(|connection| {
-            let fields = input.as_object_mut().ok_or("Invalid vocabulary entry.")?;
-            if kind == "local" {
-                fields.insert("source".into(), json!({"kind": "local", "id": id}));
-                let input = serde_json::from_value(input).map_err(|error| error.to_string())?;
-                vocabulary::save_video(&connection, input)
-            } else {
-                fields.insert("documentId".into(), json!(id));
-                let input = serde_json::from_value(input).map_err(|error| error.to_string())?;
-                vocabulary::save(&connection, input)
-            }
-        });
-        match result {
-            Ok(entry) => {
-                self.refresh_vocabulary();
-                json!(entry)
-            }
-            Err(error) => crate::bridge::error(error),
+    fn publish_changes(&mut self) {
+        let changes = std::mem::take(&mut self.service.changes);
+        if changes.library {
+            self.library_changed();
         }
-    }
-
-    #[qslot]
-    fn find_word(&self, kind: String, id: i64, word: String, context: String) -> Value {
-        if kind == "local" {
-            return self
-                .connection()
-                .and_then(|connection| {
-                    vocabulary::find_video_entry(
-                        &connection,
-                        vocabulary::VideoSource::Local { id },
-                        &word,
-                        &context,
-                    )
-                })
-                .map(|entry| json!(entry))
-                .unwrap_or_else(crate::bridge::error);
+        if changes.videos {
+            self.videos_changed();
         }
-        self.vocabulary
-            .iter()
-            .find(|entry| {
-                entry["documentId"].as_i64() == Some(id)
-                    && entry["word"] == word.trim()
-                    && entry["context"] == context.trim()
-            })
-            .cloned()
-            .unwrap_or_default()
-    }
-
-    #[qslot]
-    fn edit_word(&mut self, id: i64, input: Value) -> String {
-        self.change_vocabulary(|connection| {
-            let input = serde_json::from_value(input).map_err(|error| error.to_string())?;
-            vocabulary::edit(connection, id, input).map(|_| ())
-        })
-    }
-
-    #[qslot]
-    fn remove_word(&mut self, id: i64) -> String {
-        self.change_vocabulary(|connection| vocabulary::remove(connection, id))
-    }
-}
-
-
-impl Library {
-    fn connection(&self) -> Result<Connection, String> {
-        self.database
-            .as_ref()
-            .ok_or_else(|| "Could not open the library database.".to_string())?
-            .connect()
-    }
-
-    fn change(&mut self, operation: impl FnOnce(&Connection) -> Result<(), String>) -> String {
-        match self
-            .connection()
-            .and_then(|connection| operation(&connection))
-        {
-            Ok(()) => {
-                self.refresh();
-                String::new()
-            }
-            Err(error) => error,
+        if changes.history {
+            self.youtube_history_changed();
         }
-    }
-
-    fn refresh(&mut self) {
-        match self
-            .connection()
-            .and_then(|connection| documents::list(&connection))
-        {
-            Ok(items) => {
-                self.documents = items.into_iter().map(|item| json!(item)).collect();
-                self.error.clear();
-            }
-            Err(error) => self.error = error,
+        if changes.vocabulary {
+            self.vocabulary_changed();
         }
-        self.library_changed();
-    }
-
-    fn change_videos(
-        &mut self,
-        operation: impl FnOnce(&Connection) -> Result<(), String>,
-    ) -> String {
-        match self
-            .connection()
-            .and_then(|connection| operation(&connection))
-        {
-            Ok(()) => {
-                self.refresh_videos();
-                String::new()
-            }
-            Err(error) => error,
-        }
-    }
-
-    fn refresh_youtube_history(&mut self) {
-        match self.connection().and_then(|connection| youtube::watch_history(&connection)) {
-            Ok(entries) => {
-                self.youtube_history = entries;
-                self.youtube_history_changed();
-            }
-            Err(error) => {
-                self.error = error;
-                self.library_changed();
-            }
-        }
-    }
-
-    fn refresh_videos(&mut self) {
-        match self
-            .connection()
-            .and_then(|connection| video_library::list(&connection))
-        {
-            Ok(items) => {
-                self.videos = items.into_iter().map(|item| json!(item)).collect();
-                self.videos_changed();
-            }
-            Err(error) => {
-                self.error = error;
-                self.library_changed();
-            }
-        }
-    }
-
-    fn change_vocabulary(
-        &mut self,
-        operation: impl FnOnce(&Connection) -> Result<(), String>,
-    ) -> String {
-        match self
-            .connection()
-            .and_then(|connection| operation(&connection))
-        {
-            Ok(()) => {
-                self.refresh_vocabulary();
-                String::new()
-            }
-            Err(error) => error,
-        }
-    }
-
-    fn refresh_vocabulary(&mut self) {
-        match self
-            .connection()
-            .and_then(|connection| vocabulary::list(&connection))
-        {
-            Ok(items) => {
-                self.vocabulary = items.into_iter().map(|item| json!(item)).collect();
-                self.vocabulary_changed();
-            }
-            Err(error) => {
-                self.error = error;
-                self.library_changed();
-            }
-        }
-    }
-}
-
-fn update_cached_entry(entries: &mut Vec<Value>, key: &str, entry: Value) {
-    if let Some(index) = entries.iter().position(|cached| cached[key] == entry[key]) {
-        entries[index] = entry;
-    } else {
-        entries.insert(0, entry);
-    }
-    // Stable sorting preserves existing order for timestamps in the same second.
-    entries.sort_by(|left, right| right["watchedAt"].as_i64().cmp(&left["watchedAt"].as_i64()));
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn checkpoints_replace_only_the_changed_cached_entry() {
-        let mut entries = vec![json!({"id": 1, "watchedAt": 5, "title": "First"}),
-            json!({"id": 2, "watchedAt": 4, "title": "Second"})];
-        update_cached_entry(&mut entries, "id", json!({"id": 2, "watchedAt": 6, "seconds": 10}));
-        assert_eq!(entries.len(), 2);
-        assert_eq!(entries[0]["id"], 2);
-        assert_eq!(entries[1]["title"], "First");
-        update_cached_entry(&mut entries, "id", json!({"id": 2, "watchedAt": 6, "seconds": 11}));
-        assert_eq!(entries.len(), 2);
-        assert_eq!(entries[0]["seconds"], 11);
     }
 }

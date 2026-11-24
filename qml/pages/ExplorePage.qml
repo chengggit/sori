@@ -1,4 +1,5 @@
 import QtQuick
+import "../style/Reply.js" as Reply
 import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Shapes
@@ -249,6 +250,7 @@ Item {
         }
 
         function onSearchFinished(request, result) {
+            result = Reply.valueOrError(result)
             if (request !== root.request)
                 return;
             const wasLoadingMore = root.loadingMore;
@@ -281,6 +283,7 @@ Item {
         }
 
         function onSubscriptionFeedFinished(request, result) {
+            result = Reply.valueOrError(result)
             if (request !== root.request)
                 return;
             const wasLoadingMore = root.loadingMore;
@@ -322,7 +325,7 @@ Item {
         closePolicy: Popup.CloseOnEscape | Popup.CloseOnPressOutside
 
         function submit() {
-            const url = YouTube.resolveLink(videoLink.text);
+            const url = YouTube.resolveLink(videoLink.text).data;
             if (!url) {
                 root.linkError = "Enter a YouTube video link.";
                 return;

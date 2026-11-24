@@ -64,6 +64,13 @@ add_test(NAME rust
         "${CARGO_EXECUTABLE}" test --locked
         --manifest-path "${CORE_DIR}/Cargo.toml" --target-dir "${CORE_TARGET}"
 )
+add_executable(sori-bridge-test tests/native/bridge_smoke.cpp)
+add_dependencies(sori-bridge-test sori-core)
+target_link_libraries(sori-bridge-test PRIVATE "${CORE_LIB}" Qt6::Test Qt6::Quick PkgConfig::MPV)
+add_test(NAME bridge COMMAND "${CMAKE_COMMAND}" -E env QT_QPA_PLATFORM=offscreen
+    QT_QPA_PLATFORMTHEME= QT_QPA_PLATFORMTHEME_QT6= "$<TARGET_FILE:sori-bridge-test>")
+set_tests_properties(bridge PROPERTIES TIMEOUT 20)
+
 # Run UI regressions through the same entry point as core tests.
 get_filename_component(SORI_TEST_QT_BIN "${SORI_QMAKE}" DIRECTORY)
 find_program(SORI_QML_TEST_RUNNER qmltestrunner HINTS "${SORI_TEST_QT_BIN}" NO_DEFAULT_PATH REQUIRED)
@@ -95,6 +102,7 @@ if(TARGET Qt6::WebEngineQuick)
 endif()
 qt_add_resources(sori "watch" PREFIX "/" FILES
     qml/Main.qml
+    qml/style/Reply.js
     qml/style/Theme.qml
     qml/style/DictionaryTabs.qml
     qml/style/qmldir

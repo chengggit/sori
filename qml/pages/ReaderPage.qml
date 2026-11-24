@@ -1,4 +1,5 @@
 import QtQuick
+import "../style/Reply.js" as Reply
 import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Shapes
@@ -101,7 +102,7 @@ Item {
 
     function openDocument(id, title) {
         leave()
-        const document = Library.readDocument(id)
+        const document = Reply.valueOrError(Library.readDocument(id))
         tokenWindow = null
         pendingWindow = null
         wordRanges = []
@@ -210,7 +211,7 @@ Item {
         saveProgress.stop()
         if (root.documentId && !root.restoring)
             root.progressError = Library.saveReadingProgress(root.documentId,
-                root.currentPosition())
+                root.currentPosition()).error
     }
 
     onActiveChanged: if (active) Qt.callLater(restoreProgress)
@@ -224,6 +225,7 @@ Item {
     Connections {
         target: Analysis
         function onPassageFinished(request, result) {
+            result = Reply.valueOrError(result)
             if (request !== root.passageRequest)
                 return
             root.passageRequest = 0

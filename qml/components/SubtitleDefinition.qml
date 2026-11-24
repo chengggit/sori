@@ -1,4 +1,5 @@
 import QtQuick
+import "../style/Reply.js" as Reply
 import QtQuick.Controls
 import QtQuick.Layouts
 import sori_core
@@ -64,7 +65,7 @@ Popup {
 
     function saveWord() {
         if (savedEntry?.id) {
-            saveError = Library.removeWord(savedEntry.id)
+            saveError = Library.removeWord(savedEntry.id).error
             if (!saveError) {
                 savedEntry = null
                 savedDefinition = null
@@ -73,13 +74,13 @@ Popup {
             return
         }
         const definition = wholeDefinitions[0] ?? null
-        const saved = Library.saveWord("local", videoId, {
+        const saved = Reply.valueOrError(Library.saveWord("local", videoId, {
             word: analysis.word,
             context: analysis.context,
             normalizedForm: definition?.term || analysis.normalizedForm || null,
             definition: definition,
             tags: []
-        })
+        }))
         saveError = saved.error || ""
         if (!saveError) {
             savedEntry = saved
@@ -120,12 +121,13 @@ Popup {
         }
 
         function onFinished(request, result) {
+            result = Reply.valueOrError(result)
             if (request !== root.analysisRequest)
                 return
             root.analysisRequest = 0
             root.analysis = result
             if (result.word && root.videoId > 0) {
-                root.savedEntry = Library.findWord("local", root.videoId, result.word, result.context)
+                root.savedEntry = Reply.valueOrError(Library.findWord("local", root.videoId, result.word, result.context))
                 root.saveError = root.savedEntry?.error || ""
                 root.savedDefinition = root.savedEntry?.definition ?? null
             }
@@ -133,6 +135,7 @@ Popup {
         }
 
         function onDictionaryFinished(request, result) {
+            result = Reply.valueOrError(result)
             const job = root.pending[request]
             if (!job)
                 return

@@ -34,6 +34,43 @@ the Qt UI thread. Background completions carry request IDs or generations so
 superseded results cannot replace current UI state. Imported content and local
 SQLite data remain authoritative.
 
+## Services and bridge contracts
+
+`library_model.rs` is a Qt adapter: it exposes observable lists, publishes change
+signals, and dispatches jobs. `library_service.rs` owns library state and calls
+the existing document, video, vocabulary, progress, and transcript domain modules.
+It has no QObject dependency and can be tested without a Qt engine.
+`library_jobs.rs` owns background metadata/thumbnail I/O and retry tracking.
+Failures are returned or published in `backgroundFinished` and the library error
+state; they must not become empty successful results.
+
+`youtube_model.rs` adapts YouTube operations to Qt. `youtube.rs` contains HTTP
+orchestration, while `youtube/settings.rs`, `youtube/store.rs`, and
+`youtube/parsing.rs` own settings, SQLite persistence, and response parsing.
+
+Fallible Library, Analysis, and YouTube data operations return one envelope:
+
+```json
+{"ok": true, "data": null, "error": ""}
+```
+
+On failure `ok` is false, `data` is null, and `error` contains a message. On
+success `data` holds the typed serialized payload. A successful mutation and a
+successful absent lookup both have null data; neither is a failure. Rust uses
+`Response<T>` in `bridge.rs` and keeps `Result<T, String>` inside services.
+QML consumes mutation errors explicitly and uses `Reply.valueOrError` to map
+query replies into presentation state. Mocks use the same envelope.
+
+Asynchronous operations immediately return a scalar request ID; their completion
+signals carry the same envelope. Properties and player control methods remain
+state/lifecycle APIs. Background enrichment returns an acknowledgement envelope
+and reports its eventual result through `backgroundFinished`.
+
+Playback saves update the affected cached entry instead of re-querying complete
+collections. Collection properties still notify as a whole; Qt serialization
+can still scale with collection size. A model with row-level updates would be a
+separate UI performance change if measurements justify it.
+
 ## Persistence
 
 `db.rs` initializes `library.sqlite3` under `com.sori.app` in the platform's generic
@@ -95,7 +132,9 @@ QML/resources. `CMakePresets.json` defines development and release configuration
 Use one matching Qt SDK for every Qt module and the Rust bridge.
 
 See `README.md` and `tests/qml/README.md` for setup and test commands. Keep pure
-Rust domain tests independent of Qt UI instantiation. QML regressions should
+Rust domain and library-service tests independent of Qt UI instantiation. The
+`bridge` CTest suite exercises synchronous replies and asynchronous completions
+through the real registered Rust/Qt models using a temporary library. QML regressions should
 exercise the actual affected components with mocked services; live service and
 native-resource tests must be clearly marked. Check changed desktop flows in
 both themes and at narrow window sizes. Run strict Clippy for Rust changes.

@@ -19,6 +19,7 @@ case "$command" in
         ;;
     test)
         cmake --preset dev
+        cmake --build --preset dev --parallel --target sori-bridge-test
         ctest --preset dev "$@"
         ;;
     release)

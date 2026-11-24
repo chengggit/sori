@@ -1,4 +1,6 @@
-Run all registered suites with `./scripts/dev test` or `ctest --preset dev`.
+Run all registered suites with `./scripts/dev test`. For direct CTest use,
+build `sori-bridge-test` first. The native `bridge` suite validates the same
+response envelopes against real Rust models; these QML tests use mocked services.
 
 To run QML regressions directly, use the selected Qt SDK's runner:
 

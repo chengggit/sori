@@ -1,4 +1,5 @@
 import QtQuick
+import "../style/Reply.js" as Reply
 import QtQuick.Controls
 import QtQuick.Layouts
 import sori_core
@@ -61,7 +62,7 @@ ColumnLayout {
             return
         }
         if (entry?.id) {
-            error = Library.editWord(entry.id, updates)
+            error = Library.editWord(entry.id, updates).error
         } else {
             const imported = entry.definition && updates.meaning === entry.definition.text
             const definition = updates.meaning ? {
@@ -80,8 +81,8 @@ ColumnLayout {
                 definition: definition,
                 tags: updates.tags
             }
-            const saved = youtubeId ? Library.saveYoutubeWord(youtubeId, sourceTitle, input)
-                : Library.saveWord(sourceKind, documentId, input)
+            const saved = youtubeId ? Reply.valueOrError(Library.saveYoutubeWord(youtubeId, sourceTitle, input))
+                : Reply.valueOrError(Library.saveWord(sourceKind, documentId, input))
             error = saved.error || ""
         }
         if (!error) {
@@ -202,7 +203,7 @@ ColumnLayout {
             text: "Remove"
             variant: "outline"
             onClicked: {
-                root.error = Library.removeWord(root.entry.id)
+                root.error = Library.removeWord(root.entry.id).error
                 if (!root.error) {
                     root.changed()
                     root.closeRequested()
