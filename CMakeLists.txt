@@ -70,6 +70,30 @@ add_test(NAME rust
         "${CARGO_EXECUTABLE}" test --locked
         --manifest-path "${CORE_DIR}/Cargo.toml" --target-dir "${CORE_TARGET}"
 )
+# Run UI regressions through the same entry point as core tests.
+get_filename_component(SORI_TEST_QT_BIN "${SORI_QMAKE}" DIRECTORY)
+find_program(SORI_QML_TEST_RUNNER qmltestrunner HINTS "${SORI_TEST_QT_BIN}" NO_DEFAULT_PATH REQUIRED)
+add_test(NAME qml COMMAND "${CMAKE_COMMAND}" -E env
+    QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software QT_QUICK_CONTROLS_STYLE=Basic
+    QT_QPA_PLATFORMTHEME= QT_QPA_PLATFORMTHEME_QT6=
+    "${SORI_QML_TEST_RUNNER}" -import "${CMAKE_SOURCE_DIR}/tests/qml/mocks"
+    -input "${CMAKE_SOURCE_DIR}/tests/qml")
+set_tests_properties(qml PROPERTIES TIMEOUT 90)
+
+# Python remains optional. Register helper tests when its development environment exists.
+if(WIN32)
+    set(_sori_test_python "${CMAKE_SOURCE_DIR}/.venv-youtube/Scripts/python.exe")
+else()
+    set(_sori_test_python "${CMAKE_SOURCE_DIR}/.venv-youtube/bin/python")
+endif()
+set(SORI_TEST_PYTHON "${_sori_test_python}" CACHE FILEPATH "Python with youtube-transcript-api for helper tests")
+if(EXISTS "${SORI_TEST_PYTHON}")
+    add_test(NAME python COMMAND "${SORI_TEST_PYTHON}" -m unittest discover
+        -s "${CMAKE_SOURCE_DIR}/tests/python")
+else()
+    message(STATUS "Python helper tests unavailable: prepare .venv-youtube or set SORI_TEST_PYTHON")
+endif()
+
 target_link_libraries(sori PRIVATE "${CORE_LIB}" Qt6::Quick Qt6::OpenGL Qt6::Test Qt6::PdfQuick PkgConfig::MPV)
 if(TARGET Qt6::WebEngineQuick)
     target_link_libraries(sori PRIVATE Qt6::WebEngineQuick)

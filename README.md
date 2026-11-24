@@ -124,16 +124,18 @@ configuration so Qt modules can be discovered together.
 
 ### Testing changes
 
-`./scripts/dev test` runs the existing Rust tests for persistence, vocabulary,
-subtitles, dictionary parsing, and other core behavior. Tests requiring live
+`./scripts/dev test` runs the Rust and QML regression suites. It also runs the
+Python helper tests when `.venv-youtube` exists (or `SORI_TEST_PYTHON` selects
+an environment with `youtube-transcript-api`). Python remains optional. Tests requiring live
 services or native Kiwi resources are ignored by default. Use
 `ctest --preset dev --verbose` to see individual Rust test results.
 
-Run the transcript follow regression test with your Qt SDK’s `qmltestrunner`:
+Run the QML regression suite with your Qt SDK’s `qmltestrunner`:
 
 ```sh
-QT_QPA_PLATFORM=offscreen QT_QUICK_CONTROLS_STYLE=Basic QT_QPA_PLATFORMTHEME=generic \
-    /path/to/qt/bin/qmltestrunner -input tests/qml
+QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software QT_QUICK_CONTROLS_STYLE=Basic \
+    QT_QPA_PLATFORMTHEME= QT_QPA_PLATFORMTHEME_QT6= \
+    /path/to/qt/bin/qmltestrunner -import tests/qml/mocks -input tests/qml
 ```
 
 For UI changes, also launch the app and exercise the affected workflow. Check

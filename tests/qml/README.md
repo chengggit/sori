@@ -1,10 +1,15 @@
-Run the QML tests from the repository root with the selected Qt SDK's runner:
+Run all registered suites with `./scripts/dev test` or `ctest --preset dev`.
+
+To run QML regressions directly, use the selected Qt SDK's runner:
 
 ```sh
-qmltestrunner -import tests/qml/mocks -input tests/qml
+QT_QPA_PLATFORM=offscreen QT_QUICK_BACKEND=software QT_QUICK_CONTROLS_STYLE=Basic \
+    QT_QPA_PLATFORMTHEME= QT_QPA_PLATFORMTHEME_QT6= \
+    /path/to/qt/bin/qmltestrunner -import tests/qml/mocks -input tests/qml
 ```
 
-The mocks provide an offline YouTube service for the discovery pagination test.
-For headless runs, set `QT_QPA_PLATFORM=offscreen` and
-`QT_QUICK_BACKEND=software`. If a desktop platform theme requires a display,
-clear `QT_QPA_PLATFORMTHEME` and `QT_QPA_PLATFORMTHEME_QT6` as well.
+The mocks replace Rust services and the embedded YouTube player for offline
+regressions. Tests exercise real page components, including playback checkpoints,
+transcript cue selection, and discovery pagination. They do not validate live
+YouTube playback or remote dictionary availability. Icon and QSettings warnings
+from the standalone runner do not indicate an application build failure.
