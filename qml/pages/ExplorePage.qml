@@ -306,8 +306,7 @@ Item {
         background: Rectangle {
             color: Theme.card
             radius: Theme.radiusLarge
-            border.width: 1
-            border.color: Theme.border
+            border.width: 0
         }
 
         Overlay.modal: Rectangle {
@@ -406,7 +405,9 @@ Item {
             }
 
             AppButton {
-                text: "Search"
+                iconName: "search"
+                variant: "outline"
+                Accessible.name: "Search"
                 enabled: YouTube.configured && !!search.text.trim() && !root.request
                 onClicked: root.browse(search.text)
             }

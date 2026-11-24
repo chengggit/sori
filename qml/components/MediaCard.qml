@@ -36,8 +36,7 @@ ItemDelegate {
         return card.seconds > 0 ? Player.formatTime(card.seconds) + " watched" : "Not started";
     }
     readonly property color cornerFill: card.visualFocus ? Theme.hero : Theme.background
-    readonly property color coverColor: card.tintIndex % 3 === 0 ? Theme.hero
-        : card.tintIndex % 3 === 1 ? Theme.accentSoft : Theme.chip
+    readonly property color coverColor: Theme.hero
     readonly property string watermark: card.title.trim().substring(0, 1)
     readonly property bool revealed: card.hovered || card.visualFocus || actions.opened
 
@@ -72,6 +71,7 @@ ItemDelegate {
     background: Rectangle {
         radius: Theme.radiusSmall
         color: card.visualFocus ? Theme.hero : "transparent"
+        border.width: 0
     }
 
     contentItem: ColumnLayout {
@@ -286,8 +286,7 @@ ItemDelegate {
         background: Rectangle {
             radius: Theme.radius
             color: Theme.card
-            border.width: 1
-            border.color: Theme.border
+            border.width: 0
         }
 
         MenuItem {
@@ -307,6 +306,7 @@ ItemDelegate {
             background: Rectangle {
                 radius: Theme.radiusSmall
                 color: openItem.hovered ? Theme.neutralHover : "transparent"
+                border.width: 0
             }
         }
 
@@ -330,6 +330,7 @@ ItemDelegate {
             background: Rectangle {
                 radius: Theme.radiusSmall
                 color: editItem.hovered ? Theme.neutralHover : "transparent"
+                border.width: 0
             }
         }
 
@@ -351,6 +352,7 @@ ItemDelegate {
             background: Rectangle {
                 radius: Theme.radiusSmall
                 color: removeItem.hovered ? Theme.neutralHover : "transparent"
+                border.width: 0
             }
         }
     }

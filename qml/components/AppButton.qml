@@ -14,7 +14,8 @@ Button {
     readonly property bool iconOnly: text === "" && iconName !== ""
     readonly property color contentColor: !enabled && variant === "primary" ? Theme.mutedForeground
         : variant === "default" ? Theme.onAccent
-        : variant === "primary" ? Theme.primaryForeground : Theme.foreground
+        : variant === "primary" ? Theme.primaryForeground
+        : variant === "soft" ? Theme.sidebarActiveText : Theme.foreground
 
     implicitHeight: iconOnly ? Theme.iconButtonSize
         : small || compact ? Theme.compactControlHeight : Theme.inputHeight
@@ -42,7 +43,7 @@ Button {
                 text: control.text
                 color: control.contentColor
                 font.pixelSize: control.small ? 12 : 13
-                font.weight: Font.Medium
+                font.weight: control.variant === "soft" ? Font.DemiBold : Font.Medium
             }
         }
     }
@@ -62,6 +63,8 @@ Button {
             if (control.variant === "ghost")
                 return control.hovered || control.down ? Theme.neutralHover
                     : Qt.alpha(Theme.neutralHover, 0)
+            if (control.variant === "soft")
+                return Theme.sidebarSelection
             return control.hovered || control.down ? Theme.neutralHover : Theme.card
         }
         border.width: control.variant === "outline" ? 1 : 0

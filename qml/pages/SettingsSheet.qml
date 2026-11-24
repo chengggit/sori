@@ -182,7 +182,7 @@ Popup {
         objectName: "settingsCategory" + entry.id
         text: entry.label
         iconName: entry.icon
-        variant: root.category === entry.id ? "secondary" : "ghost"
+        variant: root.category === entry.id ? "soft" : "ghost"
         small: true
         leftPadding: 10
         rightPadding: 8
@@ -204,6 +204,7 @@ Popup {
                 text: entry.label
                 color: button.contentColor
                 font.pixelSize: 13
+                font.weight: button.variant === "soft" ? Font.DemiBold : Font.Normal
                 verticalAlignment: Text.AlignVCenter
                 elide: Text.ElideRight
             }
@@ -213,8 +214,7 @@ Popup {
     background: Rectangle {
         radius: Theme.radiusLarge
         color: Theme.card
-        border.width: 1
-        border.color: Theme.border
+        border.width: 0
     }
 
     contentItem: ColumnLayout {
@@ -673,6 +673,7 @@ Popup {
                             AppButton {
                                 objectName: "addChannel"
                                 text: "Add channel"
+                                variant: "outline"
                                 small: true
                                 enabled: !!channelInput.text.trim()
                                 onClicked: root.addChannel()

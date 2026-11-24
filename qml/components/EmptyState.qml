@@ -9,13 +9,14 @@ Rectangle {
     property string title: ""
     property string message: ""
     property string actionText: ""
+    property string actionIcon: "plus"
+    property string actionVariant: "default"
     signal actionRequested()
 
     implicitHeight: content.implicitHeight + 64
     color: Theme.card
     radius: Theme.radiusLarge
-    border.width: 1
-    border.color: Theme.border
+    border.width: 0
 
     ColumnLayout {
         id: content
@@ -56,7 +57,8 @@ Rectangle {
             Layout.alignment: Qt.AlignHCenter
             Layout.topMargin: 6
             text: root.actionText
-            iconName: "plus"
+            iconName: root.actionIcon
+            variant: root.actionVariant
             onClicked: root.actionRequested()
         }
     }

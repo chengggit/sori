@@ -123,8 +123,7 @@ Item {
         background: Rectangle {
             color: Theme.card
             radius: Theme.radiusLarge
-            border.width: 1
-            border.color: Theme.border
+            border.width: 0
         }
 
         header: Item {
@@ -227,7 +226,8 @@ Item {
         ScrollView {
             id: scroller
             Layout.fillWidth: true
-            Layout.fillHeight: true
+            Layout.fillHeight: visible
+            Layout.preferredHeight: 0
             visible: !root.libraryEmpty && !root.nothingMatches
             contentWidth: availableWidth
             clip: true
@@ -278,7 +278,7 @@ Item {
 
         EmptyState {
             Layout.fillWidth: true
-            Layout.preferredHeight: 288
+            Layout.preferredHeight: visible ? 288 : 0
             Layout.alignment: Qt.AlignTop
             visible: root.libraryEmpty || root.nothingMatches
             iconName: "library"
@@ -290,7 +290,8 @@ Item {
 
         Item {
             visible: root.libraryEmpty || root.nothingMatches
-            Layout.fillHeight: true
+            Layout.fillHeight: visible
+            Layout.preferredHeight: 0
         }
     }
 }

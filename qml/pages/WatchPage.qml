@@ -829,8 +829,7 @@ Item {
             background: Rectangle {
                 radius: Theme.radius
                 color: Theme.card
-                border.width: 1
-                border.color: Theme.border
+                border.width: 0
             }
             contentItem: ColumnLayout {
                 spacing: 10

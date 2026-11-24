@@ -240,8 +240,7 @@ Item {
         background: Rectangle {
             color: Theme.card
             radius: Theme.radiusLarge
-            border.width: 1
-            border.color: Theme.border
+            border.width: 0
         }
 
         contentItem: ColumnLayout {
@@ -306,67 +305,71 @@ Item {
         anchors.bottom: parent.bottom
         spacing: 14
 
-        AppText {
+        ColumnLayout {
             Layout.fillWidth: true
-            text: root.countLabel
-            color: Theme.mutedForeground
-            font.pixelSize: 13
-        }
+            spacing: 14
 
-        RowLayout {
-            Layout.fillWidth: true
-            spacing: Theme.controlGap
-
-            AppInput {
-                id: search
+            AppText {
                 Layout.fillWidth: true
-                Layout.minimumWidth: 200
-                placeholderText: "Search vocabulary…"
-                iconName: "search"
+                text: root.countLabel
+                color: Theme.mutedForeground
+                font.pixelSize: 13
             }
 
-            SelectCombo {
-                id: typeCombo
-                Layout.preferredWidth: 132
-                model: root.typeOptions
-                Accessible.name: "Filter saved words by type"
-                onActivated: root.typeFilter = root.typeOptions[currentIndex]
+            RowLayout {
+                Layout.fillWidth: true
+                spacing: Theme.controlGap
 
-                Binding {
-                    target: typeCombo
-                    property: "currentIndex"
-                    value: Math.max(0, root.typeOptions.indexOf(root.typeFilter))
+                AppInput {
+                    id: search
+                    Layout.fillWidth: true
+                    Layout.minimumWidth: 200
+                    placeholderText: "Search vocabulary\u2026"
+                    iconName: "search"
+                }
+
+                SelectCombo {
+                    id: typeCombo
+                    Layout.preferredWidth: 132
+                    model: root.typeOptions
+                    Accessible.name: "Filter saved words by type"
+                    onActivated: root.typeFilter = root.typeOptions[currentIndex]
+
+                    Binding {
+                        target: typeCombo
+                        property: "currentIndex"
+                        value: Math.max(0, root.typeOptions.indexOf(root.typeFilter))
+                    }
+                }
+
+                SelectCombo {
+                    id: sortCombo
+                    Layout.preferredWidth: 132
+                    leadingIcon: "arrow-up-down"
+                    model: root.sortOptions
+                    Accessible.name: "Sort saved words"
+                    onActivated: root.sortIndex = currentIndex
+
+                    Binding {
+                        target: sortCombo
+                        property: "currentIndex"
+                        value: root.sortIndex
+                    }
                 }
             }
 
-            SelectCombo {
-                id: sortCombo
-                Layout.preferredWidth: 132
-                leadingIcon: "arrow-up-down"
-                model: root.sortOptions
-                Accessible.name: "Sort saved words"
-                onActivated: root.sortIndex = currentIndex
-
-                Binding {
-                    target: sortCombo
-                    property: "currentIndex"
-                    value: root.sortIndex
-                }
+            AppText {
+                Layout.fillWidth: true
+                visible: text !== ""
+                text: root.error || Library.error
+                color: Theme.destructive
+                wrapMode: Text.Wrap
             }
-        }
-
-        AppText {
-            Layout.fillWidth: true
-            visible: text !== ""
-            text: root.error || Library.error
-            color: Theme.destructive
-            wrapMode: Text.Wrap
         }
 
         Item {
             Layout.fillWidth: true
             Layout.fillHeight: true
-            visible: root.matchingEntries.length > 0
 
             ListView {
                 id: entries
@@ -405,8 +408,8 @@ Item {
                         radius: Theme.radius
                         color: card.hovered || card.visualFocus
                             ? Theme.neutralHover : Theme.card
-                        border.width: 1
-                        border.color: card.visualFocus ? Theme.accent : Theme.border
+                        border.width: card.visualFocus ? 1 : 0
+                        border.color: Theme.accent
 
                         Behavior on color {
                             ColorAnimation { duration: 120; easing.type: Easing.OutCubic }
@@ -521,8 +524,7 @@ Item {
                         background: Rectangle {
                             color: Theme.card
                             radius: Theme.radiusSmall
-                            border.width: 1
-                            border.color: Theme.border
+                            border.width: 0
                         }
 
                         MenuItem {
@@ -593,39 +595,32 @@ Item {
                     }
                 }
             }
-        }
 
-        EmptyState {
-            Layout.fillWidth: true
-            Layout.preferredHeight: 288
-            Layout.alignment: Qt.AlignTop
-            visible: Library.vocabulary.length === 0
-            iconName: "bookmark"
-            title: "No saved words yet"
-            message: "Save a word from Reader or a video to see it here."
-        }
-
-        ColumnLayout {
-            Layout.fillWidth: true
-            Layout.fillHeight: true
-            Layout.topMargin: 48
-            visible: Library.vocabulary.length > 0 && root.matchingEntries.length === 0
-            spacing: 12
-
-            AppText {
-                Layout.fillWidth: true
-                text: "No words match your search and filters."
-                color: Theme.mutedForeground
-                horizontalAlignment: Text.AlignHCenter
-                wrapMode: Text.Wrap
+            EmptyState {
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.top: parent.top
+                anchors.topMargin: 24
+                width: parent.width
+                height: 288
+                visible: Library.vocabulary.length === 0
+                iconName: "bookmark"
+                title: "No saved words yet"
+                message: "Save a word from Reader or a video to see it here."
             }
 
-            AppButton {
-                Layout.alignment: Qt.AlignHCenter
-                text: "Clear filters"
-                variant: "outline"
-                small: true
-                onClicked: root.clearFilters()
+            EmptyState {
+                anchors.horizontalCenter: parent.horizontalCenter
+                anchors.top: parent.top
+                anchors.topMargin: 24
+                width: parent.width
+                height: 288
+                visible: Library.vocabulary.length > 0 && root.matchingEntries.length === 0
+                iconName: "search"
+                title: "No words match your search and filters."
+                actionText: "Clear filters"
+                actionIcon: "x"
+                actionVariant: "soft"
+                onActionRequested: root.clearFilters()
             }
         }
     }
