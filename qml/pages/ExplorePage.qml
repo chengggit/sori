@@ -109,6 +109,19 @@ Item {
         return "subscriptions:" + ids;
     }
 
+    function appendFeed(feedVideos) {
+        const seen = new Set(videos.map(video => video.id));
+        const added = [];
+        for (const video of feedVideos) {
+            if (!seen.has(video.id)) {
+                seen.add(video.id);
+                added.push(video);
+                videoModel.append({ video: video });
+            }
+        }
+        videos = videos.concat(added);
+    }
+
     function refreshDiscovery(force) {
         if (!YouTube.configured || root.subscriptionCount === 0) {
             videos = [];
@@ -260,12 +273,15 @@ Item {
                 return;
             const wasLoadingMore = root.loadingMore;
             root.error = result.error ?? "";
-            root.request = 0;
-            root.loadingMore = false;
-            if (root.error)
+            if (root.error) {
+                root.request = 0;
+                root.loadingMore = false;
                 return;
-            const loaded = wasLoadingMore ? root.videos : [];
-            root.showFeed(loaded.concat(result.videos ?? []), false);
+            }
+            if (wasLoadingMore)
+                root.appendFeed(result.videos ?? []);
+            else
+                root.showFeed(result.videos ?? [], false);
             root.nextPageTokens = result.nextPageTokens ?? ({});
             if (!wasLoadingMore) {
                 const entries = root.freshCacheEntries()
@@ -278,6 +294,8 @@ Item {
                 });
                 root.searchCache.firstPages = JSON.stringify(entries.slice(0, 30));
             }
+            root.loadingMore = false;
+            root.request = 0;
         }
     }
 

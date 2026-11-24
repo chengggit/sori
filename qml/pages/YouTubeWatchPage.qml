@@ -41,7 +41,7 @@ Item {
         transcriptError = savedTranscript.error || ""
         showText = !!savedTranscript.content
         playback.position = video?.seconds ?? 0
-        transcript.refresh()
+        youtubeSubtitles.refresh()
         if (youtubeId && (savedTranscript.language !== "ko" || !savedTranscript.cues?.length)) {
             savedTranscript = Object.assign({}, savedTranscript, {cues: []})
             fetchKoreanTranscript()
@@ -58,12 +58,12 @@ Item {
             if (embed.item) {
                 embed.item.seek(seconds)
                 position = seconds
-                transcript.refresh()
+                youtubeSubtitles.refresh()
             }
         }
     }
     QtObject {
-        id: transcript
+        id: youtubeSubtitles
         property var transcript: root.savedTranscript.cues ?? []
         property int activeRow: -1
         property bool loading: root.fetchRequest !== 0
@@ -87,7 +87,7 @@ Item {
             if (!result.error) {
                 root.transcriptError = Library.cacheYoutubeTranscript(root.youtubeId, result)
                 root.savedTranscript = Object.assign({}, root.savedTranscript, result)
-                transcript.refresh()
+                youtubeSubtitles.refresh()
             }
         }
     }
@@ -161,7 +161,7 @@ Item {
                 target: embed.item
                 function onCheckpoint(entry, seconds, duration) {
                     playback.position = seconds
-                    transcript.refresh()
+                    youtubeSubtitles.refresh()
                     root.checkpoint(entry, seconds, duration)
                 }
             }
@@ -249,7 +249,7 @@ Item {
             visible: !root.showText
             emptyAction: "Add text transcript (TXT)"
             emptyHint: "Korean subtitles will load automatically when available. You can also attach a TXT transcript."
-            subtitles: transcript
+            subtitles: youtubeSubtitles
             player: playback
             onLookupRequested: (text, start, end) => analysis.lookup(text, start, end)
             onAddRequested: textPicker.open()
