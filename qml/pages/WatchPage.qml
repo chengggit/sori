@@ -881,6 +881,19 @@ Item {
         }
     }
 
+    Component {
+        id: transcriptHeader
+        TranscriptHeader {
+            hasText: !!root.textTranscript.content
+            showingText: root.showUntimed
+            canAttach: root.videoId > 0
+            filename: root.textTranscript.title ?? ""
+            onAddRequested: root.openTranscriptRequested()
+            onRemoveRequested: root.removeTranscript()
+            onToggleRequested: root.showUntimed = !root.showUntimed
+        }
+    }
+
     ColumnLayout {
         visible: !root.fullScreen && root.player.loaded
         width: stage.width
@@ -905,41 +918,9 @@ Item {
             wrapMode: Text.Wrap
         }
 
-        RowLayout {
-            Layout.fillWidth: true
-            AppButton {
-                visible: !!root.textTranscript.content
-                text: root.showUntimed ? "Show subtitles" : "Show text transcript"
-                variant: "ghost"
-                small: true
-                onClicked: root.showUntimed = !root.showUntimed
-            }
-            AppText {
-                Layout.fillWidth: true
-                text: root.showUntimed ? root.textTranscript.title : ""
-                elide: Text.ElideRight
-                color: Theme.mutedForeground
-                font.pixelSize: 12
-            }
-            AppButton {
-                text: root.textTranscript.content ? "Replace TXT" : "Add transcript (TXT)"
-                variant: "outline"
-                small: true
-                enabled: root.videoId > 0
-                onClicked: root.openTranscriptRequested()
-            }
-            AppButton {
-                visible: !!root.textTranscript.content
-                iconName: "trash"
-                variant: "ghost"
-                small: true
-                Accessible.name: "Remove text transcript"
-                onClicked: root.removeTranscript()
-            }
-        }
-
         UntimedTranscript {
             id: textReader
+            headerComponent: transcriptHeader
             renderHost: root.renderHost
             Layout.fillWidth: true
             Layout.fillHeight: true
@@ -952,6 +933,7 @@ Item {
         }
 
         SubtitleTranscript {
+            headerComponent: transcriptHeader
             visible: !root.showUntimed
             Layout.fillWidth: true
             Layout.fillHeight: true
