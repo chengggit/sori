@@ -295,6 +295,16 @@ Rectangle {
             }
         }
 
+        AppText {
+            Layout.fillWidth: true
+            Layout.leftMargin: 20
+            Layout.rightMargin: 20
+            visible: text !== ""
+            text: root.savedWord?.error || ""
+            color: Theme.destructive
+            wrapMode: Text.Wrap
+        }
+
         Repeater {
             model: root.opened ? DictionaryTabs.enabled : []
 

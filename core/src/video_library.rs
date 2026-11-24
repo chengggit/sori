@@ -85,23 +85,33 @@ pub fn list(connection: &Connection) -> Result<Vec<VideoSummary>, String> {
         )
         .map_err(|error| error.to_string())?;
     let rows = statement
-        .query_map([], |row| {
-            let title: String = row.get(1)?;
-            Ok(VideoSummary {
-                id: row.get(0)?,
-                display_title: display_title(&title),
-                title,
-                seconds: row.get(2)?,
-                duration: row.get(3)?,
-                thumbnail_url: row
-                    .get::<_, Option<String>>(4)?
-                    .and_then(|path| url::Url::from_file_path(path).ok().map(String::from)),
-                watched_at: row.get(5)?,
-            })
-        })
+        .query_map([], summary_row)
         .map_err(|error| error.to_string())?;
     rows.collect::<Result<Vec<_>, _>>()
         .map_err(|error| error.to_string())
+}
+
+fn summary_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<VideoSummary> {
+    let title: String = row.get(1)?;
+    Ok(VideoSummary {
+        id: row.get(0)?,
+        display_title: display_title(&title),
+        title,
+        seconds: row.get(2)?,
+        duration: row.get(3)?,
+        thumbnail_url: row
+            .get::<_, Option<String>>(4)?
+            .and_then(|path| url::Url::from_file_path(path).ok().map(String::from)),
+        watched_at: row.get(5)?,
+    })
+}
+
+pub fn summary(connection: &Connection, id: i64) -> Result<VideoSummary, String> {
+    connection.query_row(
+        "SELECT v.id, v.title, v.seconds, v.duration, v.thumbnail, h.watched_at
+         FROM videos v LEFT JOIN local_watch_history h ON v.id = h.video_id WHERE v.id = ?1",
+        [id], summary_row,
+    ).map_err(|error| error.to_string())
 }
 
 pub fn read(connection: &Connection, id: i64) -> Result<SavedVideo, String> {
@@ -357,6 +367,18 @@ pub fn display_title(title: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn checkpoint_summary_matches_library_listing() {
+        let connection = Connection::open_in_memory().unwrap();
+        connection.execute_batch(include_str!("schema.sql")).unwrap();
+        connection.execute("INSERT INTO videos(path,title) VALUES('example.mkv','Example')", []).unwrap();
+        let id = connection.last_insert_rowid();
+        save_progress(&connection, id, 12.0, 60.0).unwrap();
+        assert_eq!(serde_json::to_value(summary(&connection, id).unwrap()).unwrap(),
+            serde_json::to_value(list(&connection).unwrap().remove(0)).unwrap());
+        assert!(summary(&connection, id + 1).is_err());
+    }
 
     #[test]
     fn cleans_release_names_for_display() {

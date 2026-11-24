@@ -146,6 +146,7 @@ pub unsafe extern "C" fn sori_mpv_player_free(player: *mut mpv_handle) {
 mod analysis_model;
 mod controls;
 mod db;
+mod bridge;
 mod dictionary;
 mod krdict;
 mod documents;
@@ -158,6 +159,7 @@ mod video_library;
 mod video_transcript;
 mod vocabulary;
 mod youtube;
+mod youtube_model;
 mod youtube_transcript;
 
 mod player_model;
@@ -170,5 +172,5 @@ pub extern "C" fn sori_qt_register_models() {
     subtitle_model::Subtitles::register();
     library_model::Library::register();
     analysis_model::Analysis::register();
-    youtube::YouTube::register();
+    youtube_model::YouTube::register();
 }

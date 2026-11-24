@@ -1,4 +1,3 @@
-use qtbridge::{qobject, QmlObject};
 use regex::Regex;
 use std::collections::HashMap;
 use reqwest::blocking::Client;
@@ -14,232 +13,12 @@ use url::Url;
 static CLIENT: OnceLock<Result<Client, String>> = OnceLock::new();
 static SAVED_API_KEY: RwLock<Option<String>> = RwLock::new(None);
 
-#[derive(Default)]
-pub struct YouTube {
-    request: i32,
-    database: Option<crate::db::Database>,
-    settings_error: String,
+pub(super) fn has_saved_api_key() -> bool {
+    SAVED_API_KEY.read().unwrap_or_else(|poison| poison.into_inner()).is_some()
 }
 
-#[qobject(Singleton, ConvertToCamelCase)]
-impl YouTube {
-    qproperty!(
-        "configured",
-        Read = configured,
-        Notify = configuration_changed
-    );
-    qproperty!("savedKey", Read = saved_key, Notify = configuration_changed);
-    qproperty!(
-        "settingsError",
-        Member = settings_error,
-        Notify = configuration_changed
-    );
-    qproperty!(
-        "subscriptions",
-        Read = subscription_list,
-        Notify = subscriptions_changed
-    );
-
-    #[qsignal]
-    fn configuration_changed(&mut self);
-
-    #[qsignal]
-    fn subscriptions_changed(&mut self);
-
-    #[qsignal]
-    fn subscription_feed_finished(&mut self, request: i32, result: &Value);
-
-    #[qslot]
-    fn initialize(&mut self, directory: String) {
-        let result =
-            crate::db::Database::initialize(PathBuf::from(directory)).and_then(|database| {
-                let key = read_saved_api_key(&database.connect()?)?;
-                self.database = Some(database);
-                *SAVED_API_KEY
-                    .write()
-                    .unwrap_or_else(|poison| poison.into_inner()) = key;
-                Ok(())
-            });
-        self.settings_error = result.err().unwrap_or_default();
-        self.configuration_changed();
-        self.subscriptions_changed();
-    }
-
-    fn saved_key(&self) -> bool {
-        SAVED_API_KEY
-            .read()
-            .unwrap_or_else(|poison| poison.into_inner())
-            .is_some()
-    }
-
-    #[qslot]
-    fn save_api_key(&mut self, key: String) -> String {
-        let result = self
-            .database
-            .as_ref()
-            .ok_or_else(|| "Settings are not available.".to_string())
-            .and_then(|database| {
-                let key = store_api_key(&database.connect()?, &key)?;
-                *SAVED_API_KEY
-                    .write()
-                    .unwrap_or_else(|poison| poison.into_inner()) = Some(key);
-                Ok(())
-            });
-        let error = result.err().unwrap_or_default();
-        if error.is_empty() {
-            self.configuration_changed();
-        }
-        error
-    }
-
-    #[qslot]
-    fn remove_api_key(&mut self) -> String {
-        let result = self
-            .database
-            .as_ref()
-            .ok_or_else(|| "Settings are not available.".to_string())
-            .and_then(|database| {
-                remove_saved_api_key(&database.connect()?)?;
-                *SAVED_API_KEY
-                    .write()
-                    .unwrap_or_else(|poison| poison.into_inner()) = None;
-                Ok(())
-            });
-        let error = result.err().unwrap_or_default();
-        if error.is_empty() {
-            self.configuration_changed();
-        }
-        error
-    }
-
-    #[qsignal]
-    fn search_finished(&mut self, request: i32, result: &Value);
-
-    #[qsignal]
-    fn transcript_finished(&mut self, request: i32, result: &Value);
-
-    #[qslot]
-    fn fetch_transcript(&mut self, id: String, language: String) -> i32 {
-        self.request = self.request.wrapping_add(1).max(1);
-        let request = self.request;
-        let handle = self.get_thread_handle();
-        std::thread::spawn(move || {
-            let result = crate::youtube_transcript::fetch(&id, &language)
-                .unwrap_or_else(|error| json!({"error": error}));
-            handle.invoke_mut(move |model| model.transcript_finished(request, &result));
-        });
-        request
-    }
-
-    fn configured(&self) -> bool {
-        has_api_key()
-    }
-
-    #[qslot]
-    fn resolve_link(&self, link: String) -> String {
-        video_id(&link)
-            .and_then(|id| watch_url(&id))
-            .unwrap_or_default()
-    }
-
-    #[qslot]
-    fn search(&mut self, query: String, page: String) -> i32 {
-        self.request = self.request.wrapping_add(1).max(1);
-        let request = self.request;
-        let handle = self.get_thread_handle();
-        std::thread::spawn(move || {
-            let result = search(&query, &page)
-                .map(|result| json!(result))
-                .unwrap_or_else(|error| json!({"error": error}));
-            handle.invoke_mut(move |model| model.search_finished(request, &result));
-        });
-        request
-    }
-
-    fn connection(&self) -> Result<Connection, String> {
-        self.database
-            .as_ref()
-            .ok_or_else(|| "Settings are not available.".to_string())?
-            .connect()
-    }
-
-    fn subscription_list(&self) -> Value {
-        let entries = self
-            .connection()
-            .and_then(|connection| subscriptions(&connection))
-            .unwrap_or_default();
-        json!(entries)
-    }
-
-    #[qsignal]
-    fn channel_resolved(&mut self, request: i32, result: &Value);
-
-    #[qslot]
-    fn resolve_channel(&mut self, input: String) -> i32 {
-        self.request = self.request.wrapping_add(1).max(1);
-        let request = self.request;
-        let handle = self.get_thread_handle();
-        std::thread::spawn(move || {
-            let result = resolve_channel(&input)
-                .map(|channel| json!(channel))
-                .unwrap_or_else(|error| json!({ "error": error }));
-            handle.invoke_mut(move |model| model.channel_resolved(request, &result));
-        });
-        request
-    }
-
-    #[qslot]
-    fn add_subscription(&mut self, id: String, title: String, playlist: String) -> String {
-        let error = self
-            .connection()
-            .and_then(|connection| add_subscription(&connection, &id, &title, &playlist))
-            .err()
-            .unwrap_or_default();
-        if error.is_empty() {
-            self.subscriptions_changed();
-        }
-        error
-    }
-
-    #[qslot]
-    fn remove_subscription(&mut self, id: String) -> String {
-        let error = self
-            .connection()
-            .and_then(|connection| remove_subscription(&connection, &id))
-            .err()
-            .unwrap_or_default();
-        if error.is_empty() {
-            self.subscriptions_changed();
-        }
-        error
-    }
-
-    fn request_feed(&mut self, tokens: Value) -> i32 {
-        self.request = self.request.wrapping_add(1).max(1);
-        let request = self.request;
-        let database = self.database.clone();
-        let handle = self.get_thread_handle();
-        std::thread::spawn(move || {
-            let result = database
-                .ok_or_else(|| "Settings are not available.".to_string())
-                .and_then(|database| subscription_feed(&database, &tokens))
-                .unwrap_or_else(|error| json!({"error": error}));
-            handle.invoke_mut(move |model| {
-                model.subscription_feed_finished(request, &result)
-            });
-        });
-        request
-    }
-
-    #[qslot]
-    fn subscription_feed(&mut self) -> i32 {
-        self.request_feed(json!({}))
-    }
-
-    #[qslot]
-    fn subscription_feed_page(&mut self, tokens: Value) -> i32 {
-        self.request_feed(tokens)
-    }
+pub(super) fn set_saved_api_key(key: Option<String>) {
+    *SAVED_API_KEY.write().unwrap_or_else(|poison| poison.into_inner()) = key;
 }
 
 pub fn has_api_key() -> bool {
@@ -265,7 +44,7 @@ fn api_key() -> Option<String> {
         })
 }
 
-fn read_saved_api_key(connection: &Connection) -> Result<Option<String>, String> {
+pub(super) fn read_saved_api_key(connection: &Connection) -> Result<Option<String>, String> {
     connection
         .query_row(
             "SELECT value FROM app_settings WHERE key = 'youtube_api_key'",
@@ -276,7 +55,7 @@ fn read_saved_api_key(connection: &Connection) -> Result<Option<String>, String>
         .map_err(|error| error.to_string())
 }
 
-fn store_api_key(connection: &Connection, input: &str) -> Result<String, String> {
+pub(super) fn store_api_key(connection: &Connection, input: &str) -> Result<String, String> {
     let key = input.trim();
     if key.is_empty()
         || key.len() > 512
@@ -305,7 +84,7 @@ fn store_api_key(connection: &Connection, input: &str) -> Result<String, String>
     Ok(key.to_owned())
 }
 
-fn remove_saved_api_key(connection: &Connection) -> Result<(), String> {
+pub(super) fn remove_saved_api_key(connection: &Connection) -> Result<(), String> {
     connection
         .execute("DELETE FROM app_settings WHERE key = 'youtube_api_key'", [])
         .map_err(|error| error.to_string())?;
@@ -563,22 +342,31 @@ pub fn watch_history(connection: &Connection) -> Result<Vec<Value>, String> {
         )
         .map_err(|error| error.to_string())?;
     let entries = statement
-        .query_map([], |row| {
-            let id: String = row.get(0)?;
-            Ok(json!({
-                "youtubeId": id,
-                "title": row.get::<_, String>(1)?,
-                "channel": row.get::<_, String>(2)?,
-                "seconds": row.get::<_, f64>(3)?,
-                "duration": row.get::<_, f64>(4)?,
-                "watchedAt": row.get::<_, i64>(5)?,
-                "thumbnailUrl": format!("https://i.ytimg.com/vi/{id}/mqdefault.jpg"),
-            }))
-        })
+        .query_map([], watch_entry_row)
         .map_err(|error| error.to_string())?;
     entries
         .collect::<Result<_, _>>()
         .map_err(|error| error.to_string())
+}
+
+fn watch_entry_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Value> {
+    let id: String = row.get(0)?;
+    Ok(json!({
+        "youtubeId": id,
+        "title": row.get::<_, String>(1)?,
+        "channel": row.get::<_, String>(2)?,
+        "seconds": row.get::<_, f64>(3)?,
+        "duration": row.get::<_, f64>(4)?,
+        "watchedAt": row.get::<_, i64>(5)?,
+        "thumbnailUrl": format!("https://i.ytimg.com/vi/{id}/mqdefault.jpg"),
+    }))
+}
+
+pub fn watch_entry(connection: &Connection, id: &str) -> Result<Value, String> {
+    connection.query_row(
+        "SELECT video_id, title, channel, seconds, duration, watched_at
+         FROM youtube_watch_history WHERE video_id = ?1", [id], watch_entry_row,
+    ).map_err(|error| error.to_string())
 }
 
 pub fn save_watch_progress(
@@ -608,7 +396,7 @@ pub fn save_watch_progress(
     Ok(())
 }
 
-fn video_id(link: &str) -> Option<String> {
+pub(super) fn video_id(link: &str) -> Option<String> {
     let url = Url::parse(link.trim()).ok()?;
     if !matches!(url.scheme(), "http" | "https") {
         return None;
@@ -661,7 +449,7 @@ struct Snippet {
 
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
-struct SearchPage {
+pub(super) struct SearchPage {
     videos: Vec<SearchVideo>,
     next_page: String,
 }
@@ -702,7 +490,7 @@ fn parse_search(body: &[u8]) -> Result<SearchPage, String> {
 
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct Subscription {
+pub(super) struct Subscription {
     channel_id: String,
     title: String,
     uploads_playlist_id: String,
@@ -717,7 +505,7 @@ struct FeedVideo {
     published_at: String,
 }
 
-fn subscriptions(connection: &Connection) -> Result<Vec<Subscription>, String> {
+pub(super) fn subscriptions(connection: &Connection) -> Result<Vec<Subscription>, String> {
     let mut statement = connection
         .prepare(
             "SELECT channel_id, title, uploads_playlist_id FROM youtube_subscriptions
@@ -738,7 +526,7 @@ fn subscriptions(connection: &Connection) -> Result<Vec<Subscription>, String> {
     entries
 }
 
-fn add_subscription(
+pub(super) fn add_subscription(
     connection: &Connection,
     id: &str,
     title: &str,
@@ -758,7 +546,7 @@ fn add_subscription(
     Ok(())
 }
 
-fn remove_subscription(connection: &Connection, id: &str) -> Result<(), String> {
+pub(super) fn remove_subscription(connection: &Connection, id: &str) -> Result<(), String> {
     connection
         .execute("DELETE FROM youtube_subscriptions WHERE channel_id = ?1", [id])
         .map_err(|error| error.to_string())?;
@@ -873,7 +661,7 @@ fn channel_from_api(items: &[Value], fallback_id: &str) -> Result<Subscription, 
     })
 }
 
-fn resolve_channel(input: &str) -> Result<Subscription, String> {
+pub(super) fn resolve_channel(input: &str) -> Result<Subscription, String> {
     let input = input.trim();
     if input.is_empty() || input.len() > 250 {
         return Err("Enter a channel name, handle, or link.".into());
@@ -1065,7 +853,7 @@ fn channel_uploads(
     Ok((videos, next_page))
 }
 
-fn subscription_feed(
+pub(super) fn subscription_feed(
     database: &crate::db::Database,
     tokens: &Value,
 ) -> Result<Value, String> {
@@ -1123,7 +911,7 @@ fn subscription_feed(
     Ok(json!({"videos": videos, "nextPageTokens": Value::Object(next_tokens)}))
 }
 
-fn search(query: &str, page: &str) -> Result<SearchPage, String> {
+pub(super) fn search(query: &str, page: &str) -> Result<SearchPage, String> {
     let key = api_key().ok_or("Add a YouTube API key in Settings to discover videos.")?;
     let query = query.trim();
     if query.is_empty() || query.chars().count() > 250 {
@@ -1290,6 +1078,7 @@ mod tests {
         assert_eq!(entries[0]["youtubeId"], id);
         assert_eq!(entries[0]["seconds"], 7.0);
         assert_eq!(entries[0]["duration"], 19.0);
+        assert_eq!(watch_entry(&connection, id).unwrap(), entries[0]);
     }
 
     #[test]
