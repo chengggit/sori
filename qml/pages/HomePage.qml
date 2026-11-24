@@ -175,7 +175,7 @@ ExplorePage {
                         compact: true
                         text: home.recentVideo?.seconds > 0 ? "Resume" : "Watch again"
                         iconName: "play"
-                        variant: "primary"
+                        variant: "soft"
                         onClicked: home.resumeVideoRequested(home.recentVideo)
                     }
                 }

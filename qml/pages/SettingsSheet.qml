@@ -182,7 +182,7 @@ Popup {
         objectName: "settingsCategory" + entry.id
         text: entry.label
         iconName: entry.icon
-        variant: root.category === entry.id ? "secondary" : "ghost"
+        variant: root.category === entry.id ? "soft" : "ghost"
         small: true
         leftPadding: 10
         rightPadding: 8
@@ -204,6 +204,7 @@ Popup {
                 text: entry.label
                 color: button.contentColor
                 font.pixelSize: 13
+                font.weight: button.variant === "soft" ? Font.DemiBold : Font.Normal
                 verticalAlignment: Text.AlignVCenter
                 elide: Text.ElideRight
             }
