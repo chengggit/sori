@@ -1,159 +1,19 @@
-use regex::Regex;
-use std::collections::HashMap;
 use reqwest::blocking::Client;
-use rusqlite::{params, Connection, OptionalExtension};
-use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
+use std::collections::HashMap;
 use std::io::Read;
-use std::path::PathBuf;
-use std::sync::{OnceLock, RwLock};
+use std::sync::OnceLock;
 use std::time::Duration;
 use url::Url;
 
+mod parsing;
+mod settings;
+mod store;
+pub(crate) use parsing::*;
+pub(crate) use settings::*;
+pub(crate) use store::*;
+
 static CLIENT: OnceLock<Result<Client, String>> = OnceLock::new();
-static SAVED_API_KEY: RwLock<Option<String>> = RwLock::new(None);
-
-pub(super) fn has_saved_api_key() -> bool {
-    SAVED_API_KEY.read().unwrap_or_else(|poison| poison.into_inner()).is_some()
-}
-
-pub(super) fn set_saved_api_key(key: Option<String>) {
-    *SAVED_API_KEY.write().unwrap_or_else(|poison| poison.into_inner()) = key;
-}
-
-pub fn has_api_key() -> bool {
-    api_key().is_some()
-}
-
-fn api_key() -> Option<String> {
-    SAVED_API_KEY
-        .read()
-        .unwrap_or_else(|poison| poison.into_inner())
-        .clone()
-        .or_else(|| {
-            std::env::var("SORI_YOUTUBE_API_KEY")
-                .ok()
-                .map(|key| key.trim().to_owned())
-                .filter(|key| !key.is_empty())
-                .or_else(|| {
-                    let path = env_file()?;
-                    let settings = std::fs::read_to_string(path).ok()?;
-                    key_from_settings(&settings, "SORI_YOUTUBE_API_KEY")
-                        .or_else(|| key_from_settings(&settings, "VITE_YOUTUBE_API_KEY"))
-                })
-        })
-}
-
-pub(super) fn read_saved_api_key(connection: &Connection) -> Result<Option<String>, String> {
-    connection
-        .query_row(
-            "SELECT value FROM app_settings WHERE key = 'youtube_api_key'",
-            [],
-            |row| row.get(0),
-        )
-        .optional()
-        .map_err(|error| error.to_string())
-}
-
-pub(super) fn store_api_key(connection: &Connection, input: &str) -> Result<String, String> {
-    let key = input.trim();
-    if key.is_empty()
-        || key.len() > 512
-        || !key
-            .bytes()
-            .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
-    {
-        return Err("Enter an API key without spaces or punctuation.".into());
-    }
-    #[cfg(unix)]
-    if let Some(path) = connection
-        .path()
-        .filter(|path| !path.is_empty() && *path != ":memory:")
-    {
-        use std::os::unix::fs::PermissionsExt;
-        std::fs::set_permissions(path, std::fs::Permissions::from_mode(0o600))
-            .map_err(|_| "Could not protect the local API key settings.".to_string())?;
-    }
-    connection
-        .execute(
-            "INSERT INTO app_settings (key, value) VALUES ('youtube_api_key', ?1)
-        ON CONFLICT(key) DO UPDATE SET value = excluded.value",
-            [key],
-        )
-        .map_err(|error| error.to_string())?;
-    Ok(key.to_owned())
-}
-
-pub(super) fn remove_saved_api_key(connection: &Connection) -> Result<(), String> {
-    connection
-        .execute("DELETE FROM app_settings WHERE key = 'youtube_api_key'", [])
-        .map_err(|error| error.to_string())?;
-    Ok(())
-}
-
-/// Resolve `.env.local` independently of the directory Sori was launched from.
-fn env_file() -> Option<PathBuf> {
-    if let Some(path) = std::env::var_os("SORI_ENV_FILE") {
-        let path = PathBuf::from(path);
-        if path.is_file() {
-            return Some(path);
-        }
-    }
-    let mut candidates = Vec::new();
-    if let Ok(directory) = std::env::current_dir() {
-        candidates.extend(
-            directory
-                .ancestors()
-                .take(6)
-                .map(|ancestor| ancestor.join(".env.local")),
-        );
-    }
-    if let Ok(executable) = std::env::current_exe() {
-        candidates.extend(
-            executable
-                .ancestors()
-                .skip(1)
-                .take(6)
-                .map(|ancestor| ancestor.join(".env.local")),
-        );
-    }
-    candidates.into_iter().find(|path| path.is_file())
-}
-
-fn key_from_settings(settings: &str, name: &str) -> Option<String> {
-    settings.lines().rev().find_map(|line| {
-        let line = line.trim();
-        let (key, value) = line
-            .strip_prefix("export ")
-            .unwrap_or(line)
-            .split_once('=')?;
-        if key.trim() != name {
-            return None;
-        }
-        let value = value.trim();
-        let value = value
-            .strip_prefix('"')
-            .and_then(|value| value.strip_suffix('"'))
-            .or_else(|| {
-                value
-                    .strip_prefix('\'')
-                    .and_then(|value| value.strip_suffix('\''))
-            })
-            .unwrap_or(value);
-        (!value.is_empty()).then(|| value.to_owned())
-    })
-}
-
-fn valid_id(id: &str) -> bool {
-    id.len() == 11
-        && id
-            .bytes()
-            .all(|b| b.is_ascii_alphanumeric() || b == b'-' || b == b'_')
-}
-
-pub fn watch_url(id: &str) -> Option<String> {
-    valid_id(id).then(|| format!("https://www.youtube.com/watch?v={id}"))
-}
 
 fn client() -> Result<&'static Client, String> {
     CLIENT
@@ -167,19 +27,6 @@ fn client() -> Result<&'static Client, String> {
         })
         .as_ref()
         .map_err(Clone::clone)
-}
-
-#[derive(Deserialize)]
-struct OEmbedResponse {
-    #[serde(default)]
-    title: String,
-    #[serde(default)]
-    author_name: String,
-}
-
-pub struct Metadata {
-    pub title: String,
-    pub channel: String,
 }
 
 pub fn fetch_metadata(id: &str) -> Result<Metadata, String> {
@@ -206,58 +53,6 @@ pub fn fetch_metadata(id: &str) -> Result<Metadata, String> {
         return Err("YouTube did not return video details.".into());
     }
     parse_metadata(&body)
-}
-
-fn parse_metadata(body: &[u8]) -> Result<Metadata, String> {
-    let response: OEmbedResponse = serde_json::from_slice(body)
-        .map_err(|_| "Could not read the YouTube video details.".to_string())?;
-    let title = decode_title(response.title.trim());
-    if title.is_empty() {
-        return Err("YouTube did not return a video title.".into());
-    }
-    Ok(Metadata {
-        title,
-        channel: decode_title(response.author_name.trim()),
-    })
-}
-
-pub fn update_metadata(
-    connection: &Connection,
-    id: &str,
-    title: &str,
-    channel: &str,
-) -> Result<(), String> {
-    if !valid_id(id) {
-        return Err("Invalid YouTube video ID.".into());
-    }
-    connection
-        .execute(
-            "UPDATE youtube_watch_history SET title = ?2, channel = ?3 WHERE video_id = ?1",
-            params![id, title.trim(), channel.trim()],
-        )
-        .map_err(|error| error.to_string())?;
-    Ok(())
-}
-
-static DURATION_PATTERN: OnceLock<Regex> = OnceLock::new();
-
-#[derive(Deserialize)]
-struct VideosResponse {
-    #[serde(default)]
-    items: Vec<VideoResource>,
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct VideoResource {
-    #[serde(default)]
-    content_details: Option<ContentDetails>,
-}
-
-#[derive(Deserialize)]
-struct ContentDetails {
-    #[serde(default)]
-    duration: String,
 }
 
 pub fn fetch_duration(id: &str) -> Result<f64, String> {
@@ -290,332 +85,6 @@ pub fn fetch_duration(id: &str) -> Result<f64, String> {
     parse_duration_response(&body)
 }
 
-fn parse_duration_response(body: &[u8]) -> Result<f64, String> {
-    let response: VideosResponse = serde_json::from_slice(body)
-        .map_err(|_| "Could not read the YouTube video details.".to_string())?;
-    response
-        .items
-        .first()
-        .and_then(|item| item.content_details.as_ref())
-        .and_then(|details| parse_iso_duration(&details.duration))
-        .ok_or_else(|| "YouTube did not return the video duration.".to_string())
-}
-
-fn parse_iso_duration(text: &str) -> Option<f64> {
-    let pattern = DURATION_PATTERN.get_or_init(|| {
-        Regex::new(r"^P(?:(\d+)D)?T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$")
-            .expect("constant duration pattern")
-    });
-    let captures = pattern.captures(text.trim())?;
-    let part = |index: usize| {
-        captures
-            .get(index)
-            .and_then(|value| value.as_str().parse::<f64>().ok())
-            .unwrap_or(0.0)
-    };
-    let seconds = part(1) * 86_400.0 + part(2) * 3_600.0 + part(3) * 60.0 + part(4);
-    (seconds.is_finite() && seconds > 0.0).then_some(seconds)
-}
-
-pub fn update_duration(connection: &Connection, id: &str, duration: f64) -> Result<(), String> {
-    if !valid_id(id) {
-        return Err("Invalid YouTube video ID.".into());
-    }
-    if !duration.is_finite() || duration <= 0.0 {
-        return Err("Invalid YouTube video duration.".into());
-    }
-    connection
-        .execute(
-            "UPDATE youtube_watch_history SET duration = ?2
-             WHERE video_id = ?1 AND seconds <= ?2",
-            params![id, duration],
-        )
-        .map_err(|error| error.to_string())?;
-    Ok(())
-}
-
-pub fn watch_history(connection: &Connection) -> Result<Vec<Value>, String> {
-    let mut statement = connection
-        .prepare(
-            "SELECT video_id, title, channel, seconds, duration, watched_at
-                  FROM youtube_watch_history ORDER BY watched_at DESC, rowid DESC",
-        )
-        .map_err(|error| error.to_string())?;
-    let entries = statement
-        .query_map([], watch_entry_row)
-        .map_err(|error| error.to_string())?;
-    entries
-        .collect::<Result<_, _>>()
-        .map_err(|error| error.to_string())
-}
-
-fn watch_entry_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<Value> {
-    let id: String = row.get(0)?;
-    Ok(json!({
-        "youtubeId": id,
-        "title": row.get::<_, String>(1)?,
-        "channel": row.get::<_, String>(2)?,
-        "seconds": row.get::<_, f64>(3)?,
-        "duration": row.get::<_, f64>(4)?,
-        "watchedAt": row.get::<_, i64>(5)?,
-        "thumbnailUrl": format!("https://i.ytimg.com/vi/{id}/mqdefault.jpg"),
-    }))
-}
-
-pub fn watch_entry(connection: &Connection, id: &str) -> Result<Value, String> {
-    connection.query_row(
-        "SELECT video_id, title, channel, seconds, duration, watched_at
-         FROM youtube_watch_history WHERE video_id = ?1", [id], watch_entry_row,
-    ).map_err(|error| error.to_string())
-}
-
-pub fn save_watch_progress(
-    connection: &Connection,
-    id: &str,
-    title: &str,
-    channel: &str,
-    seconds: f64,
-    duration: f64,
-) -> Result<(), String> {
-    if !valid_id(id) || !seconds.is_finite() || seconds < 0.0 {
-        return Err("Invalid YouTube playback position.".into());
-    }
-    let duration = if duration.is_finite() {
-        duration.max(0.0)
-    } else {
-        0.0
-    };
-    connection.execute(
-        "INSERT INTO youtube_watch_history (video_id, title, channel, seconds, duration, watched_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, unixepoch())
-         ON CONFLICT(video_id) DO UPDATE SET title = excluded.title, channel = excluded.channel,
-             seconds = excluded.seconds, watched_at = excluded.watched_at,
-             duration = CASE WHEN excluded.duration > 0 THEN excluded.duration ELSE duration END",
-        params![id, title, channel, seconds, duration],
-    ).map_err(|error| error.to_string())?;
-    Ok(())
-}
-
-pub(super) fn video_id(link: &str) -> Option<String> {
-    let url = Url::parse(link.trim()).ok()?;
-    if !matches!(url.scheme(), "http" | "https") {
-        return None;
-    }
-    let id = match url.host_str()? {
-        "youtu.be" => url.path().strip_prefix('/')?.to_owned(),
-        "youtube.com" | "www.youtube.com" | "m.youtube.com" if url.path() == "/watch" => url
-            .query_pairs()
-            .find(|(key, _)| key == "v")?
-            .1
-            .into_owned(),
-        "youtube.com" | "www.youtube.com" | "m.youtube.com" => {
-            let mut parts = url.path_segments()?;
-            match (parts.next(), parts.next(), parts.next()) {
-                (Some("shorts" | "live" | "embed"), Some(id), None) => id.to_owned(),
-                _ => return None,
-            }
-        }
-        _ => return None,
-    };
-    valid_id(&id).then_some(id)
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct SearchResponse {
-    #[serde(default)]
-    items: Vec<SearchItem>,
-    next_page_token: Option<String>,
-}
-
-#[derive(Deserialize)]
-struct SearchItem {
-    id: SearchId,
-    snippet: Snippet,
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct SearchId {
-    video_id: String,
-}
-
-#[derive(Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct Snippet {
-    title: String,
-    channel_title: String,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-pub(super) struct SearchPage {
-    videos: Vec<SearchVideo>,
-    next_page: String,
-}
-
-#[derive(Serialize)]
-struct SearchVideo {
-    id: String,
-    title: String,
-    channel: String,
-}
-
-fn decode_title(title: &str) -> String {
-    // The API HTML-escapes some titles and channel names.
-    scraper::Html::parse_fragment(title)
-        .root_element()
-        .text()
-        .collect::<String>()
-}
-
-fn parse_search(body: &[u8]) -> Result<SearchPage, String> {
-    let result: SearchResponse =
-        serde_json::from_slice(body).map_err(|_| "Could not read the YouTube results.")?;
-    let videos = result
-        .items
-        .into_iter()
-        .filter(|item| valid_id(&item.id.video_id))
-        .map(|item| SearchVideo {
-            id: item.id.video_id,
-            title: decode_title(&item.snippet.title),
-            channel: decode_title(&item.snippet.channel_title),
-        })
-        .collect();
-    Ok(SearchPage {
-        videos,
-        next_page: result.next_page_token.unwrap_or_default(),
-    })
-}
-
-#[derive(Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub(super) struct Subscription {
-    channel_id: String,
-    title: String,
-    uploads_playlist_id: String,
-}
-
-#[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
-struct FeedVideo {
-    id: String,
-    title: String,
-    channel: String,
-    published_at: String,
-}
-
-pub(super) fn subscriptions(connection: &Connection) -> Result<Vec<Subscription>, String> {
-    let mut statement = connection
-        .prepare(
-            "SELECT channel_id, title, uploads_playlist_id FROM youtube_subscriptions
-         ORDER BY added_at DESC",
-        )
-        .map_err(|error| error.to_string())?;
-    let entries = statement
-        .query_map([], |row| {
-            Ok(Subscription {
-                channel_id: row.get(0)?,
-                title: row.get(1)?,
-                uploads_playlist_id: row.get(2)?,
-            })
-        })
-        .map_err(|error| error.to_string())?
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|error| error.to_string());
-    entries
-}
-
-pub(super) fn add_subscription(
-    connection: &Connection,
-    id: &str,
-    title: &str,
-    playlist: &str,
-) -> Result<(), String> {
-    if id.trim().is_empty() || title.trim().is_empty() || playlist.trim().is_empty() {
-        return Err("Could not resolve that channel.".into());
-    }
-    connection
-        .execute(
-            "INSERT INTO youtube_subscriptions (channel_id, title, uploads_playlist_id)
-         VALUES (?1, ?2, ?3) ON CONFLICT(channel_id) DO UPDATE SET
-         title = excluded.title, uploads_playlist_id = excluded.uploads_playlist_id",
-            params![id.trim(), title.trim(), playlist.trim()],
-        )
-        .map_err(|error| error.to_string())?;
-    Ok(())
-}
-
-pub(super) fn remove_subscription(connection: &Connection, id: &str) -> Result<(), String> {
-    connection
-        .execute("DELETE FROM youtube_subscriptions WHERE channel_id = ?1", [id])
-        .map_err(|error| error.to_string())?;
-    Ok(())
-}
-
-enum ChannelInput {
-    Id(String),
-    Handle(String),
-    User(String),
-    Query(String),
-}
-
-fn channel_input(input: &str) -> ChannelInput {
-    let value = input.trim();
-    if let Ok(url) = Url::parse(value) {
-        let segments: Vec<String> = url
-            .path_segments()
-            .map(|parts| parts.map(str::to_owned).collect())
-            .unwrap_or_default();
-        for (index, segment) in segments.iter().enumerate() {
-            if segment == "channel" {
-                if let Some(id) = segments.get(index + 1) {
-                    return ChannelInput::Id(id.clone());
-                }
-            }
-            if let Some(handle) = segment.strip_prefix('@') {
-                return ChannelInput::Handle(handle.to_owned());
-            }
-            if matches!(segment.as_str(), "c" | "user") {
-                if let Some(name) = segments.get(index + 1) {
-                    return if segment == "c" {
-                        ChannelInput::Query(name.clone())
-                    } else {
-                        ChannelInput::User(name.clone())
-                    };
-                }
-            }
-        }
-    }
-    if let Some(handle) = value.strip_prefix('@') {
-        return ChannelInput::Handle(handle.trim().to_owned());
-    }
-    if value.len() == 24 && value.starts_with("UC") {
-        return ChannelInput::Id(value.to_owned());
-    }
-    ChannelInput::Query(value.to_owned())
-}
-
-fn api_error(status: u16, body: &[u8]) -> String {
-    let response = serde_json::from_slice::<Value>(body).unwrap_or_default();
-    let error = response
-        .pointer("/error/errors/0/reason")
-        .and_then(Value::as_str);
-    match (status, error) {
-        (_, Some("quotaExceeded" | "dailyLimitExceeded")) => {
-            "The daily YouTube quota has been reached.".into()
-        }
-        (429, _) | (_, Some("rateLimitExceeded" | "userRateLimitExceeded")) => {
-            "YouTube is limiting requests. Try again shortly.".into()
-        }
-        (400, Some("keyInvalid" | "API_KEY_INVALID")) => "The YouTube API key is not valid.".into(),
-        (403, Some("accessNotConfigured")) => {
-            "The YouTube Data API is not enabled for this key.".into()
-        }
-        _ => "YouTube did not return the requested data.".into(),
-    }
-}
-
 fn get_json(url: Url) -> Result<Value, String> {
     let response = client()?
         .get(url)
@@ -637,39 +106,15 @@ fn get_json(url: Url) -> Result<Value, String> {
     serde_json::from_slice(&body).map_err(|_| "Could not read the YouTube response.".into())
 }
 
-fn channel_from_api(items: &[Value], fallback_id: &str) -> Result<Subscription, String> {
-    let item = items
-        .first()
-        .ok_or("No channel matched that name or link.")?;
-    let id = item["id"]
-        .as_str()
-        .map(str::to_owned)
-        .or_else(|| item["id"]["channelId"].as_str().map(str::to_owned))
-        .unwrap_or_else(|| fallback_id.to_owned());
-    let title = decode_title(item["snippet"]["title"].as_str().unwrap_or_default());
-    let playlist = item["contentDetails"]["relatedPlaylists"]["uploads"]
-        .as_str()
-        .unwrap_or_default()
-        .to_owned();
-    if id.is_empty() || title.is_empty() || playlist.is_empty() {
-        return Err("That channel does not expose an uploads playlist.".into());
-    }
-    Ok(Subscription {
-        channel_id: id,
-        title,
-        uploads_playlist_id: playlist,
-    })
-}
-
-pub(super) fn resolve_channel(input: &str) -> Result<Subscription, String> {
+pub(crate) fn resolve_channel(input: &str) -> Result<Subscription, String> {
     let input = input.trim();
     if input.is_empty() || input.len() > 250 {
         return Err("Enter a channel name, handle, or link.".into());
     }
     let key = api_key().ok_or("Add a YouTube API key in Settings first.")?;
     let input_kind = channel_input(input);
-    let mut url =
-        Url::parse("https://www.googleapis.com/youtube/v3/channels").expect("constant channels URL");
+    let mut url = Url::parse("https://www.googleapis.com/youtube/v3/channels")
+        .expect("constant channels URL");
     let mut fallback_id = String::new();
     {
         let mut pairs = url.query_pairs_mut();
@@ -711,47 +156,6 @@ pub(super) fn resolve_channel(input: &str) -> Result<Subscription, String> {
     channel_from_api(items, &fallback_id)
 }
 
-fn parse_duration(value: &str) -> Option<u64> {
-    let pattern = Regex::new(r"^PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?$").ok()?;
-    let captures = pattern.captures(value)?;
-    let hours = captures
-        .get(1)
-        .and_then(|value| value.as_str().parse::<u64>().ok())
-        .unwrap_or(0);
-    let minutes = captures
-        .get(2)
-        .and_then(|value| value.as_str().parse::<u64>().ok())
-        .unwrap_or(0);
-    let seconds = captures
-        .get(3)
-        .and_then(|value| value.as_str().parse::<u64>().ok())
-        .unwrap_or(0);
-    if captures.get(1).is_none() && captures.get(2).is_none() && captures.get(3).is_none() {
-        return None;
-    }
-    Some(hours * 3600 + minutes * 60 + seconds)
-}
-
-fn short_by_title(title: &str) -> bool {
-    let lower = title.to_lowercase();
-    lower.contains("#shorts")
-        || lower.contains("쇼츠")
-        || lower.split_whitespace().any(|word| word == "shorts")
-}
-
-fn live_by_title(title: &str) -> bool {
-    let lower = title.to_lowercase();
-    lower.contains("라이브")
-        || lower.contains("#live")
-        || lower.split_whitespace().any(|word| word == "live")
-}
-
-struct VideoDetails {
-    seconds: Option<u64>,
-    live: bool,
-    completed_live: bool,
-}
-
 /// Drop Shorts and live broadcasts using one videos.list call per 50 videos.
 /// Title keywords are a fallback when the details are unavailable.
 fn filter_uploads(videos: Vec<FeedVideo>, key: &str) -> Vec<FeedVideo> {
@@ -770,8 +174,8 @@ fn filter_uploads(videos: Vec<FeedVideo>, key: &str) -> Vec<FeedVideo> {
             .map(|video| video.id.as_str())
             .collect::<Vec<_>>()
             .join(",");
-        let mut url =
-            Url::parse("https://www.googleapis.com/youtube/v3/videos").expect("constant videos URL");
+        let mut url = Url::parse("https://www.googleapis.com/youtube/v3/videos")
+            .expect("constant videos URL");
         url.query_pairs_mut().extend_pairs([
             ("part", "snippet,contentDetails,liveStreamingDetails"),
             ("id", &ids),
@@ -802,9 +206,11 @@ fn filter_uploads(videos: Vec<FeedVideo>, key: &str) -> Vec<FeedVideo> {
     candidates
         .into_iter()
         .filter(|video| match details.get(&video.id) {
-            Some(info) => !info.live
-                && !info.completed_live
-                && info.seconds.is_none_or(|seconds| seconds > 180),
+            Some(info) => {
+                !info.live
+                    && !info.completed_live
+                    && info.seconds.is_none_or(|seconds| seconds > 180)
+            }
             None => true,
         })
         .collect()
@@ -830,7 +236,10 @@ fn channel_uploads(
         }
     }
     let result = get_json(url)?;
-    let next_page = result["nextPageToken"].as_str().unwrap_or_default().to_owned();
+    let next_page = result["nextPageToken"]
+        .as_str()
+        .unwrap_or_default()
+        .to_owned();
     let items = result["items"].as_array().ok_or("No uploads returned.")?;
     let videos: Vec<FeedVideo> = items
         .iter()
@@ -853,7 +262,7 @@ fn channel_uploads(
     Ok((videos, next_page))
 }
 
-pub(super) fn subscription_feed(
+pub(crate) fn subscription_feed(
     database: &crate::db::Database,
     tokens: &Value,
 ) -> Result<Value, String> {
@@ -862,7 +271,9 @@ pub(super) fn subscription_feed(
     if channels.is_empty() {
         return Err("Add a channel in Settings to build your feed.".into());
     }
-    let loading_more = tokens.as_object().is_some_and(|entries| !entries.is_empty());
+    let loading_more = tokens
+        .as_object()
+        .is_some_and(|entries| !entries.is_empty());
     let key = key.as_str();
 
     // Channel uploads are independent; fetch them concurrently instead of
@@ -891,9 +302,7 @@ pub(super) fn subscription_feed(
         handles
             .into_iter()
             .filter_map(|handle| handle.join().ok())
-            .filter_map(|(id, result)| {
-                result.ok().map(|(uploaded, next)| (id, uploaded, next))
-            })
+            .filter_map(|(id, result)| result.ok().map(|(uploaded, next)| (id, uploaded, next)))
             .collect()
     });
 
@@ -911,7 +320,7 @@ pub(super) fn subscription_feed(
     Ok(json!({"videos": videos, "nextPageTokens": Value::Object(next_tokens)}))
 }
 
-pub(super) fn search(query: &str, page: &str) -> Result<SearchPage, String> {
+pub(crate) fn search(query: &str, page: &str) -> Result<SearchPage, String> {
     let key = api_key().ok_or("Add a YouTube API key in Settings to discover videos.")?;
     let query = query.trim();
     if query.is_empty() || query.chars().count() > 250 {
@@ -978,6 +387,7 @@ pub(super) fn search(query: &str, page: &str) -> Result<SearchPage, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rusqlite::Connection;
 
     #[test]
     fn api_key_settings_persist_replace_and_remove_without_exposing_values() {
@@ -1158,7 +568,10 @@ mod tests {
 
     #[test]
     fn parses_channel_links_handles_and_ids() {
-        assert!(matches!(channel_input("@TalkToMeInKorean"), ChannelInput::Handle(_)));
+        assert!(matches!(
+            channel_input("@TalkToMeInKorean"),
+            ChannelInput::Handle(_)
+        ));
         assert!(matches!(
             channel_input("https://www.youtube.com/@TalkToMeInKorean/videos"),
             ChannelInput::Handle(_)
@@ -1167,8 +580,14 @@ mod tests {
             channel_input("https://www.youtube.com/channel/UC5r3WHrX4Z7peSYpDlgktGw"),
             ChannelInput::Id(_)
         ));
-        assert!(matches!(channel_input("UC5r3WHrX4Z7peSYpDlgktGw"), ChannelInput::Id(_)));
-        assert!(matches!(channel_input("Talk To Me In Korean"), ChannelInput::Query(_)));
+        assert!(matches!(
+            channel_input("UC5r3WHrX4Z7peSYpDlgktGw"),
+            ChannelInput::Id(_)
+        ));
+        assert!(matches!(
+            channel_input("Talk To Me In Korean"),
+            ChannelInput::Query(_)
+        ));
     }
 
     #[test]
@@ -1189,7 +608,9 @@ mod tests {
     #[test]
     fn subscriptions_round_trip_in_sqlite() {
         let connection = Connection::open_in_memory().unwrap();
-        connection.execute_batch(include_str!("schema.sql")).unwrap();
+        connection
+            .execute_batch(include_str!("schema.sql"))
+            .unwrap();
         add_subscription(&connection, "UC1", "Channel One", "UU1").unwrap();
         add_subscription(&connection, "UC2", "Channel Two", "UU2").unwrap();
         let entries = subscriptions(&connection).unwrap();
@@ -1198,8 +619,9 @@ mod tests {
         add_subscription(&connection, "UC1", "Renamed", "UU9").unwrap();
         let entries = subscriptions(&connection).unwrap();
         assert_eq!(entries.len(), 2);
-        assert!(entries.iter().any(|entry| entry.title == "Renamed"
-            && entry.uploads_playlist_id == "UU9"));
+        assert!(entries
+            .iter()
+            .any(|entry| entry.title == "Renamed" && entry.uploads_playlist_id == "UU9"));
         remove_subscription(&connection, "UC1").unwrap();
         let entries = subscriptions(&connection).unwrap();
         assert_eq!(entries.len(), 1);
