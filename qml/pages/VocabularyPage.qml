@@ -608,29 +608,19 @@ Item {
                 message: "Save a word from Reader or a video to see it here."
             }
 
-            ColumnLayout {
+            EmptyState {
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.top: parent.top
                 anchors.topMargin: 24
                 width: parent.width
-                spacing: 12
+                height: 288
                 visible: Library.vocabulary.length > 0 && root.matchingEntries.length === 0
-
-                AppText {
-                    Layout.fillWidth: true
-                    text: "No words match your search and filters."
-                    color: Theme.mutedForeground
-                    horizontalAlignment: Text.AlignHCenter
-                    wrapMode: Text.Wrap
-                }
-
-                AppButton {
-                    Layout.alignment: Qt.AlignHCenter
-                    text: "Clear filters"
-                    variant: "outline"
-                    small: true
-                    onClicked: root.clearFilters()
-                }
+                iconName: "search"
+                title: "No words match your search and filters."
+                actionText: "Clear filters"
+                actionIcon: "x"
+                actionVariant: "soft"
+                onActionRequested: root.clearFilters()
             }
         }
     }

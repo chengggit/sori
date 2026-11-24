@@ -9,6 +9,8 @@ Rectangle {
     property string title: ""
     property string message: ""
     property string actionText: ""
+    property string actionIcon: "plus"
+    property string actionVariant: "default"
     signal actionRequested()
 
     implicitHeight: content.implicitHeight + 64
@@ -55,7 +57,8 @@ Rectangle {
             Layout.alignment: Qt.AlignHCenter
             Layout.topMargin: 6
             text: root.actionText
-            iconName: "plus"
+            iconName: root.actionIcon
+            variant: root.actionVariant
             onClicked: root.actionRequested()
         }
     }
