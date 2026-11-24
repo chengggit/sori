@@ -69,7 +69,7 @@ impl Analysis {
     }
 
     #[qslot]
-    fn initialize_dictionary(&mut self, directory: String) {
+    fn initialize_dictionary(&mut self, directory: String) -> Value {
         let result = crate::db::Database::initialize(directory.into()).and_then(|database| {
             let (key, provider) = crate::krdict::read_settings(&database.connect()?)?;
             self.settings_database = Some(database);
@@ -77,12 +77,13 @@ impl Analysis {
             self.dictionary_provider = provider;
             Ok(())
         });
-        self.dictionary_settings_error = result.err().unwrap_or_default();
+        self.dictionary_settings_error = result.as_ref().err().cloned().unwrap_or_default();
         self.dictionary_settings_changed();
+        crate::bridge::reply(result)
     }
 
     #[qslot]
-    fn save_krdict_key(&mut self, key: String) -> String {
+    fn save_krdict_key(&mut self, key: String) -> Value {
         match self
             .settings_connection()
             .and_then(|db| crate::krdict::save_key(&db, &key))
@@ -90,14 +91,14 @@ impl Analysis {
             Ok(key) => {
                 self.krdict_key = Some(key);
                 self.dictionary_settings_changed();
-                String::new()
+                crate::bridge::reply(Ok(()))
             }
-            Err(error) => error,
+            Err(error) => crate::bridge::reply::<()>(Err(error)),
         }
     }
 
     #[qslot]
-    fn remove_krdict_key(&mut self) -> String {
+    fn remove_krdict_key(&mut self) -> Value {
         match self
             .settings_connection()
             .and_then(|mut db| crate::krdict::remove_key(&mut db))
@@ -106,14 +107,14 @@ impl Analysis {
                 self.krdict_key = None;
                 self.dictionary_provider = "wiktionary".into();
                 self.dictionary_settings_changed();
-                String::new()
+                crate::bridge::reply(Ok(()))
             }
-            Err(error) => error,
+            Err(error) => crate::bridge::reply::<()>(Err(error)),
         }
     }
 
     #[qslot]
-    fn set_default_dictionary(&mut self, provider: String) -> String {
+    fn set_default_dictionary(&mut self, provider: String) -> Value {
         match self
             .settings_connection()
             .and_then(|db| crate::krdict::select(&db, &provider))
@@ -121,9 +122,9 @@ impl Analysis {
             Ok(()) => {
                 self.dictionary_provider = provider;
                 self.dictionary_settings_changed();
-                String::new()
+                crate::bridge::reply(Ok(()))
             }
-            Err(error) => error,
+            Err(error) => crate::bridge::reply::<()>(Err(error)),
         }
     }
 
@@ -134,13 +135,19 @@ impl Analysis {
     fn dictionary_finished(&mut self, request: i32, result: &Value);
 
     #[qslot]
-    fn initialize(&mut self, resources: String) {
+    fn initialize(&mut self, resources: String) -> Value {
         if self.analyzer.is_none() {
             match KoreanAnalyzer::start(resources.into()) {
                 Ok(analyzer) => self.analyzer = Some(analyzer),
                 Err(error) => self.initialization_error = error,
             }
         }
+        crate::bridge::reply(
+            self.analyzer
+                .as_ref()
+                .map(|_| ())
+                .ok_or_else(|| self.initialization_error.clone()),
+        )
     }
 
     #[qslot]
@@ -157,8 +164,8 @@ impl Analysis {
                 .and_then(|analyzer| {
                     reader::analyze(&analyzer, &text, start as usize, end as usize)
                 })
-                .map(|analysis| json!(analysis))
-                .unwrap_or_else(crate::bridge::error);
+                .map(|analysis| json!(analysis));
+            let result = crate::bridge::reply(result);
             handle.invoke_mut(move |model| model.finished(request, &result));
         });
         request
@@ -178,17 +185,17 @@ impl Analysis {
             let result = analyzer
                 .ok_or(error)
                 .and_then(|analyzer| reader::word_ranges(&analyzer, text))
-                .map(|ranges| json!(ranges))
-                .unwrap_or_else(crate::bridge::error);
+                .map(|ranges| json!(ranges));
+            let result = crate::bridge::reply(result);
             handle.invoke_mut(move |model| model.passage_finished(request, &result));
         });
         request
     }
 
     #[qslot]
-    fn dictionary_lookup_url(&self, template: String, encoded_word: String) -> String {
+    fn dictionary_lookup_url(&self, template: String, encoded_word: String) -> Value {
         let url = template.trim().replace("{word}", &encoded_word);
-        url::Url::parse(&url)
+        let result = url::Url::parse(&url)
             .ok()
             .filter(|url| {
                 url.scheme() == "https"
@@ -197,7 +204,8 @@ impl Analysis {
                     && url.password().is_none()
             })
             .map(String::from)
-            .unwrap_or_default()
+            .ok_or_else(|| "Enter an HTTPS address without a username or password.".to_string());
+        crate::bridge::reply(result)
     }
 
     #[qslot]
@@ -218,9 +226,8 @@ impl Analysis {
                     .map_err(Clone::clone)
                     .and_then(|dictionary| dictionary.lookup(&term))
             };
-            let result = lookup
-                .map(|definitions| json!({ "definitions": definitions }))
-                .unwrap_or_else(crate::bridge::error);
+            let result = lookup.map(|definitions| json!({ "definitions": definitions }));
+            let result = crate::bridge::reply(result);
             handle.invoke_mut(move |model| model.dictionary_finished(request, &result));
         });
         request

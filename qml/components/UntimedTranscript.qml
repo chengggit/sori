@@ -24,8 +24,8 @@ Rectangle {
     function flush() {
         saveDelay.stop()
         if (pendingId || pendingYoutubeId) {
-            const error = pendingYoutubeId ? Library.saveYoutubeTranscriptPosition(pendingYoutubeId, pendingPosition)
-                : Library.saveTranscriptPosition(pendingId, pendingPosition)
+            const error = pendingYoutubeId ? Library.saveYoutubeTranscriptPosition(pendingYoutubeId, pendingPosition).error
+                : Library.saveTranscriptPosition(pendingId, pendingPosition).error
             pendingYoutubeId = ""
             pendingId = 0
             if (error) saveFailed(error)

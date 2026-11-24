@@ -37,9 +37,9 @@ TestCase {
         const page = createTemporaryObject(pageComponent, testCase, {width: width, height: height})
         verify(page !== null)
         tryVerify(() => page.request !== 0)
-        YouTube.subscriptionFeedFinished(page.request, {
+        YouTube.subscriptionFeedFinished(page.request, {ok:true,error:"",data: {
             videos: videos(0, 40), nextPageTokens: {channel: "page-2"}
-        })
+        }})
         const grid = findChild(page, "discoveryResults")
         verify(grid !== null)
         tryCompare(grid, "count", 40)
@@ -60,9 +60,9 @@ TestCase {
         verify(page.request !== 0)
         wait(50)
         // Include overlap with the preceding page and a duplicate in this page.
-        YouTube.subscriptionFeedFinished(page.request, {
+        YouTube.subscriptionFeedFinished(page.request, {ok:true,error:"",data: {
             videos: videos(35, 15).concat(videos(45, 1)), nextPageTokens: {channel: "page-3"}
-        })
+        }})
         tryCompare(grid, "count", 50)
         grid.forceLayout()
         wait(50)

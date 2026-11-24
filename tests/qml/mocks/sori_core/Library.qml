@@ -3,7 +3,7 @@ import QtQuick
 
 QtObject {
     function readYoutubeTranscript(id) {
-        return {
+        return {ok:true,error:"",data: {
             language: "ko",
             cues: [
                 {
@@ -17,6 +17,6 @@ QtObject {
                     text: "second"
                 }
             ]
-        };
+        }};
     }
 }

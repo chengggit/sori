@@ -152,6 +152,8 @@ mod krdict;
 mod documents;
 mod document_import;
 mod library_model;
+mod library_service;
+mod library_jobs;
 mod nlp;
 mod progress;
 mod process;

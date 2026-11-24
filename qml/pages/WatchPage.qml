@@ -1,4 +1,5 @@
 import QtQuick
+import "../style/Reply.js" as Reply
 import QtQuick.Controls
 import QtQuick.Effects
 import QtQuick.Layouts
@@ -46,13 +47,13 @@ Item {
     property string transcriptError: ""
 
     function loadTranscript() {
-        textTranscript = videoId > 0 ? Library.readVideoTranscript(videoId) : ({})
+        textTranscript = videoId > 0 ? Reply.valueOrError(Library.readVideoTranscript(videoId)) : ({})
         transcriptError = textTranscript.error || ""
         showUntimed = !!textTranscript.content
     }
     function attachTranscript(path) {
         textReader.flush()
-        const result = Library.saveVideoTranscript(videoId, path)
+        const result = Reply.valueOrError(Library.saveVideoTranscript(videoId, path))
         transcriptError = result.error || ""
         if (!result.error) {
             textTranscript = result
@@ -63,7 +64,7 @@ Item {
     }
     function removeTranscript() {
         textReader.flush()
-        transcriptError = Library.removeVideoTranscript(videoId)
+        transcriptError = Library.removeVideoTranscript(videoId).error
         if (!transcriptError) {
             textTranscript = ({})
             showUntimed = false

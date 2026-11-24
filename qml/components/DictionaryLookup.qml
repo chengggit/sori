@@ -9,7 +9,7 @@ Dialog {
     property string term: ""
     readonly property string lookupUrl: {
         const provider = DictionaryTabs.enabled[tabs.currentIndex]
-        return provider ? Analysis.dictionaryLookupUrl(provider.template, encodeURIComponent(term.trim())) : ""
+        return provider ? Analysis.dictionaryLookupUrl(provider.template, encodeURIComponent(term.trim())).data : ""
     }
 
     title: term

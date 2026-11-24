@@ -277,7 +277,7 @@ Item {
             }
         }
 
-        onAccepted: root.error = Library.removeWord(root.selectedEntry.id)
+        onAccepted: root.error = Library.removeWord(root.selectedEntry.id).error
     }
 
     Connections {

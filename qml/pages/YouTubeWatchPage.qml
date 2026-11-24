@@ -1,4 +1,5 @@
 import QtQuick
+import "../style/Reply.js" as Reply
 import QtQuick.Shapes
 import QtQuick.Window
 import QtQuick.Controls
@@ -37,7 +38,7 @@ Item {
         transcriptVideoId = youtubeId
         fetchRequest = 0
         analysis.close()
-        savedTranscript = youtubeId ? Library.readYoutubeTranscript(youtubeId) : ({})
+        savedTranscript = youtubeId ? Reply.valueOrError(Library.readYoutubeTranscript(youtubeId)) : ({})
         transcriptError = savedTranscript.error || ""
         showText = !!savedTranscript.content
         playback.position = video?.seconds ?? 0
@@ -81,11 +82,12 @@ Item {
     Connections {
         target: YouTube
         function onTranscriptFinished(request, result) {
+            result = Reply.valueOrError(result)
             if (request !== root.fetchRequest) return
             root.fetchRequest = 0
             root.transcriptError = result.error || ""
             if (!result.error) {
-                root.transcriptError = Library.cacheYoutubeTranscript(root.youtubeId, result)
+                root.transcriptError = Library.cacheYoutubeTranscript(root.youtubeId, result).error
                 root.savedTranscript = Object.assign({}, root.savedTranscript, result)
                 youtubeSubtitles.refresh()
             }
@@ -97,7 +99,7 @@ Item {
         nameFilters: ["Text files (*.txt)"]
         onAccepted: {
             textReader.flush()
-            const result = Library.attachYoutubeTranscript(root.youtubeId, root.renderHost.localPath(selectedFile))
+            const result = Reply.valueOrError(Library.attachYoutubeTranscript(root.youtubeId, root.renderHost.localPath(selectedFile)))
             root.transcriptError = result.error || ""
             if (!result.error) {
                 root.savedTranscript = result
@@ -214,7 +216,7 @@ Item {
                 Accessible.name: "Remove text transcript"
                 onClicked: {
                     textReader.flush()
-                    root.transcriptError = Library.removeYoutubeTextTranscript(root.youtubeId)
+                    root.transcriptError = Library.removeYoutubeTextTranscript(root.youtubeId).error
                     if (!root.transcriptError) {
                         root.savedTranscript = Object.assign({}, root.savedTranscript, {content: null, title: null, position: 0})
                         root.showText = false

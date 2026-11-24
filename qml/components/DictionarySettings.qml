@@ -71,7 +71,7 @@ Dialog {
             enabled: !!labelField.text.trim() && !!urlField.text.trim()
             onClicked: {
                 const template = urlField.text.trim()
-                if (!Analysis.dictionaryLookupUrl(template, "test")) {
+                if (!Analysis.dictionaryLookupUrl(template, "test").data) {
                     errorText.text = "Enter an HTTPS address without a username or password."
                 } else if (DictionaryTabs.providers.some(provider => provider.template === template)) {
                     errorText.text = "That dictionary is already listed."

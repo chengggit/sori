@@ -1,4 +1,5 @@
 import QtQuick
+import "../style/Reply.js" as Reply
 import QtQuick.Controls
 import QtQuick.Layouts
 import sori_core
@@ -115,8 +116,8 @@ Rectangle {
 
     function refreshSavedWord() {
         if (result?.word)
-            savedWord = youtubeId ? Library.findYoutubeWord(youtubeId, result.word, result.context)
-                : Library.findWord(sourceKind, documentId, result.word, result.context)
+            savedWord = youtubeId ? Reply.valueOrError(Library.findYoutubeWord(youtubeId, result.word, result.context))
+                : Reply.valueOrError(Library.findWord(sourceKind, documentId, result.word, result.context))
     }
 
     function openSaveEditor() {
@@ -143,6 +144,7 @@ Rectangle {
         }
 
         function onFinished(request, result) {
+            result = Reply.valueOrError(result)
             if (request !== root.request)
                 return
             root.request = 0
@@ -161,6 +163,7 @@ Rectangle {
         }
 
         function onDictionaryFinished(request, result) {
+            result = Reply.valueOrError(result)
             const job = root.inFlight[request]
             if (!job)
                 return
@@ -320,7 +323,7 @@ Rectangle {
                 visible: current
                 keepLoaded: true
                 lookupUrl: lookupWord
-                    ? Analysis.dictionaryLookupUrl(modelData.template, encodeURIComponent(lookupWord)) : ""
+                    ? Analysis.dictionaryLookupUrl(modelData.template, encodeURIComponent(lookupWord)).data : ""
 
                 function updateLookup() {
                     if (current)
