@@ -147,7 +147,7 @@ impl Subtitles {
         let handle = self.get_thread_handle();
         std::thread::spawn(move || {
             let result = probe_tracks(&path);
-            let _ = handle.invoke_mut(move |state| state.finish_probe(generation, result));
+            handle.invoke_mut(move |state| state.finish_probe(generation, result));
         });
     }
 
@@ -290,7 +290,7 @@ impl Subtitles {
         let handle = self.get_thread_handle();
         std::thread::spawn(move || {
             let result = extract(&source);
-            let _ = handle.invoke_mut(move |state| {
+            handle.invoke_mut(move |state| {
                 let selection = &mut state.slots[slot];
                 if state.generation != generation || selection.revision != revision {
                     return;

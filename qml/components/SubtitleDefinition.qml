@@ -126,6 +126,7 @@ Popup {
             root.analysis = result
             if (result.word && root.videoId > 0) {
                 root.savedEntry = Library.findWord("local", root.videoId, result.word, result.context)
+                root.saveError = root.savedEntry?.error || ""
                 root.savedDefinition = root.savedEntry?.definition ?? null
             }
             root.startLookups()

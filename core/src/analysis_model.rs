@@ -158,8 +158,8 @@ impl Analysis {
                     reader::analyze(&analyzer, &text, start as usize, end as usize)
                 })
                 .map(|analysis| json!(analysis))
-                .unwrap_or_else(|error| json!({ "error": error }));
-            let _ = handle.invoke_mut(move |model| model.finished(request, &result));
+                .unwrap_or_else(crate::bridge::error);
+            handle.invoke_mut(move |model| model.finished(request, &result));
         });
         request
     }
@@ -179,8 +179,8 @@ impl Analysis {
                 .ok_or(error)
                 .and_then(|analyzer| reader::word_ranges(&analyzer, text))
                 .map(|ranges| json!(ranges))
-                .unwrap_or_else(|error| json!({ "error": error }));
-            let _ = handle.invoke_mut(move |model| model.passage_finished(request, &result));
+                .unwrap_or_else(crate::bridge::error);
+            handle.invoke_mut(move |model| model.passage_finished(request, &result));
         });
         request
     }
@@ -220,8 +220,8 @@ impl Analysis {
             };
             let result = lookup
                 .map(|definitions| json!({ "definitions": definitions }))
-                .unwrap_or_else(|error| json!({ "error": error }));
-            let _ = handle.invoke_mut(move |model| model.dictionary_finished(request, &result));
+                .unwrap_or_else(crate::bridge::error);
+            handle.invoke_mut(move |model| model.dictionary_finished(request, &result));
         });
         request
     }

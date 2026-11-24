@@ -161,7 +161,7 @@ impl Library {
                 "position": progress::read(&connection, id)?,
             }))
         };
-        read().unwrap_or_else(|error| json!({ "error": error }))
+        read().unwrap_or_else(crate::bridge::error)
     }
 
     #[qslot]
@@ -182,16 +182,13 @@ impl Library {
                 self.refresh_videos();
                 json!({ "id": id })
             }
-            Err(error) => json!({ "error": error }),
+            Err(error) => crate::bridge::error(error),
         }
     }
 
     #[qslot]
     fn read_video(&self, id: i64) -> Value {
-        self.connection()
-            .and_then(|connection| video_library::read(&connection, id))
-            .map(|video| json!(video))
-            .unwrap_or_else(|error| json!({ "error": error }))
+        crate::bridge::reply(self.connection().and_then(|connection| video_library::read(&connection, id)))
     }
 
     #[qslot]
@@ -211,13 +208,18 @@ impl Library {
 
     #[qslot]
     fn save_video_progress(&mut self, id: i64, seconds: f64, duration: f64) -> String {
-        let error = self.change_videos(|connection| {
-            video_library::save_progress(connection, id, seconds, duration)
-        });
-        if error.is_empty() {
-            self.ensure_video_thumbnail(id);
+        match self.connection().and_then(|connection| {
+            video_library::save_progress(&connection, id, seconds, duration)?;
+            video_library::summary(&connection, id)
+        }) {
+            Ok(summary) => {
+                update_cached_entry(&mut self.videos, "id", json!(summary));
+                self.videos_changed();
+                self.ensure_video_thumbnail(id);
+                String::new()
+            }
+            Err(error) => error,
         }
-        error
     }
 
     #[qslot]
@@ -230,10 +232,12 @@ impl Library {
         duration: f64,
     ) -> String {
         match self.connection().and_then(|connection| {
-            youtube::save_watch_progress(&connection, &id, &title, &channel, seconds, duration)
+            youtube::save_watch_progress(&connection, &id, &title, &channel, seconds, duration)?;
+            youtube::watch_entry(&connection, &id)
         }) {
-            Ok(()) => {
-                self.refresh_youtube_history();
+            Ok(entry) => {
+                update_cached_entry(&mut self.youtube_history, "youtubeId", entry);
+                self.youtube_history_changed();
                 String::new()
             }
             Err(error) => error,
@@ -265,7 +269,7 @@ impl Library {
         let handle = self.get_thread_handle();
         std::thread::spawn(move || {
             let metadata = youtube::fetch_metadata(&id);
-            let _ = handle.invoke_mut(move |model| {
+            handle.invoke_mut(move |model| {
                 model.pending_metadata.remove(&id);
                 model.last_metadata_attempt.insert(id.clone(), Instant::now());
                 let Ok(metadata) = metadata else {
@@ -318,7 +322,7 @@ impl Library {
         let handle = self.get_thread_handle();
         std::thread::spawn(move || {
             let duration = youtube::fetch_duration(&id);
-            let _ = handle.invoke_mut(move |model| {
+            handle.invoke_mut(move |model| {
                 model.pending_durations.remove(&id);
                 model.last_duration_attempt.insert(id.clone(), Instant::now());
                 let Ok(duration) = duration else {
@@ -391,7 +395,7 @@ impl Library {
                 // The entry was removed while the worker was decoding the frame.
                 let _ = std::fs::remove_file(&output);
             }
-            let _ = handle.invoke_mut(move |model| {
+            handle.invoke_mut(move |model| {
                 model.pending_thumbnails.remove(&id);
                 if model
                     .videos
@@ -409,7 +413,7 @@ impl Library {
 
     #[qslot]
     fn read_youtube_transcript(&self, id: String) -> Value {
-        self.connection().and_then(|db| crate::youtube_transcript::read(&db, &id)).unwrap_or_else(|error| json!({"error":error}))
+        self.connection().and_then(|db| crate::youtube_transcript::read(&db, &id)).unwrap_or_else(crate::bridge::error)
     }
     #[qslot]
     fn cache_youtube_transcript(&self, id: String, data: Value) -> String {
@@ -417,7 +421,7 @@ impl Library {
     }
     #[qslot]
     fn attach_youtube_transcript(&self, id: String, path: String) -> Value {
-        self.connection().and_then(|db| crate::youtube_transcript::attach(&db, &id, Path::new(&path))).unwrap_or_else(|error| json!({"error":error}))
+        self.connection().and_then(|db| crate::youtube_transcript::attach(&db, &id, Path::new(&path))).unwrap_or_else(crate::bridge::error)
     }
     #[qslot]
     fn save_youtube_transcript_position(&self, id: String, position: f64) -> String {
@@ -430,7 +434,7 @@ impl Library {
     #[qslot]
     fn find_youtube_word(&self, id: String, word: String, context: String) -> Value {
         self.connection().and_then(|db| vocabulary::find_video_entry(&db, vocabulary::VideoSource::Youtube {id, title: String::new()}, &word, &context))
-            .map(|entry| json!(entry)).unwrap_or_default()
+            .map(|entry| json!(entry)).unwrap_or_else(crate::bridge::error)
     }
     #[qslot]
     fn save_youtube_word(&mut self, id: String, title: String, mut input: Value) -> Value {
@@ -441,7 +445,7 @@ impl Library {
         });
         match result {
             Ok(entry) => { self.refresh_vocabulary(); json!(entry) },
-            Err(error) => json!({"error":error})
+            Err(error) => crate::bridge::error(error)
         }
     }
 
@@ -449,7 +453,7 @@ impl Library {
     fn read_video_transcript(&self, id: i64) -> Value {
         self.connection()
             .and_then(|connection| crate::video_transcript::read(&connection, id))
-            .unwrap_or_else(|error| json!({ "error": error }))
+            .unwrap_or_else(crate::bridge::error)
     }
 
     #[qslot]
@@ -458,7 +462,7 @@ impl Library {
             .and_then(|connection| {
                 crate::video_transcript::attach(&connection, id, Path::new(&path))
             })
-            .unwrap_or_else(|error| json!({ "error": error }))
+            .unwrap_or_else(crate::bridge::error)
     }
 
     #[qslot]
@@ -484,7 +488,7 @@ impl Library {
         self.connection()
             .and_then(|connection| video_library::save_sidecar(&connection, id, Path::new(&path)))
             .map(|text| json!({ "text": text }))
-            .unwrap_or_else(|error| json!({ "error": error }))
+            .unwrap_or_else(crate::bridge::error)
     }
 
     #[qslot]
@@ -506,7 +510,7 @@ impl Library {
                 self.refresh_vocabulary();
                 json!(entry)
             }
-            Err(error) => json!({ "error": error }),
+            Err(error) => crate::bridge::error(error),
         }
     }
 
@@ -524,7 +528,7 @@ impl Library {
                     )
                 })
                 .map(|entry| json!(entry))
-                .unwrap_or_default();
+                .unwrap_or_else(crate::bridge::error);
         }
         self.vocabulary
             .iter()
@@ -604,12 +608,15 @@ impl Library {
     }
 
     fn refresh_youtube_history(&mut self) {
-        if let Ok(entries) = self
-            .connection()
-            .and_then(|connection| youtube::watch_history(&connection))
-        {
-            self.youtube_history = entries;
-            self.youtube_history_changed();
+        match self.connection().and_then(|connection| youtube::watch_history(&connection)) {
+            Ok(entries) => {
+                self.youtube_history = entries;
+                self.youtube_history_changed();
+            }
+            Err(error) => {
+                self.error = error;
+                self.library_changed();
+            }
         }
     }
 
@@ -659,5 +666,32 @@ impl Library {
                 self.library_changed();
             }
         }
+    }
+}
+
+fn update_cached_entry(entries: &mut Vec<Value>, key: &str, entry: Value) {
+    if let Some(index) = entries.iter().position(|cached| cached[key] == entry[key]) {
+        entries[index] = entry;
+    } else {
+        entries.insert(0, entry);
+    }
+    // Stable sorting preserves existing order for timestamps in the same second.
+    entries.sort_by(|left, right| right["watchedAt"].as_i64().cmp(&left["watchedAt"].as_i64()));
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn checkpoints_replace_only_the_changed_cached_entry() {
+        let mut entries = vec![json!({"id": 1, "watchedAt": 5, "title": "First"}),
+            json!({"id": 2, "watchedAt": 4, "title": "Second"})];
+        update_cached_entry(&mut entries, "id", json!({"id": 2, "watchedAt": 6, "seconds": 10}));
+        assert_eq!(entries.len(), 2);
+        assert_eq!(entries[0]["id"], 2);
+        assert_eq!(entries[1]["title"], "First");
+        update_cached_entry(&mut entries, "id", json!({"id": 2, "watchedAt": 6, "seconds": 11}));
+        assert_eq!(entries.len(), 2);
+        assert_eq!(entries[0]["seconds"], 11);
     }
 }
