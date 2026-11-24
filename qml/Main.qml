@@ -121,13 +121,18 @@ ApplicationWindow {
         if (player.loading)
             return
         const imported = Library.importVideo(path)
-        if (imported.id) {
-            openSavedVideo(imported.id)
+        if (!imported.id) {
+            showVideoOpenError(imported.error || "Could not add this video to the library.")
             return
         }
-        if (page === "watch")
-            saveVideoProgress()
-        beginVideo({ path: path })
+        const error = openSavedVideo(imported.id)
+        if (error)
+            showVideoOpenError(error)
+    }
+
+    function showVideoOpenError(message) {
+        videoOpenError.text = message
+        videoOpenError.open()
     }
 
     function openSavedVideo(id) {
@@ -386,6 +391,12 @@ ApplicationWindow {
         sequence: "Ctrl+0"
         enabled: root.page !== "reader" || !readerPage.isPdf
         onActivated: root.resetPageScale()
+    }
+
+    MessageDialog {
+        id: videoOpenError
+        title: "Could not open video"
+        buttons: MessageDialog.Ok
     }
 
     FileDialog {
