@@ -332,6 +332,7 @@ fn validate_definition(definition: Option<&Definition>) -> Result<(), String> {
         || definition.term.trim().is_empty()
         || definition.term.chars().count() > 100
         || (definition.source_url != crate::dictionary::source_url(&definition.term)
+            && !crate::krdict::is_source_url(&definition.source_url)
             && !(definition.custom && definition.source_url.is_empty()))
         || definition
             .note
@@ -409,6 +410,37 @@ mod tests {
             context: "학교에 갔어요.".into(),
             definition: None,
             tags: vec![],
+        }
+    }
+
+    #[test]
+    fn krdict_meanings_survive_save_and_edit_for_both_sources() {
+        let database = database();
+        let mut input = selection();
+        let definition = Definition {
+            term: input.word.clone(), part_of_speech: "명사".into(), text: "school".into(),
+            source_url: "https://krdict.korean.go.kr/eng/dicSearch/SearchView?ParaWordNo=72473".into(),
+            hanja: Some("學校".into()), custom: false, note: None,
+        };
+        input.definition = Some(definition.clone());
+        let saved = save(&database, input).unwrap();
+        let edited = edit(&database, saved.id, EditVocabulary {
+            normalized_form: saved.word.clone(), meaning: "school".into(),
+            note: "example".into(), tags: vec![],
+        }).unwrap();
+        assert_eq!(edited.definition.unwrap().source_url, definition.source_url);
+        let video = save_video(&database, SaveVideoVocabulary {
+            source: VideoSource::Youtube {id: "dQw4w9WgXcQ".into(), title: "Video".into()},
+            word: "학교".into(), normalized_form: None, context: "학교에 가요.".into(),
+            definition: Some(definition.clone()), tags: vec![],
+        }).unwrap();
+        assert_eq!(video.definition, Some(definition.clone()));
+        for url in ["https://krdict.korean.go.kr.evil.test/eng/dicSearch/SearchView?ParaWordNo=1",
+            "http://krdict.korean.go.kr/eng/dicSearch/SearchView?ParaWordNo=1",
+            "https://krdict.korean.go.kr/eng/dicSearch/SearchView?ParaWordNo=",
+            "https://krdict.korean.go.kr/eng/dicSearch/SearchView?ParaWordNo=1&redirect=evil"] {
+            let mut bad = definition.clone(); bad.source_url = url.into();
+            assert!(validate_definition(Some(&bad)).is_err(), "{url}");
         }
     }
 
