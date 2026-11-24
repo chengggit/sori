@@ -26,6 +26,7 @@ Item {
     property string error: ""
     property bool loadingMore: false
     property bool paginationFailed: false
+    property bool keepHeaderAtTop: true
     property string linkError: ""
     readonly property int subscriptionCount: (YouTube.subscriptions ?? []).length
     readonly property string statusText: error || (!YouTube.configured
@@ -103,6 +104,8 @@ Item {
         }
         if (reposition !== false)
             Qt.callLater(positionAtTop);
+        else
+            Qt.callLater(settleHeaderPosition);
     }
 
     function subscriptionCacheKey() {
@@ -158,7 +161,10 @@ Item {
         if (discovery && visible && YouTube.configured && !request && !videos.length)
             refreshDiscovery(false);
     }
-    Component.onCompleted: Qt.callLater(ensureDiscovery)
+    Component.onCompleted: {
+        Qt.callLater(settleHeaderPosition)
+        Qt.callLater(ensureDiscovery)
+    }
     onVisibleChanged: Qt.callLater(ensureDiscovery)
 
     function showLinkForm() {
@@ -206,7 +212,13 @@ Item {
         Qt.callLater(positionAtTop);
     }
 
+    function settleHeaderPosition() {
+        if (keepHeaderAtTop)
+            positionAtTop()
+    }
+
     function positionAtTop() {
+        keepHeaderAtTop = true;
         wheelScroll.stop();
         results.forceLayout();
         results.positionViewAtBeginning();
@@ -485,7 +497,80 @@ Item {
                 if (moving || resultsScrollBar.pressed || wheelScroll.running)
                     root.loadMoreNearEnd();
             }
-            onDraggingChanged: if (dragging) wheelScroll.stop()
+            onDraggingChanged: if (dragging) {
+                root.keepHeaderAtTop = false
+                wheelScroll.stop()
+            }
+            Connections {
+                target: results.headerItem
+                function onHeightChanged() { Qt.callLater(root.settleHeaderPosition) }
+            }
+
+            Item {
+                id: loadingRow
+                objectName: "discoveryLoadingRow"
+                parent: results
+                readonly property bool busy: root.request !== 0 && !root.loadingMore
+                property real reveal: busy ? 1 : 0
+                readonly property real topInset: {
+                    const headerBottom = results.headerItem
+                        ? results.headerItem.y + results.headerItem.height - results.contentY : 0
+                    return Math.max(0, Math.min(results.height - height - 8, headerBottom))
+                }
+                width: 48
+                height: 48
+                x: (results.width - width) / 2
+                y: topInset + 8 - (1 - reveal) * (height + 12)
+                z: 10
+                visible: reveal > 0
+                opacity: reveal
+                Behavior on reveal {
+                    NumberAnimation { duration: 220; easing.type: Easing.InOutCubic }
+                }
+
+                Rectangle {
+                    objectName: "discoverySpinnerBackground"
+                    anchors.fill: parent
+                    radius: width / 2
+                    color: Theme.card
+                    border.color: Theme.border
+                }
+                Item {
+                    id: loadingSpinner
+                    objectName: "discoveryLoadingSpinner"
+                    anchors.centerIn: parent
+                    readonly property bool running: loadingRow.visible
+                    width: 28
+                    height: 28
+                    Accessible.name: "Loading videos"
+                    Shape {
+                        anchors.fill: parent
+                        preferredRendererType: Shape.CurveRenderer
+                        ShapePath {
+                            objectName: "discoverySpinnerArc"
+                            strokeColor: Theme.accent
+                            strokeWidth: 2.5
+                            capStyle: ShapePath.RoundCap
+                            fillColor: "transparent"
+                            PathAngleArc {
+                                centerX: loadingSpinner.width / 2
+                                centerY: loadingSpinner.height / 2
+                                radiusX: 11
+                                radiusY: 11
+                                startAngle: -90
+                                sweepAngle: 270
+                            }
+                        }
+                    }
+                    RotationAnimator on rotation {
+                        from: 0
+                        to: 360
+                        duration: 850
+                        loops: Animation.Infinite
+                        running: loadingSpinner.running
+                    }
+                }
+            }
 
             NumberAnimation {
                 id: wheelScroll
@@ -505,6 +590,7 @@ Item {
                         return;
                     }
                     event.accepted = true;
+                    root.keepHeaderAtTop = false;
                     const precise = event.pixelDelta.y !== 0;
                     // A wheel notch is 120 angle units. Scroll by distance,
                     // rather than a flick velocity that Qt caps and decelerates.
@@ -534,7 +620,10 @@ Item {
             cellHeight: Math.ceil(tileWidth * 9 / 16) + titleHeight + Theme.videoChannelHeight + Theme.controlGap + 4 + Theme.dashboardRowGap
             ScrollBar.vertical: AppScrollBar {
                 id: resultsScrollBar
-                onPressedChanged: if (pressed) wheelScroll.stop()
+                onPressedChanged: if (pressed) {
+                    root.keepHeaderAtTop = false
+                    wheelScroll.stop()
+                }
                 parent: root.discovery ? root : results
                 anchors.top: parent.top
                 anchors.bottom: parent.bottom
@@ -612,58 +701,6 @@ Item {
                     Layout.fillWidth: true
                     color: root.error ? Theme.destructive : Theme.mutedForeground
                     wrapMode: Text.Wrap
-                }
-
-                Item {
-                    id: loadingRow
-                    objectName: "discoveryLoadingRow"
-                    readonly property bool busy: root.request !== 0 && !root.loadingMore
-                    Layout.fillWidth: true
-                    Layout.preferredHeight: busy ? 56 : 0
-                    clip: true
-
-                    Behavior on Layout.preferredHeight {
-                        NumberAnimation { duration: 220; easing.type: Easing.InOutCubic }
-                    }
-
-                    Item {
-                        id: loadingSpinner
-                        objectName: "discoveryLoadingSpinner"
-                        visible: loadingRow.height > 0
-                        readonly property bool running: visible
-                        width: 28
-                        height: 28
-                        x: (loadingRow.width - width) / 2
-                        y: loadingRow.height - height - 12
-                        Accessible.name: "Loading videos"
-
-                        Shape {
-                            anchors.fill: parent
-                            preferredRendererType: Shape.CurveRenderer
-                            ShapePath {
-                                objectName: "discoverySpinnerArc"
-                                strokeColor: Theme.accent
-                                strokeWidth: 2.5
-                                capStyle: ShapePath.RoundCap
-                                fillColor: "transparent"
-                                PathAngleArc {
-                                    centerX: loadingSpinner.width / 2
-                                    centerY: loadingSpinner.height / 2
-                                    radiusX: 11
-                                    radiusY: 11
-                                    startAngle: -90
-                                    sweepAngle: 270
-                                }
-                            }
-                        }
-                        RotationAnimator on rotation {
-                            from: 0
-                            to: 360
-                            duration: 850
-                            loops: Animation.Infinite
-                            running: loadingSpinner.running
-                        }
-                    }
                 }
 
                 Item {

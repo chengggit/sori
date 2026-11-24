@@ -33,6 +33,31 @@ TestCase {
         return entries
     }
 
+    function test_initial_feed_starts_above_entire_header_data() {
+        return [{tag: "network", cached: false}, {tag: "cache", cached: true}]
+    }
+    function test_initial_feed_starts_above_entire_header(data) {
+        cache.firstPages = data.cached ? JSON.stringify([{query:"subscriptions:test-channel",
+            expiresAt:Date.now()+60000, videos:videos(0,40), nextPageTokens:{}}]) : "[]"
+        const page = createTemporaryObject(pageComponent, testCase, {width:width,height:height})
+        verify(page !== null)
+        if (!data.cached) {
+            tryVerify(() => page.request !== 0)
+            YouTube.subscriptionFeedFinished(page.request, {ok:true,error:"",data:{videos:videos(0,40),nextPageTokens:{}}})
+        }
+        const grid = findChild(page,"discoveryResults")
+        tryCompare(grid,"count",40)
+        tryVerify(() => grid.headerItem.height > 248)
+        tryVerify(() => Math.abs(grid.contentY - grid.headerItem.y) < 1,
+            1000, "The full header must be visible on first load")
+        mouseWheel(grid,200,100,0,-120)
+        wait(250)
+        verify(!page.keepHeaderAtTop)
+        const scrolled = grid.contentY
+        page.settleHeaderPosition()
+        compare(grid.contentY, scrolled, "Settling must not undo user scrolling")
+    }
+
     function test_loading_slides_down_at_top_and_back_up() {
         cache.firstPages = "[]"
         const page = createTemporaryObject(pageComponent, testCase, {width: width, height: height})
@@ -42,24 +67,32 @@ TestCase {
         const row = findChild(page, "discoveryLoadingRow")
         const grid = findChild(page, "discoveryResults")
         verify(spinner !== null && row !== null)
-        tryCompare(row, "height", 56)
+        tryCompare(row, "reveal", 1)
         verify(spinner.visible && spinner.running)
         compare(page.statusText, "")
-        compare(spinner.x, (grid.width - spinner.width) / 2)
-        verify(spinner.mapToItem(grid, 0, 0).y + spinner.height <= grid.headerItem.height)
+        compare(row.x, (grid.width - row.width) / 2)
+        verify(row.y >= row.topInset)
+        compare(findChild(row, "discoverySpinnerBackground").color, Theme.card)
         compare(findChild(spinner, "discoverySpinnerArc").strokeColor, Theme.accent)
         YouTube.subscriptionFeedFinished(page.request, {ok:true, error:"", data:{videos: videos(0, 4), nextPageTokens:{}}})
-        tryCompare(row, "height", 0)
-        verify(!spinner.visible)
+        tryCompare(row, "reveal", 0)
+        tryCompare(spinner, "visible", false)
 
+        grid.forceLayout()
+        const headerHeight = grid.headerItem.height
+        const firstY = grid.itemAtIndex(0).y
+        const scrollY = grid.contentY
         page.refreshDiscovery(true)
         wait(80)
-        verify(row.height > 0 && row.height < 56, "Refresh should slide down")
-        tryCompare(row, "height", 56)
+        verify(row.reveal > 0 && row.reveal < 1, "Refresh should slide down")
+        tryCompare(row, "reveal", 1)
+        compare(grid.headerItem.height, headerHeight, "The loading overlay must not resize the header")
+        compare(grid.itemAtIndex(0).y, firstY, "Refresh must not shift the videos")
+        compare(grid.contentY, scrollY, "Refresh must not shift the viewport")
         YouTube.subscriptionFeedFinished(page.request, {ok:false, data:null, error:"Test failure"})
         wait(80)
-        verify(row.height > 0 && row.height < 56, "Completion should slide back up")
-        tryCompare(row, "height", 0)
+        verify(row.reveal > 0 && row.reveal < 1, "Completion should slide back up")
+        tryCompare(row, "reveal", 0)
     }
 
     function test_more_videos_preserve_existing_grid() {
@@ -73,8 +106,9 @@ TestCase {
         const grid = findChild(page, "discoveryResults")
         verify(grid !== null)
         tryCompare(grid, "count", 40)
-        tryCompare(findChild(page, "discoveryLoadingRow"), "height", 0)
+        tryCompare(findChild(page, "discoveryLoadingRow"), "reveal", 0)
         grid.forceLayout()
+        page.keepHeaderAtTop = false // This test scrolls programmatically to simulate user navigation.
         grid.positionViewAtEnd()
         grid.forceLayout()
         wait(50)
