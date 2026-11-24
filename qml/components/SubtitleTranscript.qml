@@ -105,8 +105,8 @@ Rectangle {
 
     ColumnLayout {
         anchors.fill: parent
-        anchors.margins: 12
-        spacing: 8
+        anchors.margins: Theme.readerPadding
+        spacing: 12
 
         AppText { text: "Transcript"; font.weight: Font.DemiBold; Layout.fillWidth: true }
 

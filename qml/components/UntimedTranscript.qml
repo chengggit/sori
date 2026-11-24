@@ -64,7 +64,7 @@ Rectangle {
         id: viewport
         objectName: "untimedTranscriptViewport"
         anchors.fill: parent
-        anchors.margins: 16
+        anchors.margins: Theme.readerPadding
         clip: true
         contentWidth: width
         contentHeight: passage.implicitHeight
