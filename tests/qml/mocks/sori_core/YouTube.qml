@@ -8,6 +8,7 @@ QtObject {
     signal configurationChanged()
     signal searchFinished(int request, var result)
     signal subscriptionFeedFinished(int request, var result)
+    function search(query, page) { return ++nextRequest }
     function subscriptionFeed() { return ++nextRequest }
     function subscriptionFeedPage(tokens) { return ++nextRequest }
 }

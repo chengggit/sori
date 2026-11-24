@@ -123,6 +123,9 @@ Item {
     }
 
     function refreshDiscovery(force) {
+        request = 0;
+        loadingMore = false;
+        error = "";
         if (!YouTube.configured || root.subscriptionCount === 0) {
             videos = [];
             videoModel.clear();
@@ -132,6 +135,7 @@ Item {
             return;
         }
         const key = root.subscriptionCacheKey();
+        currentQuery = key;
         if (!force) {
             const cached = root.freshCacheEntries().find(entry => entry.query === key);
             if (cached) {
@@ -211,6 +215,7 @@ Item {
         const term = query.trim();
         if (!term || !YouTube.configured || (request && term === currentQuery))
             return;
+        request = 0;
         error = "";
         currentQuery = term;
         feedKey = "query:" + term;
@@ -234,7 +239,14 @@ Item {
     Connections {
         target: YouTube
 
-        function onConfigurationChanged() { Qt.callLater(root.ensureDiscovery) }
+        function onConfigurationChanged() {
+            root.request = 0;
+            root.loadingMore = false;
+            Qt.callLater(root.ensureDiscovery);
+        }
+        function onSubscriptionsChanged() {
+            if (root.discovery) root.refreshDiscovery(false);
+        }
 
         function onSearchFinished(request, result) {
             if (request !== root.request)
