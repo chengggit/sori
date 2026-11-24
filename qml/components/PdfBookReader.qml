@@ -120,6 +120,14 @@ Item {
             Math.max(0, Math.min(1, restorePosition)) * (pdfDocument.pageCount - 1))
     }
 
+    onPdfUrlChanged: {
+        pageCache = ({})
+        currentPage = 0
+        wheelX.stop()
+        wheelY.stop()
+        Qt.callLater(root.resetScroll)
+    }
+
     Component.onCompleted: root.restoreProgress()
     onRestorePositionChanged: root.restoreProgress()
     onZoomChanged: Qt.callLater(root.resetScroll)
