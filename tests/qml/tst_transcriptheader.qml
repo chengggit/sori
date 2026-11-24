@@ -17,6 +17,7 @@ TestCase {
         const more = findChild(header, "transcriptMoreButton")
         verify(add.visible)
         verify(!more.visible)
+        tryCompare(add, "x", header.width - add.width)
         add.clicked()
         compare(addSpy.count, 1)
         header.hasText = true

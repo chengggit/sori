@@ -20,7 +20,7 @@ RowLayout {
         Layout.fillWidth: true
         Layout.minimumWidth: 0
         spacing: 4
-        AppText { text: "Transcript"; font.weight: Font.DemiBold }
+        AppText { Layout.fillWidth: true; text: "Transcript"; font.weight: Font.DemiBold }
         AppText {
             Layout.fillWidth: true
             visible: root.showingText && root.filename !== ""

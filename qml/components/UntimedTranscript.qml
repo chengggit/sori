@@ -64,7 +64,7 @@ Rectangle {
     Loader {
         id: header
         x: Theme.readerPadding
-        y: Theme.readerPadding
+        y: 16
         width: parent.width - 2 * Theme.readerPadding
         sourceComponent: root.headerComponent
         visible: status === Loader.Ready

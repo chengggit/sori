@@ -108,6 +108,7 @@ Rectangle {
     ColumnLayout {
         anchors.fill: parent
         anchors.margins: Theme.readerPadding
+        anchors.topMargin: 16
         spacing: 12
 
         Loader {
