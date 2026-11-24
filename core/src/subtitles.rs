@@ -59,6 +59,21 @@ pub(super) fn parse(input: &str) -> Vec<Cue> {
     cues
 }
 
+#[cfg(test)]
+mod tests {
+    use super::parse;
+
+    #[test]
+    fn parses_and_sorts_mixed_cues() {
+        let input = "WEBVTT\r\n\r\n2\r\n00:04,000 --> 00:05,000\r\nSecond\r\n\r\n00:01.500 --> 00:02.000 align:start\r\n<b>한국어</b><br>&amp; English\r\n\r\n00:03.000 --> 00:02.000\r\nIgnore";
+        let cues = parse(input);
+        assert_eq!(cues.len(), 2);
+        assert_eq!(cues[0].start, 1.5);
+        assert_eq!(cues[0].text, "한국어\n& English");
+        assert_eq!(cues[1].text, "Second");
+    }
+}
+
 pub(super) fn command_output(
     program: &str,
     args: impl IntoIterator<Item = impl AsRef<std::ffi::OsStr>>,
@@ -96,19 +111,3 @@ pub(super) fn command_output(
     }
     Ok(output)
 }
-
-#[cfg(test)]
-mod tests {
-    use super::parse;
-
-    #[test]
-    fn parses_and_sorts_mixed_cues() {
-        let input = "WEBVTT\r\n\r\n2\r\n00:04,000 --> 00:05,000\r\nSecond\r\n\r\n00:01.500 --> 00:02.000 align:start\r\n<b>한국어</b><br>&amp; English\r\n\r\n00:03.000 --> 00:02.000\r\nIgnore";
-        let cues = parse(input);
-        assert_eq!(cues.len(), 2);
-        assert_eq!(cues[0].start, 1.5);
-        assert_eq!(cues[0].text, "한국어\n& English");
-        assert_eq!(cues[1].text, "Second");
-    }
-}
-

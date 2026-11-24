@@ -46,18 +46,12 @@ set(CORE_TARGET "${CMAKE_CURRENT_BINARY_DIR}/cargo")
 set(CORE_PROFILE "$<IF:$<CONFIG:Debug>,dev,$<IF:$<CONFIG:RelWithDebInfo>,release-with-debug,release>>")
 set(CORE_PROFILE_DIR "$<IF:$<CONFIG:Debug>,debug,$<IF:$<CONFIG:RelWithDebInfo>,release-with-debug,release>>")
 set(CORE_LIB "${CORE_TARGET}/${CORE_PROFILE_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}sori_core${CMAKE_STATIC_LIBRARY_SUFFIX}")
+file(GLOB CORE_SOURCES CONFIGURE_DEPENDS "${CORE_DIR}/src/*.rs" "${CORE_DIR}/src/*.sql")
 add_custom_command(OUTPUT "${CORE_LIB}"
     COMMAND "${CMAKE_COMMAND}" -E env "QMAKE=${SORI_QMAKE}"
         "${CARGO_EXECUTABLE}" build --profile "${CORE_PROFILE}" --locked
         --manifest-path "${CORE_DIR}/Cargo.toml" --target-dir "${CORE_TARGET}"
-    DEPENDS "${SORI_QMAKE}" "${CORE_DIR}/src/player_model.rs" "${CORE_DIR}/src/subtitle_model.rs"
-        "${CORE_DIR}/Cargo.toml" "${CORE_DIR}/Cargo.lock" "${CORE_DIR}/src/lib.rs" "${CORE_DIR}/src/subtitles.rs" "${CORE_DIR}/src/controls.rs"
-        "${CORE_DIR}/src/bridge.rs" "${CORE_DIR}/src/db.rs" "${CORE_DIR}/src/schema.sql" "${CORE_DIR}/src/documents.rs"
-        "${CORE_DIR}/src/progress.rs" "${CORE_DIR}/src/library_model.rs"
-        "${CORE_DIR}/src/nlp.rs" "${CORE_DIR}/src/reader.rs" "${CORE_DIR}/src/analysis_model.rs"
-        "${CORE_DIR}/src/video_library.rs" "${CORE_DIR}/src/video_transcript.rs"
-        "${CORE_DIR}/src/dictionary.rs" "${CORE_DIR}/src/krdict.rs" "${CORE_DIR}/src/vocabulary.rs"
-        "${CORE_DIR}/src/youtube_model.rs" "${CORE_DIR}/src/youtube.rs" "${CORE_DIR}/src/youtube_transcript.rs"
+    DEPENDS "${SORI_QMAKE}" ${CORE_SOURCES} "${CORE_DIR}/Cargo.toml" "${CORE_DIR}/Cargo.lock"
         "${CMAKE_CURRENT_SOURCE_DIR}/scripts/youtube_transcript.py"
     VERBATIM
 )
