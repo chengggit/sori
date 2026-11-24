@@ -32,6 +32,22 @@ TestCase {
         return entries
     }
 
+    function test_initial_loading_uses_centered_spinner() {
+        cache.firstPages = "[]"
+        const page = createTemporaryObject(pageComponent, testCase, {width: width, height: height})
+        verify(page !== null)
+        tryVerify(() => page.request !== 0)
+        const spinner = findChild(page, "discoveryLoadingSpinner")
+        const grid = findChild(page, "discoveryResults")
+        verify(spinner !== null)
+        verify(spinner.visible && spinner.running)
+        compare(page.statusText, "")
+        compare(spinner.x, (grid.width - spinner.width) / 2)
+        verify(spinner.y >= 0 && spinner.y + spinner.height <= grid.height)
+        YouTube.subscriptionFeedFinished(page.request, {ok:true, error:"", data:{videos: videos(0, 4), nextPageTokens:{}}})
+        tryCompare(spinner, "visible", false)
+    }
+
     function test_more_videos_preserve_existing_grid() {
         cache.firstPages = "[]"
         const page = createTemporaryObject(pageComponent, testCase, {width: width, height: height})

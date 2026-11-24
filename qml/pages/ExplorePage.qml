@@ -32,7 +32,7 @@ Item {
         ? "Add a YouTube API key in Settings to discover videos."
         : discovery && subscriptionCount === 0
             ? "Add a YouTube channel in Settings to build your feed."
-            : request ? "Loading videos…"
+            : request ? ""
             : currentQuery && !videos.length ? "No videos found." : "")
 
     readonly property var topics: [
@@ -486,6 +486,27 @@ Item {
                     root.loadMoreNearEnd();
             }
             onDraggingChanged: if (dragging) wheelScroll.stop()
+
+            BusyIndicator {
+                id: loadingSpinner
+                objectName: "discoveryLoadingSpinner"
+                parent: results
+                width: 36
+                height: 36
+                x: (results.width - width) / 2
+                y: {
+                    const headerBottom = results.headerItem
+                        ? results.headerItem.y + results.headerItem.height - results.contentY : 0
+                    const top = Math.max(0, Math.min(results.height, headerBottom))
+                    return top + (results.height - top - height) / 2
+                }
+                z: 1
+                running: root.request !== 0 && !root.loadingMore
+                visible: running
+                palette.dark: Theme.accent
+                palette.highlight: Theme.accent
+                Accessible.name: "Loading videos"
+            }
 
             NumberAnimation {
                 id: wheelScroll
