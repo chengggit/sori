@@ -405,7 +405,9 @@ Item {
             }
 
             AppButton {
-                text: "Search"
+                iconName: "search"
+                variant: "outline"
+                Accessible.name: "Search"
                 enabled: YouTube.configured && !!search.text.trim() && !root.request
                 onClicked: root.browse(search.text)
             }

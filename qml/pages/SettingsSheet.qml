@@ -673,6 +673,7 @@ Popup {
                             AppButton {
                                 objectName: "addChannel"
                                 text: "Add channel"
+                                variant: "outline"
                                 small: true
                                 enabled: !!channelInput.text.trim()
                                 onClicked: root.addChannel()
