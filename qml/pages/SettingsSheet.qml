@@ -32,6 +32,7 @@ Popup {
     property string krdictMessage: ""
     property string channelError: ""
     property string channelMessage: ""
+    property int channelRequest: 0
 
     function resetScroll() {
         for (const page of [generalPage, dictionariesPage, channelsPage, connectionsPage]) {
@@ -54,7 +55,7 @@ Popup {
         channelError = ""
         channelMessage = ""
     }
-    onClosed: { youtubeKey.clear(); krdictKey.clear(); channelInput.clear() }
+    onClosed: { channelRequest = 0; youtubeKey.clear(); krdictKey.clear(); channelInput.clear() }
     onCategoryChanged: root.resetScroll()
 
     function saveKrdictKey() {
@@ -76,18 +77,28 @@ Popup {
 
     function addChannel() {
         const text = channelInput.text.trim()
-        if (!text)
+        if (!text || channelRequest)
             return
-        const result = YouTube.resolveChannel(text)
-        channelError = result.error ?? ""
+        channelError = ""
         channelMessage = ""
-        if (channelError)
-            return
-        channelError = YouTube.addSubscription(
-            result.channelId, result.title, result.uploadsPlaylistId)
-        if (!channelError) {
-            channelInput.clear()
-            channelMessage = result.title + " added."
+        channelRequest = YouTube.resolveChannel(text)
+    }
+
+    Connections {
+        target: YouTube
+        function onChannelResolved(request, result) {
+            if (request !== root.channelRequest)
+                return
+            root.channelRequest = 0
+            root.channelError = result.error ?? ""
+            if (root.channelError)
+                return
+            root.channelError = YouTube.addSubscription(
+                result.channelId, result.title, result.uploadsPlaylistId)
+            if (!root.channelError) {
+                channelInput.clear()
+                root.channelMessage = result.title + " added."
+            }
         }
     }
 
@@ -665,6 +676,7 @@ Popup {
                             AppInput {
                                 id: channelInput
                                 objectName: "channelInput"
+                                enabled: !root.channelRequest
                                 Layout.fillWidth: true
                                 placeholderText: "Channel link, @handle, or name"
                                 Accessible.name: "YouTube channel"
@@ -672,10 +684,10 @@ Popup {
                             }
                             AppButton {
                                 objectName: "addChannel"
-                                text: "Add channel"
+                                text: root.channelRequest ? "Finding channel…" : "Add channel"
                                 variant: "outline"
                                 small: true
-                                enabled: !!channelInput.text.trim()
+                                enabled: !!channelInput.text.trim() && !root.channelRequest
                                 onClicked: root.addChannel()
                             }
 
