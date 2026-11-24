@@ -12,7 +12,7 @@ Button {
     property bool small: false
     property bool compact: false
     readonly property bool iconOnly: text === "" && iconName !== ""
-    readonly property color contentColor: !enabled && variant === "primary" ? Theme.mutedForeground
+    readonly property color contentColor: !enabled && (variant === "primary" || variant === "soft") ? Theme.mutedForeground
         : variant === "default" ? Theme.onAccent
         : variant === "primary" ? Theme.primaryForeground
         : variant === "soft" ? Theme.sidebarActiveText : Theme.foreground
@@ -64,11 +64,12 @@ Button {
                 return control.hovered || control.down ? Theme.neutralHover
                     : Qt.alpha(Theme.neutralHover, 0)
             if (control.variant === "soft")
-                return Theme.sidebarSelection
+                return control.down ? Theme.accentSoftPressed
+                    : control.hovered ? Theme.accentSoftHover : Theme.sidebarSelection
             return control.hovered || control.down ? Theme.neutralHover : Theme.card
         }
-        border.width: control.variant === "outline" ? 1 : 0
-        border.color: Theme.border
+        border.width: control.variant === "outline" || (control.variant === "soft" && control.visualFocus) ? 1 : 0
+        border.color: control.visualFocus ? Theme.accent : Theme.border
 
         Behavior on color {
             ColorAnimation { duration: 160; easing.type: Easing.OutCubic }
