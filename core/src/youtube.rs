@@ -262,23 +262,21 @@ fn channel_uploads(
     Ok((videos, next_page))
 }
 
-pub(crate) fn subscription_feed(
-    database: &crate::db::Database,
+struct ChannelPage {
+    id: String,
+    videos: Vec<FeedVideo>,
+    next_page: String,
+}
+
+fn fetch_channel_pages(
+    channels: &[Subscription],
     tokens: &Value,
-) -> Result<Value, String> {
-    let key = api_key().ok_or("Add a YouTube API key in Settings to discover videos.")?;
-    let channels = subscriptions(&database.connect()?)?;
-    if channels.is_empty() {
-        return Err("Add a channel in Settings to build your feed.".into());
-    }
+    fetch: &(impl Fn(&Subscription, &str) -> Result<(Vec<FeedVideo>, String), String> + Sync),
+) -> Result<Vec<ChannelPage>, String> {
     let loading_more = tokens
         .as_object()
         .is_some_and(|entries| !entries.is_empty());
-    let key = key.as_str();
-
-    // Channel uploads are independent; fetch them concurrently instead of
-    // waiting for one network round trip per channel.
-    let fetched: Vec<(String, Vec<FeedVideo>, String)> = std::thread::scope(|scope| {
+    std::thread::scope(|scope| {
         let handles: Vec<_> = channels
             .iter()
             .filter(|channel| {
@@ -294,24 +292,47 @@ pub(crate) fn subscription_feed(
                     .and_then(Value::as_str)
                     .unwrap_or_default();
                 scope.spawn(move || {
-                    let result = channel_uploads(channel, key, token);
+                    let result = fetch(channel, token);
                     (channel.channel_id.clone(), result)
                 })
             })
             .collect();
         handles
             .into_iter()
-            .filter_map(|handle| handle.join().ok())
-            .filter_map(|(id, result)| result.ok().map(|(uploaded, next)| (id, uploaded, next)))
+            .map(|handle| {
+                let (id, result) = handle
+                    .join()
+                    .map_err(|_| "A channel feed worker stopped.".to_string())?;
+                result.map(|(videos, next_page)| ChannelPage {
+                    id,
+                    videos,
+                    next_page,
+                })
+            })
             .collect()
-    });
+    })
+}
+
+pub(crate) fn subscription_feed(
+    database: &crate::db::Database,
+    tokens: &Value,
+) -> Result<Value, String> {
+    let key = api_key().ok_or("Add a YouTube API key in Settings to discover videos.")?;
+    let channels = subscriptions(&database.connect()?)?;
+    if channels.is_empty() {
+        return Err("Add a channel in Settings to build your feed.".into());
+    }
+    let key = key.as_str();
+    let fetched = fetch_channel_pages(&channels, tokens, &|channel, token| {
+        channel_uploads(channel, key, token)
+    })?;
 
     let mut videos = Vec::new();
     let mut next_tokens = serde_json::Map::new();
-    for (id, mut uploaded, next) in fetched {
-        videos.append(&mut uploaded);
-        if !next.is_empty() {
-            next_tokens.insert(id, json!(next));
+    for mut page in fetched {
+        videos.append(&mut page.videos);
+        if !page.next_page.is_empty() {
+            next_tokens.insert(page.id, json!(page.next_page));
         }
     }
     // One batched details lookup for every channel together.
@@ -388,6 +409,39 @@ pub(crate) fn search(query: &str, page: &str) -> Result<SearchPage, String> {
 mod tests {
     use super::*;
     use rusqlite::Connection;
+
+    #[test]
+    fn channel_page_errors_are_not_cached_as_successful_empty_feeds() {
+        let channels = vec![
+            Subscription {
+                channel_id: "A".into(),
+                title: "A".into(),
+                uploads_playlist_id: "UA".into(),
+            },
+            Subscription {
+                channel_id: "B".into(),
+                title: "B".into(),
+                uploads_playlist_id: "UB".into(),
+            },
+        ];
+        let fetch = |channel: &Subscription, _token: &str| {
+            if channel.channel_id == "B" {
+                Err("Quota exceeded".to_string())
+            } else {
+                Ok((vec![], "next".to_string()))
+            }
+        };
+        assert_eq!(
+            fetch_channel_pages(&channels, &json!({}), &fetch)
+                .err()
+                .unwrap(),
+            "Quota exceeded"
+        );
+        let page = fetch_channel_pages(&channels, &json!({"A":"page-2"}), &fetch).unwrap();
+        assert_eq!(page.len(), 1);
+        assert_eq!(page[0].id, "A");
+        assert_eq!(page[0].next_page, "next");
+    }
 
     #[test]
     fn api_key_settings_persist_replace_and_remove_without_exposing_values() {

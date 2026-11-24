@@ -62,6 +62,7 @@ pub struct Changes {
 
 #[derive(Default)]
 pub struct LibraryService {
+    initialized: bool,
     pub database: Option<Database>,
     pub documents: Vec<Value>,
     pub videos: Vec<Value>,
@@ -73,7 +74,7 @@ pub struct LibraryService {
 
 impl LibraryService {
     pub fn initialize(&mut self, directory: String) -> Result<(), String> {
-        if self.database.is_some() {
+        if self.initialized {
             return Ok(());
         }
         match Database::initialize(PathBuf::from(directory)) {
@@ -83,6 +84,7 @@ impl LibraryService {
                 self.refresh_videos()?;
                 self.refresh_youtube_history()?;
                 self.refresh_vocabulary()?;
+                self.initialized = true;
                 Ok(())
             }
             Err(error) => {
@@ -568,6 +570,9 @@ mod tests {
         assert_eq!(service.documents, expected);
         let directory = fixture.directory.clone();
         let mut reopened = LibraryService::default();
+        assert!(reopened
+            .initialize(directory.to_string_lossy().into())
+            .is_err());
         assert!(reopened
             .initialize(directory.to_string_lossy().into())
             .is_err());
