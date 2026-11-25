@@ -632,7 +632,6 @@ Item {
 
         property real revealProgress: root.detailsOpen ? 1 : 0
 
-        width: Math.min(Theme.readerAnalysisWidth, root.width * 0.45)
         height: parent.height
         x: root.width - revealProgress * width
         visible: revealProgress > 0

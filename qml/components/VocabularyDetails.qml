@@ -10,6 +10,10 @@ Rectangle {
     id: root
 
     property var entry: null
+    property real preferredWidth: Theme.readerAnalysisWidth
+    property real maximumWidth: parent ? parent.width * 0.7 : preferredWidth
+    readonly property real minimumWidth: Math.min(320, maximumWidth)
+    width: Math.min(preferredWidth, maximumWidth)
     signal closeRequested()
 
     readonly property string word: {
@@ -64,6 +68,29 @@ Rectangle {
     }
 
     color: Theme.card
+
+    MouseArea {
+        objectName: "vocabularyResizeHandle"
+        x: -4
+        width: 8
+        height: parent.height
+        z: 10
+        cursorShape: Qt.SizeHorCursor
+        preventStealing: true
+        property real pressX: 0
+        property real pressWidth: 0
+        onPressed: mouse => {
+            pressX = mapToItem(root.parent, mouse.x, mouse.y).x
+            pressWidth = root.width
+        }
+        onPositionChanged: mouse => {
+            if (pressed) {
+                const delta = mapToItem(root.parent, mouse.x, mouse.y).x - pressX
+                root.preferredWidth = Math.max(root.minimumWidth,
+                    Math.min(root.maximumWidth, pressWidth - delta))
+            }
+        }
+    }
 
     // Absorb pointer input so the page underneath cannot be interacted with
     // through the panel. Interactive controls are declared after this item.

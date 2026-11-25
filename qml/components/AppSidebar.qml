@@ -20,8 +20,8 @@ Rectangle {
         { page: "home", label: "Home", icon: "house" },
         { page: "explore", label: "Explore", icon: "compass" },
         { page: "library", label: "My Library", icon: "library" },
-        { page: "history", label: "History", icon: "history" },
-        { page: "vocabulary", label: "Vocabulary", icon: "bookmark" }
+        { page: "vocabulary", label: "Vocabulary", icon: "bookmark" },
+        { page: "history", label: "History", icon: "history" }
     ]
 
     Rectangle {

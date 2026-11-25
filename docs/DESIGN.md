@@ -41,9 +41,9 @@ with zoom controls that do not resize the surrounding interface.
 PDF toolbar groups page navigation on the left and zoom/view controls on the right.
 At narrow widths, the zoom/view group moves together onto a second row.
 The reading area clips its content at the analysis sidebar boundary.
-The analysis sidebar resizes by dragging its left edge, from 320px up to 70%
-of the available width (and smaller when the window requires it). Its chosen
-width is retained while opening and closing the panel during the session.
+The analysis and vocabulary details sidebars resize by dragging their left edge,
+from 320px up to 70% of the available width (and smaller when the window requires
+it). Each panel retains its chosen width when closed and reopened during the session.
 
 Watch uses familiar playback controls and interactive primary subtitles. In
 fullscreen, a quick definition can hand off to the analysis sidebar while
