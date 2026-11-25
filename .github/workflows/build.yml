@@ -1,0 +1,141 @@
+name: Desktop builds
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: desktop-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Ubuntu 24.04 LTS x86_64
+            os: ubuntu-24.04
+            qt-arch: linux_gcc_64
+          - name: Windows x86_64
+            os: windows-2022
+            qt-arch: win64_msvc2022_64
+          - name: macOS arm64
+            os: macos-14
+            qt-arch: clang_64
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential ninja-build pkg-config libmpv-dev ffmpeg appstream libegl1-mesa-dev libgl1-mesa-dev libxkbcommon-dev libxcb-cursor0 libxcb-xinerama0 libnss3 libasound2t64 libxcomposite1 libxdamage1 libxrandr2 libxtst6 libxshmfence1
+      - name: macOS dependencies
+        if: runner.os == 'macOS'
+        run: |
+          brew install mpv ffmpeg pkg-config ninja
+          echo "RUSTFLAGS=-Lnative=$(brew --prefix mpv)/lib" >> "$GITHUB_ENV"
+          echo "PKG_CONFIG_PATH=$(brew --prefix mpv)/lib/pkgconfig" >> "$GITHUB_ENV"
+      - uses: ilammy/msvc-dev-cmd@v1
+        if: runner.os == 'Windows'
+      - name: Windows mpv development files
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/ci/windows-mpv.ps1
+      - name: Validate Windows packaging scripts
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Get-ChildItem scripts/ci/*.ps1 | ForEach-Object {
+            $parseErrors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile($_.FullName, [ref]$null, [ref]$parseErrors) | Out-Null
+            if ($parseErrors) { throw ($parseErrors | Out-String) }
+          }
+      - name: Windows media tools
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: choco install ffmpeg --no-progress -y
+      - uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.10.2'
+          arch: ${{ matrix.qt-arch }}
+          modules: 'qtwebengine qtwebchannel qtpositioning qtshadertools'
+          cache: true
+      - name: Rust toolchain
+        shell: bash
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+      - name: Python helper build environment
+        shell: bash
+        run: |
+          python -m venv .venv-youtube
+          if [[ "$RUNNER_OS" == Windows ]]; then python_path=.venv-youtube/Scripts/python.exe; else python_path=.venv-youtube/bin/python; fi
+          "$python_path" -m pip install -r scripts/requirements-youtube-build.txt
+      - name: Native Kiwi resources
+        run: cmake -P scripts/setup-kiwi.cmake
+      - name: Configure
+        shell: bash
+        run: |
+          extra=()
+          if [[ "$RUNNER_OS" == Windows ]]; then extra+=("-DMPV_ROOT=$MPV_ROOT"); fi
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DSORI_REQUIRE_WEBENGINE=ON -DSORI_BUNDLE_TRANSCRIPT_HELPER=ON "${extra[@]}"
+      - name: Build
+        run: cmake --build build --parallel 2
+      - name: Tests
+        run: ctest --test-dir build --output-on-failure
+      - name: Native Kiwi test
+        shell: bash
+        run: |
+          export QMAKE="$QT_ROOT_DIR/bin/qmake"
+          if [[ "$RUNNER_OS" == Windows ]]; then export QMAKE="$QT_ROOT_DIR/bin/qmake.exe"; fi
+          cargo test --release --locked --manifest-path core/Cargo.toml --target-dir build/cargo nlp::tests -- --include-ignored
+      - name: Linux AppImage
+        if: runner.os == 'Linux'
+        env:
+          QMAKE: ${{ env.QT_ROOT_DIR }}/bin/qmake
+        run: ./scripts/appimage
+      - name: Windows installer
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/ci/package-windows.ps1
+      - name: Windows install and uninstall check
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: ./scripts/ci/test-windows-installer.ps1
+      - name: macOS disk image
+        if: runner.os == 'macOS'
+        run: bash scripts/ci/package-macos.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sori-${{ runner.os }}-${{ runner.arch }}
+          if-no-files-found: error
+          compression-level: 0
+          path: |
+            build/*.AppImage
+            build/*.AppImage.sha256
+            build/Sori-*-windows-*-setup-unsigned.exe
+            build/Sori-*-windows-*-setup-unsigned.exe.sha256
+            build/Sori-*-macos-*.dmg
+            build/Sori-*-macos-*.dmg.sha256
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: logs-${{ runner.os }}-${{ runner.arch }}
+          path: build/Testing/Temporary/
+      - uses: actions/upload-artifact@v4
+        if: failure() && runner.os == 'Windows'
+        with:
+          name: windows-installer-log
+          if-no-files-found: ignore
+          path: build/installer-check.log

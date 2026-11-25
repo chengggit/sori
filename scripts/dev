@@ -26,8 +26,11 @@ case "$command" in
         cmake --preset release
         cmake --build --preset release --parallel "$@"
         ;;
+    appimage)
+        exec "$project_dir/scripts/appimage" "$@"
+        ;;
     *)
-        echo "Usage: ./scripts/dev {build|run [video]|test|release}" >&2
+        echo "Usage: ./scripts/dev {build|run [video]|test|release|appimage}" >&2
         exit 2
         ;;
 esac

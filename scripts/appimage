@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$project_dir"
+if [[ "$(uname -s)" != Linux || "$(uname -m)" != x86_64 ]]; then
+    echo "This packaging workflow currently supports Linux x86_64 only." >&2
+    exit 1
+fi
+for dependency in cmake curl sha256sum ffmpeg ffprobe python3 readelf git appstreamcli; do
+    command -v "$dependency" >/dev/null || { echo "Missing build tool: $dependency" >&2; exit 1; }
+done
+
+tools_dir="$project_dir/build/appimage-tools"
+appdir="$project_dir/build/appimage/Sori.AppDir"
+mkdir -p "$tools_dir"
+fetch_tool() {
+    local repository="$1" name="$2" checksum="$3"
+    if [[ ! -f "$tools_dir/$name" ]]; then
+        curl --fail --location --retry 3 --output "$tools_dir/$name.download" \
+            "https://github.com/$repository/releases/download/continuous/$name"
+        mv "$tools_dir/$name.download" "$tools_dir/$name"
+    fi
+    if ! echo "$checksum  $tools_dir/$name" | sha256sum --check --status; then
+        echo "Checksum mismatch for $name. Review the upstream release before updating the pin." >&2
+        exit 1
+    fi
+    chmod +x "$tools_dir/$name"
+}
+fetch_tool linuxdeploy/linuxdeploy linuxdeploy-x86_64.AppImage df908b19f1ed1cdafa79508d415aa12d6c56ce4d56d4149aa8c09286718706e5
+fetch_tool linuxdeploy/linuxdeploy-plugin-qt linuxdeploy-plugin-qt-x86_64.AppImage cfc1055b2b9dbc08412b579f20990b7b41a17b61beaa5847dc9477c96c9e9617
+fetch_tool AppImage/appimagetool appimagetool-x86_64.AppImage e8c1169c4af66c3184d7ee110713d4be04befe671fa358e2c1591ee840553b03
+fetch_tool AppImage/type2-runtime runtime-x86_64 617aa77314d57c8b8e4fae9c3f0b35af7b30d5529cb69e98f64f92510ed98a46
+
+cmake -P scripts/setup-kiwi.cmake
+cmake --preset release
+cmake --build --preset release --parallel "${CMAKE_BUILD_PARALLEL_LEVEL:-2}"
+# Only this workflow's generated AppDir is replaced.
+rm -rf -- "$appdir"
+cmake --install build --prefix "$appdir/usr"
+cmake -E copy_directory resources/kiwi "$appdir/usr/bin/kiwi"
+
+export APPIMAGE_EXTRACT_AND_RUN=1
+export NO_STRIP=1
+export QMAKE="${QMAKE:-$(sed -n 's/^SORI_QMAKE:FILEPATH=//p' build/CMakeCache.txt)}"
+if [[ -z "$QMAKE" ]]; then
+    QMAKE="$(command -v qmake6 || command -v qmake)"
+fi
+export QML_SOURCES_PATHS="$project_dir/qml"
+platform_plugins="$($QMAKE -query QT_INSTALL_PLUGINS)/platforms"
+extra_platforms=()
+for plugin in "$platform_plugins"/libqwayland*.so "$platform_plugins"/libqoffscreen.so; do
+    if [[ -f "$plugin" ]]; then extra_platforms+=("$(basename "$plugin")"); fi
+done
+export EXTRA_PLATFORM_PLUGINS="$(IFS=';'; echo "${extra_platforms[*]}")"
+"$tools_dir/linuxdeploy-x86_64.AppImage" --appdir "$appdir" \
+    --executable "$(command -v ffmpeg)" --executable "$(command -v ffprobe)" \
+    --deploy-deps-only "$appdir/usr/bin/sori" \
+    --deploy-deps-only "$appdir/usr/bin/kiwi/lib/libkiwi.so" \
+    --desktop-file packaging/linux/com.sori.app.desktop --icon-file packaging/linux/sori.png \
+    --plugin qt
+
+# linuxdeploy creates an AppRun symlink to sori; replace the link, not its target.
+rm -f -- "$appdir/AppRun"
+cp packaging/linux/AppRun "$appdir/AppRun"
+chmod +x "$appdir/AppRun"
+mkdir -p "$appdir/usr/share/doc/sori/licenses"
+mkdir -p "$appdir/usr/share/metainfo"
+cp packaging/linux/com.sori.app.metainfo.xml "$appdir/usr/share/metainfo/com.sori.app.appdata.xml"
+cp packaging/linux/sori.png "$appdir/.DirIcon"
+cp LICENSE README.md "$appdir/usr/share/doc/sori/"
+cp assets/*LICENSE* assets/OFL-*.txt assets/kiwi/*LICENSE "$appdir/usr/share/doc/sori/licenses/"
+python3 scripts/appimage-manifest.py "$appdir"
+python3 scripts/appimage-smoke.py "$appdir"
+appstreamcli validate --no-net "$appdir/usr/share/metainfo/com.sori.app.appdata.xml"
+
+version="$(git describe --tags --always --dirty)"
+output="$project_dir/build/Sori-$version-x86_64.AppImage"
+rm -f -- "$output"
+ARCH=x86_64 "$tools_dir/appimagetool-x86_64.AppImage" --comp zstd --no-appstream \
+    --runtime-file "$tools_dir/runtime-x86_64" \
+    --mksquashfs-opt=-processors --mksquashfs-opt=2 "$appdir" "$output"
+QT_QPA_PLATFORM=offscreen "$output" --help >/dev/null
+cd "$project_dir/build"
+sha256sum "$(basename "$output")" > "$(basename "$output").sha256"
+echo "Created $output"

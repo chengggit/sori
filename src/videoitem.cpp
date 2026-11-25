@@ -112,6 +112,7 @@ private:
 
 RenderHost::RenderHost()
 {
+#ifdef Q_OS_LINUX
 #if QT_CONFIG(wayland)
     if (const auto *wayland = qGuiApp->nativeInterface<QNativeInterface::QWaylandApplication>()) {
         nativeDisplay = wayland->display();
@@ -123,6 +124,7 @@ RenderHost::RenderHost()
         nativeDisplay = x11->display();
         displayParameter = MPV_RENDER_PARAM_X11_DISPLAY;
     }
+#endif
 #endif
 }
 

@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.sori.app</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-only</project_license>
+  <name>Sori</name>
+  <summary>Learn Korean through your own media</summary>
+  <url type="homepage">https://github.com/chengggit/sori</url>
+  <description>
+    <p>Sori is a local-first Korean immersion app for reading books and articles,
+    watching subtitled media, analyzing Korean text, and collecting vocabulary.</p>
+    <p>Core learning features work offline without an account.</p>
+  </description>
+  <launchable type="desktop-id">com.sori.app.desktop</launchable>
+</component>

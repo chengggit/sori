@@ -1,0 +1,96 @@
+name: Bug report
+description: Something in Sori isn't working quite right.
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve Sori! A quick look through existing issues might turn up the same problem.
+        Share what you know; it's okay if you can't track down every detail.
+        Please leave out API keys, private media, and personal information from logs or screenshots.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Tell us what you were trying to do, what happened, and what you expected instead.
+      placeholder: When I select a word in a PDF, the analysis panel...
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: How can we reproduce it?
+      description: A few steps help us try it ourselves. If it happens randomly, let us know how often you've seen it.
+      placeholder: |
+        1. Open a PDF from My Library.
+        2. Switch to Book view.
+        3. Select a Korean word.
+        4. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Your setup
+      description: Include your OS and Sori version or commit if you know them. No need to install developer tools to find more information.
+      placeholder: |
+        OS and version: e.g. Fedora 44, Windows 11, or macOS 26
+        Sori version or commit: (not sure is fine)
+        Installed from: AppImage / Windows installer / macOS DMG / source / other
+        Qt version: (only if you built from source and know it)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Where did you notice it?
+      multiple: true
+      options:
+        - Library or importing
+        - Reading TXT or PDF
+        - Local video or subtitles
+        - YouTube or captions
+        - Word analysis or dictionaries
+        - Vocabulary
+        - History
+        - Settings or appearance
+        - Installation, startup, or building
+        - Something else / not sure
+    validations:
+      required: false
+
+  - type: textarea
+    id: details
+    attributes:
+      label: Details that might help
+      description: |
+        Fill in whatever applies, or leave this blank:
+        - PDFs: Book or Scroll view? Can you select text in the PDF?
+        - Videos: file format, subtitle format/language, and embedded or attached subtitles.
+        - Analysis: the word or a short, shareable sentence; dictionary provider; API lookup or embedded tab.
+        - UI: theme, window size, display scaling, and Sori's application zoom.
+      placeholder: For example, it only happens with an attached Korean SRT, or when using the KRDict embedded tab.
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant output
+      description: If you launched Sori from a terminal, paste any relevant output here. This is optional; please remove API keys and personal information first.
+      render: text
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Screenshots or anything else
+      description: You can drag screenshots or a short recording here. A small media sample can help too, if it's something you're comfortable sharing publicly. Please don't upload your full library database.
+    validations:
+      required: false

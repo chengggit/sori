@@ -51,6 +51,7 @@ int main(int argc, char **argv)
     std::setlocale(LC_NUMERIC, "C");
     app.setOrganizationName(QStringLiteral("Sori"));
     app.setApplicationName(QStringLiteral("Sori"));
+    app.setDesktopFileName(QStringLiteral("com.sori.app"));
     QCommandLineParser parser;
     parser.setApplicationDescription(QStringLiteral("A local-first Korean immersion app"));
     parser.addHelpOption();

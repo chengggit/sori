@@ -1,0 +1,54 @@
+name: Feature request
+description: Share an idea or improvement for Sori.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Have an idea for Sori? We'd love to hear it.
+        Take a quick look at existing issues first in case there's already a conversation you can join.
+        You don't need a technical plan or a finished design to suggest something.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: What would you like to see?
+      description: Tell us about the feature or improvement you have in mind.
+      placeholder: I'd like a way to...
+    validations:
+      required: true
+
+  - type: textarea
+    id: use_case
+    attributes:
+      label: How would it help?
+      description: A little context about your reading, watching, or vocabulary workflow helps us understand the idea.
+      placeholder: When I'm reading or watching..., I often need to...
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposed_solution
+    attributes:
+      label: Any ideas for how it could work?
+      description: This part is optional. Share a possible approach or something you've tried. If the idea needs an online service, mention that too; Sori's core learning features work locally.
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Examples or anything else
+      description: Screenshots, sketches, related issues, or examples from other apps are welcome. Please leave out private content and API keys.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: self_assign
+    attributes:
+      label: Interested in helping build it?
+      description: No pressure! Suggesting the idea is already a contribution. Checking this box just lets us know you're interested.
+      options:
+        - label: I'd be interested in working on this with some feedback.
+          required: false
