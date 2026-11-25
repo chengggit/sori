@@ -24,7 +24,7 @@ Popup {
 
     property bool krdictExpanded: false
     readonly property bool showKrdictFields: Analysis.defaultDictionary === "krdict"
-        || Analysis.krdictConfigured || root.krdictExpanded
+        || root.krdictExpanded
 
     property string dictionaryError: ""
     property string youtubeError: ""
@@ -64,6 +64,7 @@ Popup {
         if (!krdictKey.text.trim()) {
             krdictError = Analysis.removeKrdictKey().error
             if (!krdictError) {
+                root.krdictExpanded = false
                 krdictKey.clear()
                 krdictMessage = "KRDict key removed."
             }
@@ -72,6 +73,8 @@ Popup {
         krdictError = Analysis.saveKrdictKey(krdictKey.text).error
         if (!krdictError) {
             krdictKey.text = Analysis.krdictKey
+            if (root.krdictExpanded)
+                krdictError = Analysis.setDefaultDictionary("krdict").error
             krdictMessage = "KRDict API key saved."
         }
     }
@@ -460,14 +463,16 @@ Popup {
                                     implicitHeight: Theme.inputHeight
                                     model: [{value: "wiktionary", label: "Wiktionary"}, {value: "krdict", label: "KRDict"}]
                                     textRole: "label"
-                                    currentIndex: Analysis.defaultDictionary === "krdict" ? 1 : 0
+                                    currentIndex: root.showKrdictFields ? 1 : 0
                                     Accessible.name: "Default Analysis dictionary"
                                     leftPadding: 12
                                     rightPadding: 32
                                     onActivated: index => {
-                                        root.krdictError = Analysis.setDefaultDictionary(model[index].value).error
+                                        root.krdictExpanded = index === 1
+                                        root.krdictError = index === 1 && !Analysis.krdictConfigured
+                                            ? "" : Analysis.setDefaultDictionary(model[index].value).error
                                         root.krdictMessage = ""
-                                        currentIndex = Qt.binding(() => Analysis.defaultDictionary === "krdict" ? 1 : 0)
+                                        currentIndex = Qt.binding(() => root.showKrdictFields ? 1 : 0)
                                     }
                                     contentItem: AppText {
                                         text: analysisDictionary.displayText
@@ -516,15 +521,7 @@ Popup {
                                     wrapMode: Text.Wrap
                                     font.pixelSize: 12
                                     color: Theme.mutedForeground
-                                    text: "Used for Analysis definitions and quick word lookups. Wiktionary needs no key."
-                                }
-
-                                AppButton {
-                                    visible: !root.showKrdictFields
-                                    text: "Set up KRDict key"
-                                    variant: "outline"
-                                    small: true
-                                    onClicked: root.krdictExpanded = true
+                                    text: "Analysis and quick lookups. Falls back to Wiktionary if KRDict has no definitions."
                                 }
 
                                 AppText {
