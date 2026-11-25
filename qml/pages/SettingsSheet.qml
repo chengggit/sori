@@ -1,5 +1,4 @@
 import QtQuick
-import "../style/Reply.js" as Reply
 import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Shapes
@@ -91,7 +90,6 @@ Popup {
     Connections {
         target: YouTube
         function onChannelResolved(request, result) {
-            result = Reply.valueOrError(result)
             if (request !== root.channelRequest)
                 return
             root.channelRequest = 0
@@ -99,10 +97,10 @@ Popup {
             if (root.channelError)
                 return
             root.channelError = YouTube.addSubscription(
-                result.channelId, result.title, result.uploadsPlaylistId).error
+                result.data.channelId, result.data.title, result.data.uploadsPlaylistId).error
             if (!root.channelError) {
                 channelInput.clear()
-                root.channelMessage = result.title + " added."
+                root.channelMessage = result.data.title + " added."
             }
         }
     }

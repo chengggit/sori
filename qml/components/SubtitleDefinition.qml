@@ -1,5 +1,4 @@
 import QtQuick
-import "../style/Reply.js" as Reply
 import QtQuick.Controls
 import QtQuick.Layouts
 import sori_core
@@ -74,17 +73,17 @@ Popup {
             return
         }
         const definition = wholeDefinitions[0] ?? null
-        const saved = Reply.valueOrError(Library.saveWord("local", videoId, {
+        const saved = Library.saveWord("local", videoId, {
             word: analysis.word,
             context: analysis.context,
             normalizedForm: definition?.term || analysis.normalizedForm || null,
             definition: definition,
             tags: []
-        }))
+        })
         saveError = saved.error || ""
         if (!saveError) {
-            savedEntry = saved
-            savedDefinition = saved.definition ?? definition
+            savedEntry = saved.data
+            savedDefinition = saved.data.definition ?? definition
         }
     }
 
@@ -121,27 +120,26 @@ Popup {
         }
 
         function onFinished(request, result) {
-            result = Reply.valueOrError(result)
             if (request !== root.analysisRequest)
                 return
             root.analysisRequest = 0
-            root.analysis = result
-            if (result.word && root.videoId > 0) {
-                root.savedEntry = Reply.valueOrError(Library.findWord("local", root.videoId, result.word, result.context))
-                root.saveError = root.savedEntry?.error || ""
+            root.analysis = result.ok ? result.data : {error: result.error}
+            if (result.ok && result.data.word && root.videoId > 0) {
+                const saved = Library.findWord("local", root.videoId, result.data.word, result.data.context)
+                root.savedEntry = saved.data
+                root.saveError = saved.error
                 root.savedDefinition = root.savedEntry?.definition ?? null
             }
             root.startLookups()
         }
 
         function onDictionaryFinished(request, result) {
-            result = Reply.valueOrError(result)
             const job = root.pending[request]
             if (!job)
                 return
             delete root.pending[request]
             if (job.selection === root.selection)
-                root.lookups = Object.assign({}, root.lookups, { [job.term]: result })
+                root.lookups = Object.assign({}, root.lookups, { [job.term]: result.ok ? result.data : {error: result.error} })
             root.startLookups()
         }
     }

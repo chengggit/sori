@@ -1,5 +1,4 @@
 import QtQuick
-import "../style/Reply.js" as Reply
 import QtQuick.Shapes
 import QtQuick.Window
 import QtQuick.Controls
@@ -38,8 +37,9 @@ Item {
         transcriptVideoId = youtubeId
         fetchRequest = 0
         analysis.close()
-        savedTranscript = youtubeId ? Reply.valueOrError(Library.readYoutubeTranscript(youtubeId)) : ({})
-        transcriptError = savedTranscript.error || ""
+        const reply = youtubeId ? Library.readYoutubeTranscript(youtubeId) : null
+        savedTranscript = reply?.data ?? ({})
+        transcriptError = reply?.error ?? ""
         showText = !!savedTranscript.content
         playback.position = video?.seconds ?? 0
         youtubeSubtitles.refresh()
@@ -82,13 +82,12 @@ Item {
     Connections {
         target: YouTube
         function onTranscriptFinished(request, result) {
-            result = Reply.valueOrError(result)
             if (request !== root.fetchRequest) return
             root.fetchRequest = 0
             root.transcriptError = result.error || ""
-            if (!result.error) {
-                root.transcriptError = Library.cacheYoutubeTranscript(root.youtubeId, result).error
-                root.savedTranscript = Object.assign({}, root.savedTranscript, result)
+            if (result.ok) {
+                root.transcriptError = Library.cacheYoutubeTranscript(root.youtubeId, result.data).error
+                root.savedTranscript = Object.assign({}, root.savedTranscript, result.data)
                 youtubeSubtitles.refresh()
             }
         }
@@ -99,10 +98,10 @@ Item {
         nameFilters: ["Text files (*.txt)"]
         onAccepted: {
             textReader.flush()
-            const result = Reply.valueOrError(Library.attachYoutubeTranscript(root.youtubeId, root.renderHost.localPath(selectedFile)))
+            const result = Library.attachYoutubeTranscript(root.youtubeId, root.renderHost.localPath(selectedFile))
             root.transcriptError = result.error || ""
-            if (!result.error) {
-                root.savedTranscript = result
+            if (result.ok) {
+                root.savedTranscript = result.data
                 root.showText = true
                 textReader.restoring = true
                 Qt.callLater(textReader.restore)

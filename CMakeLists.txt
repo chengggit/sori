@@ -102,7 +102,6 @@ if(TARGET Qt6::WebEngineQuick)
 endif()
 qt_add_resources(sori "watch" PREFIX "/" FILES
     qml/Main.qml
-    qml/style/Reply.js
     qml/style/Theme.qml
     qml/style/DictionaryTabs.qml
     qml/components/DictionaryOrderHandle.qml

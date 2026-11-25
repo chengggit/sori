@@ -1,5 +1,4 @@
 import QtQuick
-import "../style/Reply.js" as Reply
 import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Shapes
@@ -102,14 +101,15 @@ Item {
 
     function openDocument(id, title) {
         leave()
-        const document = Reply.valueOrError(Library.readDocument(id))
+        const reply = Library.readDocument(id)
+        const document = reply.data ?? {}
         tokenWindow = null
         pendingWindow = null
         wordRanges = []
         restoring = true
         documentId = id
         documentTitle = title
-        documentError = document.error || ""
+        documentError = reply.error
         progressError = ""
         pdfPath = document.pdfPath || ""
         pdfZoom = 1
@@ -225,15 +225,14 @@ Item {
     Connections {
         target: Analysis
         function onPassageFinished(request, result) {
-            result = Reply.valueOrError(result)
             if (request !== root.passageRequest)
                 return
             root.passageRequest = 0
             const window = root.pendingWindow
             root.pendingWindow = null
-            if (window && Array.isArray(result)) {
+            if (window && result.ok && Array.isArray(result.data)) {
                 root.tokenWindow = window
-                root.wordRanges = result.map(range => ({
+                root.wordRanges = result.data.map(range => ({
                     start: range.start + window.start,
                     end: range.end + window.start
                 }))

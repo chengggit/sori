@@ -1,5 +1,4 @@
 import QtQuick
-import "../style/Reply.js" as Reply
 import QtQuick.Controls
 import QtQuick.Layouts
 import sori_core
@@ -72,28 +71,29 @@ Popup {
                 custom: true
             } : null
         }
-        const saved = Reply.valueOrError(Library.saveWord(sourceKind, sourceId, input))
+        const saved = Library.saveWord(sourceKind, sourceId, input)
         saveError = saved.error || ""
         if (!saveError)
-            savedWord = saved
+            savedWord = saved.data
     }
 
     Connections {
         target: Analysis
         function onFinished(request, result) {
-            result = Reply.valueOrError(result)
             if (request === root.request) {
-                root.result = result
-                if (root.canSave)
-                    root.savedWord = Reply.valueOrError(Library.findWord(root.sourceKind, root.sourceId, result.word, result.context))
+                root.result = result.ok ? result.data : {error: result.error}
+                if (result.ok && root.canSave) {
+                    const saved = Library.findWord(root.sourceKind, root.sourceId, result.data.word, result.data.context)
+                    root.savedWord = saved.data
+                    root.saveError = saved.error
+                }
             }
         }
         function onDictionaryFinished(request, result) {
-            result = Reply.valueOrError(result)
             if (request !== root.dictionaryRequest)
                 return
             root.dictionaryRequest = 0
-            root.definitions = result.definitions ?? []
+            root.definitions = result.data?.definitions ?? []
             root.dictionaryError = result.error || (root.definitions.length ? "" : "No Korean definitions found.")
             if (root.definitions.length) {
                 definitionPicker.currentIndex = 0

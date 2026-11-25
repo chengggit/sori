@@ -1,5 +1,4 @@
 import QtQuick
-import "../style/Reply.js" as Reply
 import QtQuick.Controls
 import QtQuick.Layouts
 import sori_core
@@ -81,8 +80,8 @@ ColumnLayout {
                 definition: definition,
                 tags: updates.tags
             }
-            const saved = youtubeId ? Reply.valueOrError(Library.saveYoutubeWord(youtubeId, sourceTitle, input))
-                : Reply.valueOrError(Library.saveWord(sourceKind, documentId, input))
+            const saved = youtubeId ? Library.saveYoutubeWord(youtubeId, sourceTitle, input)
+                : Library.saveWord(sourceKind, documentId, input)
             error = saved.error || ""
         }
         if (!error) {

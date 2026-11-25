@@ -1,5 +1,4 @@
 import QtQuick
-import "../style/Reply.js" as Reply
 import QtQuick.Controls
 import QtQuick.Layouts
 import sori_core
@@ -54,6 +53,7 @@ Rectangle {
     property var lookups: ({})
     property var chosenDefinition: null
     property var savedWord: null
+    property string savedWordError: ""
     readonly property string wholeTerm: result?.lookupTerms?.[candidateIndex] ?? ""
     readonly property var wholeLookup: lookups["#" + wholeTerm]
     readonly property var sources: {
@@ -120,6 +120,7 @@ Rectangle {
         selection++
         result = null
         savedWord = null
+        savedWordError = ""
         chosenDefinition = null
         lookups = ({})
         queuedTerms = []
@@ -158,9 +159,12 @@ Rectangle {
     }
 
     function refreshSavedWord() {
-        if (result?.word)
-            savedWord = youtubeId ? Reply.valueOrError(Library.findYoutubeWord(youtubeId, result.word, result.context))
-                : Reply.valueOrError(Library.findWord(sourceKind, documentId, result.word, result.context))
+        if (result?.word) {
+            const reply = youtubeId ? Library.findYoutubeWord(youtubeId, result.word, result.context)
+                : Library.findWord(sourceKind, documentId, result.word, result.context)
+            savedWord = reply.data
+            savedWordError = reply.error
+        }
     }
 
     function openSaveEditor() {
@@ -187,17 +191,16 @@ Rectangle {
         }
 
         function onFinished(request, result) {
-            result = Reply.valueOrError(result)
             if (request !== root.request)
                 return
             root.request = 0
-            root.result = result
-            if (result.error)
+            root.result = result.ok ? result.data : {error: result.error}
+            if (!result.ok)
                 return
             root.refreshSavedWord()
             root.queueTerm(root.wholeTerm)
-            if (result.parts.length > 1) {
-                for (const part of result.parts) {
+            if (result.data.parts.length > 1) {
+                for (const part of result.data.parts) {
                     if (!part.explanation)
                         root.queueTerm(part.term)
                 }
@@ -206,14 +209,13 @@ Rectangle {
         }
 
         function onDictionaryFinished(request, result) {
-            result = Reply.valueOrError(result)
             const job = root.inFlight[request]
             if (!job)
                 return
             delete root.inFlight[request]
             if (job.selection === root.selection) {
                 const updated = Object.assign({}, root.lookups)
-                updated["#" + job.term] = result
+                updated["#" + job.term] = result.ok ? result.data : {error: result.error}
                 root.lookups = updated
                 root.advanceWholeLookup()
             }
@@ -385,7 +387,7 @@ Rectangle {
             Layout.leftMargin: 20
             Layout.rightMargin: 20
             visible: text !== ""
-            text: root.savedWord?.error || ""
+            text: root.savedWordError
             color: Theme.destructive
             wrapMode: Text.Wrap
         }
@@ -518,14 +520,14 @@ Rectangle {
                     }
 
                     AppText {
-                        visible: !!root.result?.parts && root.result.parts.length > 1
+                        visible: !!root.result?.parts && root.result.data.parts.length > 1
                         text: "Word breakdown"
                         font.weight: Font.Medium
                         Layout.topMargin: 8
                     }
 
                     Repeater {
-                        model: (root.result?.parts?.length ?? 0) > 1 ? root.result.parts : []
+                        model: (root.result?.parts?.length ?? 0) > 1 ? root.result.data.parts : []
 
                         delegate: ColumnLayout {
                             id: part

@@ -58,8 +58,9 @@ On failure `ok` is false, `data` is null, and `error` contains a message. On
 success `data` holds the typed serialized payload. A successful mutation and a
 successful absent lookup both have null data; neither is a failure. Rust uses
 `Response<T>` in `bridge.rs` and keeps `Result<T, String>` inside services.
-QML consumes mutation errors explicitly and uses `Reply.valueOrError` to map
-query replies into presentation state. Mocks use the same envelope.
+QML reads `ok`, `data`, and `error` directly and keeps any display-specific
+error state in the component. No JavaScript reply adapter is required. Mocks
+use the same envelope.
 
 Asynchronous operations immediately return a scalar request ID; their completion
 signals carry the same envelope. Properties and player control methods remain

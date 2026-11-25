@@ -1,5 +1,4 @@
 import QtQuick
-import "../style/Reply.js" as Reply
 import QtQuick.Controls
 import QtQuick.Layouts
 import QtQuick.Shapes
@@ -262,7 +261,6 @@ Item {
         }
 
         function onSearchFinished(request, result) {
-            result = Reply.valueOrError(result)
             if (request !== root.request)
                 return;
             const wasLoadingMore = root.loadingMore;
@@ -271,20 +269,20 @@ Item {
             if (!root.error) {
                 if (wasLoadingMore) {
                     const loaded = new Set(root.videos.map(video => video.id));
-                    const added = result.videos.filter(video => !loaded.has(video.id));
+                    const added = result.data.videos.filter(video => !loaded.has(video.id));
                     root.videos = root.videos.concat(added);
                     for (const video of added)
                         videoModel.append({
                             video: video
                         });
-                    root.nextPage = result.nextPage === root.nextPage ? "" : result.nextPage;
+                    root.nextPage = result.data.nextPage === root.nextPage ? "" : result.data.nextPage;
                 } else {
-                    root.showFirstPage(result);
+                    root.showFirstPage(result.data);
                     const entries = root.freshCacheEntries().filter(entry => entry.query !== root.feedKey);
                     entries.unshift({
                         query: root.feedKey,
                         expiresAt: Date.now() + root.cacheLifetime,
-                        videos: result.videos,
+                        videos: result.data.videos,
                         nextPage: root.nextPage
                     });
                     root.searchCache.firstPages = JSON.stringify(entries.slice(0, 30));
@@ -295,7 +293,6 @@ Item {
         }
 
         function onSubscriptionFeedFinished(request, result) {
-            result = Reply.valueOrError(result)
             if (request !== root.request)
                 return;
             const wasLoadingMore = root.loadingMore;
@@ -306,17 +303,17 @@ Item {
                 return;
             }
             if (wasLoadingMore)
-                root.appendFeed(result.videos ?? []);
+                root.appendFeed(result.data.videos ?? []);
             else
-                root.showFeed(result.videos ?? [], false);
-            root.nextPageTokens = result.nextPageTokens ?? ({});
+                root.showFeed(result.data.videos ?? [], false);
+            root.nextPageTokens = result.data.nextPageTokens ?? ({});
             if (!wasLoadingMore) {
                 const entries = root.freshCacheEntries()
                     .filter(entry => entry.query !== root.currentQuery);
                 entries.unshift({
                     query: root.currentQuery,
                     expiresAt: Date.now() + root.subscriptionCacheLifetime,
-                    videos: result.videos ?? [],
+                    videos: result.data.videos ?? [],
                     nextPageTokens: root.nextPageTokens
                 });
                 root.searchCache.firstPages = JSON.stringify(entries.slice(0, 30));

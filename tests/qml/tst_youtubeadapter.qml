@@ -1,5 +1,6 @@
 import QtQuick
 import QtTest
+import sori_core
 import "../../qml/pages" as Pages
 
 TestCase {
@@ -27,6 +28,27 @@ TestCase {
                 })
         }
     }
+    function test_transcript_replies_keep_payload_and_error_separate() {
+        const page = createTemporaryObject(pageComponent, testCase, {width:1200,height:800})
+        verify(page !== null)
+        tryCompare(findChild(page, "subtitleTranscript"), "count", 2)
+        Library.cachedTranscript = null
+        page.fetchRequest = 101
+        YouTube.transcriptFinished(100, {ok:false, data:null, error:"Stale error"})
+        compare(page.fetchRequest, 101)
+        compare(page.transcriptError, "")
+        YouTube.transcriptFinished(101, {ok:false, data:null, error:"No connection"})
+        compare(page.transcriptError, "No connection")
+        compare(Library.cachedTranscript, null)
+        page.fetchRequest = 102
+        const data = {language:"ko", cues:[{start:0,end:5,text:"새로운 자막"}]}
+        YouTube.transcriptFinished(102, {ok:true, data:data, error:""})
+        compare(page.transcriptError, "")
+        compare(page.savedTranscript.cues[0].text, "새로운 자막")
+        compare(Library.cachedTranscript.language, "ko")
+        compare(Library.cachedTranscript.cues[0].text, "새로운 자막")
+    }
+
     function test_resume_and_playback_refresh() {
         const page = createTemporaryObject(pageComponent, testCase, {
             width: 1200,

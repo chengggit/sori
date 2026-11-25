@@ -1,5 +1,4 @@
 import QtQuick
-import "../style/Reply.js" as Reply
 import QtQuick.Controls
 import QtQuick.Dialogs as Native
 import QtQuick.Layouts
@@ -35,13 +34,13 @@ Item {
     }
 
     function editDocument(document) {
-        const result = Reply.valueOrError(Library.readDocument(document.id));
-        if (result.error) {
+        const result = Library.readDocument(document.id);
+        if (!result.ok) {
             error = result.error;
             return;
         }
         selectedDocument = document;
-        editor.showEditor(false, document.title, result.content);
+        editor.showEditor(false, document.title, result.data.content);
     }
 
     function requestThumbnails() {

@@ -1,5 +1,4 @@
 import QtQuick
-import "style/Reply.js" as Reply
 import QtCore
 import QtQuick.Controls
 import QtQuick.Dialogs
@@ -121,12 +120,12 @@ ApplicationWindow {
     function openVideoPath(path) {
         if (player.loading)
             return
-        const imported = Reply.valueOrError(Library.importVideo(path))
-        if (!imported.id) {
+        const imported = Library.importVideo(path)
+        if (!imported.ok) {
             showVideoOpenError(imported.error || "Could not add this video to the library.")
             return
         }
-        const error = openSavedVideo(imported.id)
+        const error = openSavedVideo(imported.data.id)
         if (error)
             showVideoOpenError(error)
     }
@@ -141,9 +140,10 @@ ApplicationWindow {
             return "Wait for the current video to finish opening."
         if (page === "watch")
             saveVideoProgress()
-        const video = Reply.valueOrError(Library.readVideo(id))
-        if (video.error)
-            return video.error
+        const reply = Library.readVideo(id)
+        if (!reply.ok)
+            return reply.error
+        const video = reply.data
         video.id = id
         beginVideo(video)
         return ""
@@ -208,10 +208,10 @@ ApplicationWindow {
             subtitles.attach(path)
             return
         }
-        const result = Reply.valueOrError(Library.saveVideoSubtitles(currentVideo.id, path))
+        const result = Library.saveVideoSubtitles(currentVideo.id, path)
         videoError = result.error || ""
-        if (result.text)
-            subtitles.attachSaved(result.text)
+        if (result.ok)
+            subtitles.attachSaved(result.data.text)
     }
 
     function toggleFullscreen() {
