@@ -216,15 +216,21 @@ impl Analysis {
         let provider = self.default_dictionary();
         let key = self.krdict_key.clone();
         std::thread::spawn(move || {
-            let lookup = if provider == "krdict" {
-                key.ok_or_else(|| "Save a KRDict API key in Settings.".to_string())
-                    .and_then(|key| crate::krdict::lookup(&term, &key))
-            } else {
+            let wiktionary = || {
                 DICTIONARY
                     .get_or_init(|| Dictionary::new().map_err(|error| error.to_string()))
                     .as_ref()
                     .map_err(Clone::clone)
                     .and_then(|dictionary| dictionary.lookup(&term))
+            };
+            let lookup = if provider == "krdict" {
+                crate::dictionary::fallback_if_empty(
+                    key.ok_or_else(|| "Save a KRDict API key in Settings.".to_string())
+                        .and_then(|key| crate::krdict::lookup(&term, &key)),
+                    wiktionary,
+                )
+            } else {
+                wiktionary()
             };
             let result = lookup.map(|definitions| json!({ "definitions": definitions }));
             let result = crate::bridge::reply(result);

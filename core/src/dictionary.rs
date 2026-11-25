@@ -27,6 +27,16 @@ pub struct Dictionary {
     client: Client,
 }
 
+pub fn fallback_if_empty(
+    primary: Result<Vec<Definition>, String>,
+    fallback: impl FnOnce() -> Result<Vec<Definition>, String>,
+) -> Result<Vec<Definition>, String> {
+    match primary {
+        Ok(definitions) if definitions.is_empty() => fallback(),
+        result => result,
+    }
+}
+
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct LanguageEntry {
@@ -265,6 +275,34 @@ fn read_body(response: Response) -> Result<Vec<u8>, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn fallback_runs_only_when_primary_has_no_definitions() {
+        let definitions = parse_definitions(
+            "학교",
+            br#"{"ko":[{"partOfSpeech":"Noun","definitions":[{"definition":"school"}]}]}"#,
+        )
+        .unwrap();
+        assert_eq!(
+            fallback_if_empty(Ok(vec![]), || Ok(definitions.clone())).unwrap(),
+            definitions
+        );
+        assert_eq!(
+            fallback_if_empty(Ok(definitions.clone()), || panic!("unexpected fallback")).unwrap(),
+            definitions
+        );
+        assert_eq!(
+            fallback_if_empty(Err("KRDict error".into()), || panic!("unexpected fallback")),
+            Err("KRDict error".into())
+        );
+        assert!(fallback_if_empty(Ok(vec![]), || Ok(vec![]))
+            .unwrap()
+            .is_empty());
+        assert_eq!(
+            fallback_if_empty(Ok(vec![]), || Err("Wiktionary error".into())),
+            Err("Wiktionary error".into())
+        );
+    }
 
     #[test]
     fn extracts_hanja_from_headwords_and_derived_verbs_only() {
