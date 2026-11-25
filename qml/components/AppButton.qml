@@ -25,6 +25,8 @@ Button {
     leftPadding: iconOnly ? 0 : small ? 10 : 13
     rightPadding: leftPadding
     hoverEnabled: true
+    // Ghost controls have no fill, so a disabled one just fades out.
+    opacity: enabled || variant !== "ghost" ? 1 : 0.5
 
     contentItem: Item {
         RowLayout {
@@ -53,7 +55,8 @@ Button {
         color: {
             if (!control.enabled)
                 return control.variant === "default" ? Theme.disabledAccent
-                    : control.variant === "primary" ? Theme.neutralHover : Theme.sidebar
+                    : control.variant === "primary" ? Theme.neutralHover
+                    : control.variant === "ghost" ? Qt.alpha(Theme.neutralHover, 0) : Theme.sidebar
             if (control.variant === "default")
                 return control.down ? Theme.accentPressed : control.hovered ? Theme.accentHover : Theme.accent
             if (control.variant === "primary")
