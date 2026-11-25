@@ -105,6 +105,9 @@ qt_add_resources(sori "watch" PREFIX "/" FILES
     qml/style/Reply.js
     qml/style/Theme.qml
     qml/style/DictionaryTabs.qml
+    qml/components/DictionaryOrderHandle.qml
+    qml/components/DictionaryDragRow.qml
+    qml/components/DictionaryDragState.qml
     qml/style/qmldir
     qml/components/AppButton.qml
     qml/components/DictionaryLookup.qml
@@ -137,6 +140,7 @@ qt_add_resources(sori "watch" PREFIX "/" FILES
     qml/components/ReaderDefinitions.qml
     qml/icons/arrow-left.svg
     qml/icons/arrow-up-down.svg
+    qml/icons/grip-vertical.svg
     qml/icons/book-open.svg
     qml/icons/bookmark.svg
     qml/icons/bookmark-filled.svg

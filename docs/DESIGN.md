@@ -57,6 +57,11 @@ Vocabulary cards show the word, linguistic information, selected meaning, and
 source. Search, type filters, and sorting support browsing; a details sidebar
 shows full saved context. Editing uses the shared vocabulary form. Settings
 group appearance, dictionaries, channels, and connections into categories.
+Embedded dictionary rows have a trailing six-dot grip; drag it vertically or
+use its Up/Down keys to change the saved tab order, including disabled tabs.
+During dragging, the row lifts with a shadow and follows the pointer above a
+placeholder. Neighboring rows slide aside to preview the drop position;
+releasing commits the new order.
 
 Show loading, error, and empty states where the action occurs. Do not silently
 replace failed operations with incomplete behavior. Avoid confirmation dialogs

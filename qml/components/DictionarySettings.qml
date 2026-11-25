@@ -16,30 +16,54 @@ Dialog {
 
     contentItem: ColumnLayout {
         ListView {
+            id: dictionaryRows
+            property QtObject dragState: DictionaryDragState {
+                count: DictionaryTabs.providers.length
+            }
             model: DictionaryTabs.providers
             Layout.fillWidth: true
             Layout.fillHeight: true
             clip: true
             ScrollBar.vertical: AppScrollBar {}
 
-            delegate: RowLayout {
+            delegate: DictionaryDragRow {
+                id: dictionaryRow
                 required property var modelData
                 required property int index
                 width: ListView.view.width
+                dragHandle: orderHandle
+                dragState: dictionaryRows.dragState
+                rowIndex: index
+                implicitHeight: rowContent.implicitHeight
 
-                CheckBox {
-                    text: modelData.label
-                    checked: DictionaryTabs.enabled.some(provider => provider.template === modelData.template)
-                    Layout.fillWidth: true
-                    onToggled: DictionaryTabs.setEnabled(modelData.template, checked)
-                }
+                RowLayout {
+                    id: rowContent
+                    anchors.fill: parent
+                    anchors.leftMargin: 6
+                    anchors.rightMargin: 6
 
-                AppButton {
-                    visible: index >= DictionaryTabs.builtIn.length
-                    text: "Remove"
-                    variant: "ghost"
-                    small: true
-                    onClicked: DictionaryTabs.remove(modelData.template)
+                    CheckBox {
+                        text: dictionaryRow.modelData.label
+                        checked: DictionaryTabs.enabled.some(provider => provider.template === dictionaryRow.modelData.template)
+                        Layout.fillWidth: true
+                        onToggled: DictionaryTabs.setEnabled(dictionaryRow.modelData.template, checked)
+                    }
+
+                    AppButton {
+                        visible: !DictionaryTabs.isBuiltIn(dictionaryRow.modelData.template)
+                        text: "Remove"
+                        variant: "ghost"
+                        small: true
+                        onClicked: DictionaryTabs.remove(dictionaryRow.modelData.template)
+                    }
+
+                    DictionaryOrderHandle {
+                        id: orderHandle
+                        coordinateItem: dictionaryRow.parent
+                        rowStep: dictionaryRow.height
+                        Accessible.name: "Reorder " + dictionaryRow.modelData.label
+                        onMoveRequested: offset => DictionaryTabs.move(dictionaryRow.modelData.template, offset)
+                    }
                 }
             }
         }

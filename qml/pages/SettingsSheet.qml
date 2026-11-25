@@ -563,29 +563,53 @@ Popup {
                                     Layout.fillWidth: true
                                     spacing: 4
 
+                                    property QtObject dragState: DictionaryDragState {
+                                        count: DictionaryTabs.providers.length
+                                    }
+
                                     Repeater {
+                                        id: dictionaryRows
                                         model: DictionaryTabs.providers
 
-                                        delegate: RowLayout {
+                                        delegate: DictionaryDragRow {
+                                            id: dictionaryRow
                                             required property var modelData
                                             required property int index
                                             Layout.fillWidth: true
-                                            spacing: Theme.controlGap
+                                            dragHandle: orderHandle
+                                            dragState: dictionaryRows.parent.dragState
+                                            rowIndex: index
 
-                                            SettingsCheck {
-                                                text: parent.modelData.label
-                                                checked: DictionaryTabs.enabled.some(provider => provider.template === parent.modelData.template)
-                                                onToggled: DictionaryTabs.setEnabled(parent.modelData.template, checked)
-                                            }
+                                            RowLayout {
+                                                anchors.fill: parent
+                                                anchors.leftMargin: 6
+                                                anchors.rightMargin: 6
+                                                spacing: Theme.controlGap
 
-                                            AppButton {
-                                                visible: parent.index >= DictionaryTabs.builtIn.length
-                                                iconName: "x"
-                                                variant: "ghost"
-                                                Layout.preferredWidth: 24
-                                                Layout.preferredHeight: 24
-                                                Accessible.name: "Remove " + parent.modelData.label
-                                                onClicked: DictionaryTabs.remove(parent.modelData.template)
+                                                SettingsCheck {
+                                                    Layout.fillWidth: true
+                                                    text: dictionaryRow.modelData.label
+                                                    checked: DictionaryTabs.enabled.some(provider => provider.template === dictionaryRow.modelData.template)
+                                                    onToggled: DictionaryTabs.setEnabled(dictionaryRow.modelData.template, checked)
+                                                }
+
+                                                AppButton {
+                                                    visible: !DictionaryTabs.isBuiltIn(dictionaryRow.modelData.template)
+                                                    iconName: "x"
+                                                    variant: "ghost"
+                                                    Layout.preferredWidth: 24
+                                                    Layout.preferredHeight: 24
+                                                    Accessible.name: "Remove " + dictionaryRow.modelData.label
+                                                    onClicked: DictionaryTabs.remove(dictionaryRow.modelData.template)
+                                                }
+
+                                                DictionaryOrderHandle {
+                                                    id: orderHandle
+                                                    coordinateItem: dictionaryRow.parent
+                                                    rowStep: dictionaryRow.height + 4
+                                                    Accessible.name: "Reorder " + dictionaryRow.modelData.label
+                                                    onMoveRequested: offset => DictionaryTabs.move(dictionaryRow.modelData.template, offset)
+                                                }
                                             }
                                         }
                                     }
