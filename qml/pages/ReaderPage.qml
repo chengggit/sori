@@ -354,12 +354,27 @@ Item {
                 }
 
                 AppText {
+                    id: pageLabel
                     text: root.pdfPageCount > 0
                         ? "Page " + (root.pdfPageIndex + 1) + " / " + root.pdfPageCount
                         : "PDF"
                     color: Theme.mutedForeground
                     font.pixelSize: 12
+                    horizontalAlignment: Text.AlignHCenter
                     Layout.alignment: Qt.AlignVCenter
+
+                    // Reserve room for the widest number so the arrows never
+                    // move when the page count gains a digit.
+                    readonly property int digitCount: Math.max(1,
+                        String(Math.max(1, root.pdfPageCount)).length)
+                    TextMetrics {
+                        id: pageLabelMetrics
+                        font: pageLabel.font
+                        text: "Page " + "0".repeat(pageLabel.digitCount)
+                            + " / " + "0".repeat(pageLabel.digitCount)
+                    }
+                    Layout.preferredWidth: pageLabelMetrics.width
+                    Layout.minimumWidth: pageLabelMetrics.width
                 }
 
                 AppButton {
