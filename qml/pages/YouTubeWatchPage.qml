@@ -242,7 +242,6 @@ Item {
         youtubeId: root.youtubeId
         sourceTitle: root.video?.title ?? "YouTube video"
         animateEntrance: true
-        width: Math.min(Theme.readerAnalysisWidth, root.width * 0.45)
         anchors.right: parent.right
         anchors.rightMargin: -(1 - revealProgress) * width
         anchors.top: parent.top

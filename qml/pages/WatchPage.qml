@@ -126,7 +126,7 @@ Item {
         objectName: "fullscreenAnalysisSidebar"
         parent: Overlay.overlay
         edge: Qt.RightEdge
-        width: Math.min(Theme.readerAnalysisWidth, parent.width * 0.45)
+        width: Math.min(fullscreenDetails.preferredWidth, fullscreenDetails.maximumWidth)
         height: parent.height
         padding: 0
         modal: true
@@ -152,6 +152,7 @@ Item {
             id: fullscreenDetails
             objectName: "fullscreenWordAnalysis"
             anchors.fill: parent
+            maximumWidth: fullscreenSidebar.parent.width * 0.7
             documentId: root.videoId
             sourceKind: "local"
             onDismissRequested: fullscreenSidebar.close()
@@ -953,7 +954,6 @@ Item {
         sourceKind: "local"
         animateEntrance: true
         visible: (opened || revealProgress > 0) && !root.fullScreen
-        width: Math.min(Theme.readerAnalysisWidth, root.width * 0.45)
         anchors.right: parent.right
         anchors.rightMargin: -(1 - revealProgress) * width
         anchors.top: parent.top

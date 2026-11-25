@@ -38,6 +38,9 @@ Keep content primary. Show word analysis, dictionary tabs, and vocabulary tools
 contextually in the shared sidebar. Preserve selection context and reading
 position when panels resize the content. PDFs support book and scroll views,
 with zoom controls that do not resize the surrounding interface.
+The analysis sidebar resizes by dragging its left edge, from 320px up to 70%
+of the available width (and smaller when the window requires it). Its chosen
+width is retained while opening and closing the panel during the session.
 
 Watch uses familiar playback controls and interactive primary subtitles. In
 fullscreen, a quick definition can hand off to the analysis sidebar while

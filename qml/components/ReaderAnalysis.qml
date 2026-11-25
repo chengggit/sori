@@ -9,6 +9,10 @@ Rectangle {
     id: root
 
     required property real documentId
+    property real preferredWidth: Theme.readerAnalysisWidth
+    property real maximumWidth: parent ? parent.width * 0.7 : preferredWidth
+    readonly property real minimumWidth: Math.min(320, maximumWidth)
+    width: Math.min(preferredWidth, maximumWidth)
     property string sourceKind: "document"
     property string youtubeId: ""
     property string sourceTitle: ""
@@ -55,6 +59,30 @@ Rectangle {
     signal dismissRequested()
 
     color: Theme.card
+
+    MouseArea {
+        objectName: "analysisResizeHandle"
+        x: -4
+        width: 8
+        height: parent.height
+        z: 10
+        enabled: root.opened
+        cursorShape: Qt.SizeHorCursor
+        preventStealing: true
+        property real pressX: 0
+        property real pressWidth: 0
+        onPressed: mouse => {
+            pressX = mapToItem(root.parent, mouse.x, mouse.y).x
+            pressWidth = root.width
+        }
+        onPositionChanged: mouse => {
+            if (pressed) {
+                const delta = mapToItem(root.parent, mouse.x, mouse.y).x - pressX
+                root.preferredWidth = Math.max(root.minimumWidth,
+                    Math.min(root.maximumWidth, pressWidth - delta))
+            }
+        }
+    }
 
     function lookup(text, start, end) {
         lookupText = text

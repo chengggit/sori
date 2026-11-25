@@ -251,7 +251,6 @@ Item {
         anchors.top: parent.top
         anchors.bottom: parent.bottom
         animateEntrance: true
-        width: Math.min(Theme.readerAnalysisWidth, root.width * 0.45)
         anchors.rightMargin: -(1 - revealProgress) * width
         visible: opened || revealProgress > 0
         onDismissRequested: root.dismissAnalysis()
