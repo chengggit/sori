@@ -319,14 +319,18 @@ Item {
     }
 
     ColumnLayout {
+        objectName: "readerContent"
         anchors.top: parent.top
         anchors.bottom: parent.bottom
         anchors.left: parent.left
         anchors.right: analysis.left
+        clip: true
         spacing: 10
 
-        RowLayout {
+        Flow {
+            objectName: "pdfToolbar"
             Layout.fillWidth: true
+            Layout.minimumWidth: 0
             visible: root.isPdf
             spacing: 8
 
@@ -357,10 +361,6 @@ Item {
                 Accessible.name: "Next page"
                 enabled: root.pdfPageCount > 0 && root.pdfPageIndex < root.pdfPageCount - 1
                 onClicked: bookReader.nextPage()
-            }
-
-            Item {
-                Layout.fillWidth: true
             }
 
             AppButton {
@@ -407,6 +407,7 @@ Item {
             id: pdfPageReader
             objectName: "pdfPageReader"
             Layout.fillWidth: true
+            Layout.minimumWidth: 0
             Layout.fillHeight: true
             visible: root.isPdf && !root.bookMode
             pdfPath: root.pdfPath
@@ -428,6 +429,7 @@ Item {
             id: bookReader
             objectName: "pdfBookReader"
             Layout.fillWidth: true
+            Layout.minimumWidth: 0
             Layout.fillHeight: true
             visible: root.isPdf && root.bookMode
             pdfUrl: root.pdfUrl
