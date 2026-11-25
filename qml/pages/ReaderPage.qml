@@ -327,71 +327,96 @@ Item {
         clip: true
         spacing: 10
 
-        Flow {
+        Item {
+            id: pdfToolbar
             objectName: "pdfToolbar"
             Layout.fillWidth: true
             Layout.minimumWidth: 0
             visible: root.isPdf
-            spacing: 8
+            readonly property bool stacked: width < pageControls.implicitWidth + viewControls.implicitWidth + 40
+            implicitHeight: stacked ? pageControls.height + viewControls.height + 24
+                : Math.max(pageControls.height, viewControls.height) + 16
 
-            AppButton {
-                iconName: "arrow-left"
-                variant: "outline"
-                small: true
-                visible: root.bookMode
-                Accessible.name: "Previous page"
-                enabled: root.pdfPageIndex > 0
-                onClicked: bookReader.previousPage()
+            RowLayout {
+                id: pageControls
+                x: 12
+                y: 8
+                spacing: 8
+
+                AppButton {
+                    iconName: "arrow-left"
+                    variant: "ghost"
+                    small: true
+                    visible: root.bookMode
+                    Accessible.name: "Previous page"
+                    enabled: root.pdfPageIndex > 0
+                    onClicked: bookReader.previousPage()
+                }
+
+                AppText {
+                    text: root.pdfPageCount > 0
+                        ? "Page " + (root.pdfPageIndex + 1) + " / " + root.pdfPageCount
+                        : "PDF"
+                    color: Theme.mutedForeground
+                    font.pixelSize: 12
+                    Layout.alignment: Qt.AlignVCenter
+                }
+
+                AppButton {
+                    iconName: "arrow-left"
+                    rotation: 180
+                    variant: "ghost"
+                    small: true
+                    visible: root.bookMode
+                    Accessible.name: "Next page"
+                    enabled: root.pdfPageCount > 0 && root.pdfPageIndex < root.pdfPageCount - 1
+                    onClicked: bookReader.nextPage()
+                }
             }
 
-            AppText {
-                text: root.pdfPageCount > 0
-                    ? "Page " + (root.pdfPageIndex + 1) + " / " + root.pdfPageCount
-                    : "PDF"
-                color: Theme.mutedForeground
-                font.pixelSize: 12
-            }
+            RowLayout {
+                id: viewControls
+                x: Math.max(12, pdfToolbar.width - width - 12)
+                y: pdfToolbar.stacked ? pageControls.y + pageControls.height + 8 : 8
+                spacing: 4
 
-            AppButton {
-                iconName: "arrow-left"
-                rotation: 180
-                variant: "outline"
-                small: true
-                visible: root.bookMode
-                Accessible.name: "Next page"
-                enabled: root.pdfPageCount > 0 && root.pdfPageIndex < root.pdfPageCount - 1
-                onClicked: bookReader.nextPage()
-            }
+                AppButton {
+                    text: "−"
+                    implicitWidth: Theme.compactControlHeight
+                    variant: "ghost"
+                    small: true
+                    Accessible.name: "Zoom out PDF"
+                    enabled: root.pdfZoom > root.pdfZoomLevels[0]
+                    onClicked: root.zoomPdf(-1)
+                }
 
-            AppButton {
-                text: "−"
-                variant: "outline"
-                small: true
-                Accessible.name: "Zoom out PDF"
-                enabled: root.pdfZoom > root.pdfZoomLevels[0]
-                onClicked: root.zoomPdf(-1)
-            }
+                AppText {
+                    text: Math.round(root.pdfZoom * 100) + "%"
+                    color: Theme.mutedForeground
+                    font.pixelSize: 12
+                    horizontalAlignment: Text.AlignHCenter
+                    Layout.preferredWidth: 40
+                    Layout.alignment: Qt.AlignVCenter
+                }
 
-            AppText {
-                text: Math.round(root.pdfZoom * 100) + "%"
-                color: Theme.mutedForeground
-                font.pixelSize: 12
-            }
+                AppButton {
+                    text: "+"
+                    implicitWidth: Theme.compactControlHeight
+                    variant: "ghost"
+                    small: true
+                    Accessible.name: "Zoom in PDF"
+                    enabled: root.pdfZoom < root.pdfZoomLevels[root.pdfZoomLevels.length - 1]
+                    onClicked: root.zoomPdf(1)
+                }
 
-            AppButton {
-                text: "+"
-                variant: "outline"
-                small: true
-                Accessible.name: "Zoom in PDF"
-                enabled: root.pdfZoom < root.pdfZoomLevels[root.pdfZoomLevels.length - 1]
-                onClicked: root.zoomPdf(1)
-            }
-
-            AppButton {
-                text: root.bookMode ? "Scroll" : "Book"
-                variant: "outline"
-                small: true
-                onClicked: root.toggleBookMode()
+                AppButton {
+                    text: root.bookMode ? "Scroll" : "Book"
+                    variant: "outline"
+                    small: true
+                    Layout.leftMargin: 8
+                    Accessible.name: root.bookMode ? "Switch to scroll view" : "Switch to book view"
+                    onClicked: root.toggleBookMode()
+                }
             }
         }
 

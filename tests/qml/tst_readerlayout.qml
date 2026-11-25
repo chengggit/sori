@@ -50,14 +50,14 @@ TestCase {
         compare(content.width, panel.x)
         verify(pdf.width <= content.width)
         verify(toolbar.width <= content.width)
-        verify(toolbar.height > 40, "Toolbar should wrap in the narrow reading area")
+        verify(toolbar.height > 60, "Toolbar should wrap in the narrow reading area")
         for (const control of toolbar.children) {
             if (control.visible && control.width > 0)
                 verify(control.x + control.width <= toolbar.width + 1)
         }
         page.width = 1400
         wait(0)
-        tryVerify(() => toolbar.height <= 40, 1000,
+        tryVerify(() => toolbar.height <= 56, 1000,
             "Toolbar should return to one row when space allows")
     }
 }
