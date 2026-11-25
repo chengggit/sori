@@ -40,4 +40,19 @@ TestCase {
         reader.pdfUrl = ""
         compare(Object.keys(reader.pageCache).length, 0)
     }
+
+    function test_page_turn_returns_to_top_when_zoomed() {
+        const view = findChild(reader, "bookPageView")
+        reader.zoom = 2
+        wait(50)
+        verify(view.contentHeight > view.height)
+
+        view.contentY = 160
+        reader.currentPage = 1
+        tryCompare(view, "contentY", 0)
+
+        reader.currentPage = 0
+        reader.zoom = 1
+        wait(50)
+    }
 }

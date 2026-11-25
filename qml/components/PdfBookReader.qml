@@ -76,8 +76,13 @@ Item {
     function previousPage() { root.goToPage(root.currentPage - 1) }
 
     function resetScroll() {
+        wheelX.stop()
+        wheelY.stop()
+        view.cancelFlick()
         view.contentX = Math.round((view.contentWidth - view.width) / 2 * rasterScale) / rasterScale
-        view.contentY = Math.round((view.contentHeight - view.height) / 2 * rasterScale) / rasterScale
+        // A page turn starts at the top of the new page. At fit zoom there is
+        // no vertical overflow, so contentY is zero either way.
+        view.contentY = 0
     }
 
     // A wheel notch moves a fixed fraction of the page rather than Qt's slow,
@@ -152,6 +157,7 @@ Item {
     // that, the same view pans the enlarged page by drag, wheel, or scrollbar.
     Flickable {
         id: view
+        objectName: "bookPageView"
         anchors.fill: parent
         clip: true
         interactive: root.zoom > 1
