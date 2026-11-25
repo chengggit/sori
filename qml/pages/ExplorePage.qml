@@ -420,7 +420,7 @@ Item {
             AppButton {
                 text: "Open video"
                 iconName: "play"
-                variant: "primary"
+                variant: "soft"
                 Layout.alignment: Qt.AlignLeft
                 Layout.topMargin: 2
                 onClicked: pasteDialog.submit()

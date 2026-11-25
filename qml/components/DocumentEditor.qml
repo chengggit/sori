@@ -124,7 +124,7 @@ Dialog {
             }
             AppButton {
                 text: root.importing ? "Import text" : "Save changes"
-                variant: "primary"
+                variant: "soft"
                 enabled: body.text.trim() !== ""
                     && (root.importing || titleInput.text.trim() !== "")
                 onClicked: root.saveRequested(titleInput.text, body.text)
