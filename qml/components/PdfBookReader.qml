@@ -21,13 +21,19 @@ Item {
     property var pageCache: ({})
 
     readonly property real aspect: {
+        // pagePointSize() itself has no change notification. Re-evaluate once
+        // the document is ready instead of retaining the loading placeholder.
+        if (pdfDocument.status !== PdfDocument.Ready || pdfDocument.pageCount === 0)
+            return 1.4
         const size = pdfDocument.pagePointSize(Math.max(0, currentPage))
         return size.width > 0 ? size.height / size.width : 1.4
     }
     readonly property real fitWidth: Math.max(0, Math.min(
         root.width - 2 * Theme.readerPadding,
         (root.height - 2 * Theme.readerPadding) / Math.max(0.2, root.aspect)))
-    readonly property real pageWidth: root.fitWidth * zoom
+    readonly property real rasterScale: Theme.pageScale * (Screen.devicePixelRatio || 1)
+    // Match the displayed width to the PDF raster, avoiding fractional resampling.
+    readonly property real pageWidth: Math.round(root.fitWidth * zoom * rasterScale) / rasterScale
     readonly property real pageHeight: root.pageWidth * root.aspect
 
     signal wordRequested(string text, int start, int end)
@@ -70,8 +76,8 @@ Item {
     function previousPage() { root.goToPage(root.currentPage - 1) }
 
     function resetScroll() {
-        view.contentX = (view.contentWidth - view.width) / 2
-        view.contentY = (view.contentHeight - view.height) / 2
+        view.contentX = Math.round((view.contentWidth - view.width) / 2 * rasterScale) / rasterScale
+        view.contentY = Math.round((view.contentHeight - view.height) / 2 * rasterScale) / rasterScale
     }
 
     // A wheel notch moves a fixed fraction of the page rather than Qt's slow,
@@ -199,8 +205,9 @@ Item {
 
         Item {
             id: pageArea
-            x: (view.contentWidth - root.pageWidth) / 2
-            y: (view.contentHeight - root.pageHeight) / 2
+            objectName: "bookPageArea"
+            x: Math.round((view.contentWidth - root.pageWidth) / 2 * root.rasterScale) / root.rasterScale
+            y: Math.round((view.contentHeight - root.pageHeight) / 2 * root.rasterScale) / root.rasterScale
             width: root.pageWidth
             height: root.pageHeight
             property var hoverWord: null
@@ -214,13 +221,14 @@ Item {
 
             PdfPageImage {
                 id: pageImage
+                objectName: "bookPageImage"
                 anchors.fill: parent
                 document: pdfDocument
                 currentFrame: root.currentPage
                 asynchronous: true
                 fillMode: Image.PreserveAspectFit
                 sourceSize.width: Math.max(1,
-                    Math.round(root.pageWidth * Theme.pageScale * (Screen.devicePixelRatio || 1)))
+                    Math.round(root.pageWidth * root.rasterScale))
                 sourceSize.height: 0
                 onStatusChanged: function(status) {
                     if (status === Image.Ready)

@@ -200,6 +200,7 @@ Item {
 
                 PdfPageImage {
                     id: pageImage
+                    objectName: "scrollPageImage"
                     width: pageArea.width
                     height: pageArea.height
                     document: pdfDocument
