@@ -1,69 +1,49 @@
 # Design
 
-Sori uses Qt Quick/QML for a clean, content-focused desktop interface suitable
-for extended reading and watching sessions.
+Sori is a calm, content-focused workspace for Korean immersion. Reading and
+watching should feel comfortable for long sessions, with learning tools close
+at hand. This guide defines shared principles; QML holds specific layouts and
+measurements.
 
-## Shared system
+## Content first
 
-Use reusable components from `qml/components/` and semantic tokens from
-`qml/style/Theme.qml`. Qt Quick Controls and Layouts provide the UI primitives.
-Keep light and dark themes consistent. Use the shared spacing, typography,
-radius, control-size, and color tokens rather than duplicating styles.
+- Give media and Korean text the strongest visual priority.
+- Reveal analysis, definitions, and vocabulary tools in context.
+- Keep frequent actions easy to reach and secondary controls unobtrusive.
+- Use clear hierarchy and whitespace; avoid unnecessary decoration and nesting.
 
-Inter is the UI font; Noto Sans KR is used for Korean reading content. Preserve
-comfortable line height and readable subtitle contrast. Every interactive
-control should provide visible hover, pressed, focus, and disabled feedback.
+## Consistency
 
-## Layout
+- Reuse `qml/components/` and semantic tokens from `qml/style/Theme.qml`.
+- Keep spacing, typography, colors, and control behavior consistent across flows.
+- Use Inter for UI and Noto Sans KR for Korean reading text.
+- Design light and dark themes together, with comfortable line height and contrast.
 
-The desktop sidebar supports expanded and collapsed states. Pages share a
-centered frame capped at 1528px, with a 32px inset on narrower windows and 28px
-vertical padding. Respect application zoom and reasonable desktop resizing.
-Avoid unnecessary nested containers and prevent overflow at narrow sizes.
+## Adaptability
 
-## Library and discovery
+- Support window resizing and application zoom without overlap or clipped controls.
+- Reflow related controls together when space is tight.
+- Let users adjust supporting panels while keeping the main content usable.
+- Keep media zoom independent of the surrounding interface.
 
-My Library groups text and videos into horizontal shelves. Use page-shaped
-covers for text/PDFs and 16:9 thumbnails for videos, with consistent metadata
-and progress. Home combines Continue Watching with subscribed-channel videos;
-Explore supports YouTube search. Appending a page must preserve existing order,
-visible delegates, and scroll position.
+## Preserve context
 
-Use shared empty-state cards and explicit import actions. Distinguish an empty
-library from a search with no matches and from a failed operation.
+- Retain selection, scroll position, progress, and user-adjusted layout where appropriate.
+- Opening learning tools should preserve the user's playback state.
+- Appending results must not move existing content or reset the user's position.
+- Respect manual navigation; automatic scrolling should not fight the user.
 
-## Reader and Watch
+## Feedback and control
 
-Keep content primary. Show word analysis, dictionary tabs, and vocabulary tools
-contextually in the shared sidebar. Preserve selection context and reading
-position when panels resize the content. PDFs support book and scroll views,
-with zoom controls that do not resize the surrounding interface.
-PDF toolbar groups page navigation on the left and zoom/view controls on the right.
-At narrow widths, the zoom/view group moves together onto a second row.
-The reading area clips its content at the analysis sidebar boundary.
-The analysis and vocabulary details sidebars resize by dragging their left edge,
-from 320px up to 70% of the available width (and smaller when the window requires
-it). Each panel retains its chosen width when closed and reopened during the session.
+- Show loading, errors, and empty states where the action occurs.
+- Distinguish no content, no matches, and a failed operation.
+- Give immediate feedback for actions, including clear drag and drop previews.
+- Use subtle motion to explain changes without distracting from the content.
+- Avoid confirmation dialogs for reversible actions.
 
-Watch uses familiar playback controls and interactive primary subtitles. In
-fullscreen, a quick definition can hand off to the analysis sidebar while
-preserving the video's paused/playing state. Timed transcripts follow playback;
-manual scrolling pauses following until resumed or idle. Untimed TXT transcripts
-scroll independently and remember their own position.
+## Accessibility
 
-## Vocabulary and settings
-
-Vocabulary cards show the word, linguistic information, selected meaning, and
-source. Search, type filters, and sorting support browsing; a details sidebar
-shows full saved context. Editing uses the shared vocabulary form. Settings
-group appearance, dictionaries, channels, and connections into categories.
-Embedded dictionary rows have a trailing six-dot grip; drag it vertically or
-use its Up/Down keys to change the saved tab order, including disabled tabs.
-During dragging, the row lifts with a shadow and follows the pointer above a
-placeholder. Neighboring rows slide aside to preview the drop position;
-releasing commits the new order.
-
-Show loading, error, and empty states where the action occurs. Do not silently
-replace failed operations with incomplete behavior. Avoid confirmation dialogs
-for reversible actions. Keep transitions subtle, keyboard operation usable,
-and changes focused on the requested feature.
+- Support keyboard navigation with visible focus and clear control labels.
+- Provide hover, pressed, and disabled states without relying on color alone.
+- Keep text legible and interactive targets comfortable to use.
+- Check changed flows in both themes, at narrow widths, and with application zoom.

@@ -2,11 +2,9 @@
 /target/
 /core/target/
 /resources/kiwi/
-/AGENTS.md
 .DS_Store
 .env
 .env.*
 !.env.example
-
 /.venv-youtube/
 **/__pycache__/
