@@ -53,7 +53,9 @@ Users should be able to:
 Wiktionary is the default online Korean-to-English dictionary, with no API key setup.
 The reader displays definitions in its analysis panel and can save one selected
 meaning with the vocabulary entry for offline access. Full entries can open in the system browser. Reader also supports embedded
-Naver, Papago, and custom dictionary tabs when Qt WebEngine Quick is available. KRDict is an optional online provider. Selected meanings remain available offline.
+Naver, Papago, KRDict, and custom dictionary tabs when Qt WebEngine Quick is available.
+The embedded KRDict tab uses its mobile website without an API key. KRDict is also
+an optional API-based definition provider. Selected meanings remain available offline.
 Downloadable dictionaries and advanced review systems are deferred.
 
 ## 4. Media Library

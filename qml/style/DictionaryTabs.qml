@@ -5,10 +5,13 @@ import QtCore
 
 QtObject {
     property bool webEngineAvailable: false
-    readonly property var providers: [
+    readonly property var builtIn: [
         { label: "Naver", template: "https://korean.dict.naver.com/koendict/#/search?query={word}" },
-        { label: "Papago", template: "https://papago.naver.com/?sl=ko&tl=en&text={word}" }
-    ].concat(custom)
+        { label: "Papago", template: "https://papago.naver.com/?sl=ko&tl=en&text={word}" },
+        { label: "KRDict", template: "https://krdict.korean.go.kr/m/eng/searchResult?mainSearchWord={word}" }
+    ]
+    readonly property var providers: builtIn.concat(custom.filter(provider =>
+        !builtIn.some(entry => entry.template === provider.template)))
     readonly property var enabled: providers.filter(provider => !disabled.includes(provider.template))
 
     readonly property var custom: JSON.parse(preferences.custom)

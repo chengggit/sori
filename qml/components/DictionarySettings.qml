@@ -35,7 +35,7 @@ Dialog {
                 }
 
                 AppButton {
-                    visible: index >= 2
+                    visible: index >= DictionaryTabs.builtIn.length
                     text: "Remove"
                     variant: "ghost"
                     small: true

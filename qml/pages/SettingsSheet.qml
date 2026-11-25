@@ -582,7 +582,7 @@ Popup {
                                             }
 
                                             AppButton {
-                                                visible: parent.index >= 2
+                                                visible: parent.index >= DictionaryTabs.builtIn.length
                                                 iconName: "x"
                                                 variant: "ghost"
                                                 Layout.preferredWidth: 24
