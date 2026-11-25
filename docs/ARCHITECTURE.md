@@ -105,6 +105,10 @@ Reader, local Watch, and YouTube Watch share analysis and vocabulary components.
 Morphological analysis is independent of online dictionary access. Wiktionary
 and KRDict return plain-text definitions; provider attribution and selected
 meanings are retained with saved vocabulary for offline access.
+Visited embedded dictionary pages remain loaded for 30 seconds after the analysis
+sidebar closes, allowing quick reopening. Reopening cancels expiry; after the
+grace period, the views are destroyed. WebEngine may retain shared process and
+cache memory after those views are released.
 
 ## Watching
 

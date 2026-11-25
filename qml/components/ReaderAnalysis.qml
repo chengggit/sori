@@ -17,6 +17,21 @@ Rectangle {
     property string youtubeId: ""
     property string sourceTitle: ""
     readonly property bool opened: selectedWord !== ""
+    property int dictionaryRetentionMs: 30000
+    property bool dictionaryPagesRetained: false
+    onOpenedChanged: {
+        if (opened) {
+            dictionaryPagesRetained = true
+            dictionaryExpiry.stop()
+        } else if (dictionaryPagesRetained) {
+            dictionaryExpiry.restart()
+        }
+    }
+    Timer {
+        id: dictionaryExpiry
+        interval: root.dictionaryRetentionMs
+        onTriggered: root.dictionaryPagesRetained = false
+    }
     property bool animateEntrance: false
     property real revealProgress: animateEntrance ? (opened ? 1 : 0) : 1
     Behavior on revealProgress {
@@ -376,7 +391,8 @@ Rectangle {
         }
 
         Repeater {
-            model: root.opened ? DictionaryTabs.enabled : []
+            objectName: "embeddedDictionaryPages"
+            model: root.opened || root.dictionaryPagesRetained ? DictionaryTabs.enabled : []
 
             delegate: DictionaryLookupView {
                 id: dictionaryPage
@@ -393,7 +409,7 @@ Rectangle {
                     ? Analysis.dictionaryLookupUrl(modelData.template, encodeURIComponent(lookupWord)).data : ""
 
                 function updateLookup() {
-                    if (current)
+                    if (current && root.opened)
                         lookupWord = root.selectedWord.trim()
                 }
 
