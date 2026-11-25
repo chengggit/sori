@@ -231,16 +231,19 @@ Rectangle {
 
             TabBar {
                 id: tabs
+                objectName: "dictionaryTabs"
                 anchors.left: parent.left
                 anchors.leftMargin: 12
                 anchors.right: closeAnalysisButton.left
+                anchors.rightMargin: Theme.controlGap
                 anchors.bottom: parent.bottom
                 height: 38
                 padding: 0
                 spacing: 4
                 background: null
                 readonly property int tabCount: DictionaryTabs.enabled.length + 1
-                readonly property real tabWidth: Math.max(92, (root.width - 16 - Theme.iconButtonSize
+                // 12px left margin, 4px close-button margin, and the gap above.
+                readonly property real tabWidth: Math.max(92, (root.width - 24 - Theme.iconButtonSize
                     - spacing * (tabCount - 1)) / tabCount)
 
                 Repeater {
@@ -279,6 +282,42 @@ Rectangle {
                             verticalAlignment: Text.AlignVCenter
                             elide: Text.ElideRight
                         }
+                    }
+                }
+
+                // Keep tabs inside the strip instead of drawing over the close
+                // button when the sidebar is too narrow for every tab.
+                Binding {
+                    target: tabs.contentItem
+                    property: "clip"
+                    value: true
+                }
+
+                // The tab strip scrolls when dragged or when the selected tab
+                // changes, but wheel input had no effect. Support the wheel so
+                // tabs stay reachable when the sidebar is too narrow for them.
+                WheelHandler {
+                    acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+                    target: null
+                    blocking: true
+                    onWheel: event => {
+                        const preciseX = event.pixelDelta.x
+                        const preciseY = event.pixelDelta.y
+                        const horizontal = preciseX !== 0 ? preciseX : event.angleDelta.x
+                        const vertical = preciseY !== 0 ? preciseY : event.angleDelta.y
+                        if (horizontal === 0 && vertical === 0) {
+                            event.accepted = false
+                            return
+                        }
+                        event.accepted = true
+                        // Wheel down moves towards later tabs, like a vertical list.
+                        const step = horizontal !== 0 ? horizontal
+                            : -(preciseY !== 0 ? vertical : vertical / 120 * tabs.tabWidth)
+                        const strip = tabs.contentItem
+                        strip.cancelFlick()
+                        const minimum = strip.originX
+                        const maximum = Math.max(minimum, minimum + strip.contentWidth - strip.width)
+                        strip.contentX = Math.max(minimum, Math.min(maximum, strip.contentX + step))
                     }
                 }
             }
