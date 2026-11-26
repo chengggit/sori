@@ -14,7 +14,8 @@ tags, pull requests, and manual dispatch, using Qt 6.10.2.
 
 - **Pull requests:** build and test on all three platforms, without Rust optimization,
   caption-helper bundling, or installers. Caption logic is still tested in Python.
-- **Main, version tags, and manual runs:** optimized builds, bundled captions,
+- **Main:** the same checks (to warm caches for future PRs), plus full packages.
+- **Version tags and manual runs:** optimized builds, bundled captions,
   installers, and package smoke checks.
 
 Compiled Rust dependencies, Qt, pip downloads, and Kiwi resources are cached.

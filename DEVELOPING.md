@@ -178,7 +178,8 @@ in a regular build if the preview SDK lacks WebEngine.
 <details>
 <summary>Native Kiwi and caption-helper checks</summary>
 
-Native Kiwi tests use a separate source-tree fixture:
+Native Kiwi tests use a separate source-tree fixture. CI runs these through
+CTest with `-DSORI_TEST_NATIVE_KIWI=ON`; to run them directly:
 
 ```sh
 cmake -P scripts/setup-kiwi.cmake

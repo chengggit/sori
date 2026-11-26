@@ -120,6 +120,16 @@ add_test(NAME rust
         "${CARGO_EXECUTABLE}" test --profile "${CORE_PROFILE}" --locked
         --manifest-path "${CORE_DIR}/Cargo.toml" --target-dir "${CORE_TARGET}"
 )
+option(SORI_TEST_NATIVE_KIWI "Enable tests requiring prepared native Kiwi fixtures" OFF)
+if(SORI_TEST_NATIVE_KIWI)
+    add_test(NAME kiwi
+        COMMAND "${CMAKE_COMMAND}" -E env "QMAKE=${SORI_QMAKE}"
+            "${CARGO_EXECUTABLE}" test --profile "${CORE_PROFILE}" --locked
+            --manifest-path "${CORE_DIR}/Cargo.toml" --target-dir "${CORE_TARGET}"
+            nlp::tests -- --include-ignored --nocapture)
+    set_tests_properties(kiwi PROPERTIES TIMEOUT 120)
+endif()
+
 add_executable(sori-bridge-test tests/native/bridge_smoke.cpp)
 add_dependencies(sori-bridge-test sori-core)
 target_link_libraries(sori-bridge-test PRIVATE "${CORE_LIB}" Qt6::Test Qt6::Quick ${SORI_MPV_TARGET})
