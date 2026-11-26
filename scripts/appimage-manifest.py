@@ -11,6 +11,10 @@ import sysconfig
 
 appdir = Path(sys.argv[1]).resolve()
 project = Path(__file__).resolve().parent.parent
+kiwi_cache = next(
+    line.split("=", 1)[1] for line in (project / "build/CMakeCache.txt").read_text().splitlines()
+    if line.startswith("SORI_KIWI_DIR:PATH=")
+)
 qmake = os.environ.get("QMAKE", "qmake6")
 qt = subprocess.check_output([qmake, "-query", "QT_VERSION"], text=True).strip()
 libdir = Path(subprocess.check_output([qmake, "-query", "QT_INSTALL_LIBS"], text=True).strip())
@@ -38,7 +42,7 @@ for path in (appdir / "usr").rglob("*"):
     if str(relative).startswith("bin/helpers/"):
         candidates.insert(0, project / "build" / Path(*relative.parts[1:]))
     if str(relative) == "bin/kiwi/lib/libkiwi.so":
-        candidates.insert(0, project / "resources/kiwi/lib/libkiwi.so")
+        candidates.insert(0, Path(kiwi_cache) / "lib/libkiwi.so")
     original = next((candidate for candidate in candidates if candidate.is_file()), None)
     if original is None:
         original = next((candidate for candidate in libdir.rglob(path.name) if candidate.is_file()), None)

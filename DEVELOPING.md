@@ -37,18 +37,20 @@ separate Qt SDK if their packaged Qt version is below the minimum.
 
 ## Build for your own use
 
-These Linux/macOS commands build an optimized app with the YouTube caption
-helper included. You'll also need Python 3 with pip and venv support to package
-the helper. Run each command in order after installing the prerequisites:
+After installing the prerequisites and Python 3 with pip/venv support, run:
 
 ```sh
 git clone https://github.com/chengggit/sori.git
 cd sori
-cmake -P scripts/setup-kiwi.cmake
-python3 -m venv .venv-youtube
-.venv-youtube/bin/python -m pip install -r scripts/requirements-youtube-build.txt
-./scripts/dev release
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --parallel
 ```
+
+CMake prepares checksum-verified Kiwi resources and a private caption-helper
+Python environment under `build/deps/` during the build. It never installs system
+packages or changes your global Python environment. Initial setup needs internet;
+subsequent builds reuse prepared resources. The packaged caption helper includes
+its own Python runtime.
 
 Launch on Linux with `./build/sori`, or on macOS with
 `./build/sori.app/Contents/MacOS/sori`. Use the same command for later launches.
@@ -56,15 +58,21 @@ Keep the checkout and build folder in place; this build uses your installed
 system dependencies. You don't need to create an installer or run the test
 suites just to use the app.
 
-Initial setup downloads Rust dependencies and checksum-verified Kiwi resources,
-so it needs internet and may take a while. Local analysis then works offline.
-The helper includes its own Python runtime after building.
+If Qt isn't found automatically, add `-DCMAKE_PREFIX_PATH=/path/to/qt` to the
+configuration command.
 
-If Qt isn't found automatically, select your SDK before the release command:
+Optional configuration flags:
 
-```sh
-cmake --preset release -DCMAKE_PREFIX_PATH=/path/to/qt
-```
+| Flag | Purpose |
+| ---- | ------- |
+| `-DSORI_BUNDLE_TRANSCRIPT_HELPER=OFF` | Build without bundling captions; no build-time Python required |
+| `-DSORI_ALLOW_DOWNLOADS=OFF` | Reject missing Kiwi/Python setup instead of downloading |
+| `-DSORI_KIWI_DIR=/path/to/kiwi -DSORI_PREPARE_KIWI=OFF` | Use existing native library and models |
+| `-DSORI_HELPER_PYTHON=/path/to/python` | Use an existing environment containing the requirements in `scripts/requirements-youtube-build.txt` |
+
+`SORI_ALLOW_DOWNLOADS` controls our resource setup, not Cargo. For fully offline
+builds, also cache Rust dependencies and set `CARGO_NET_OFFLINE=true`.
+To update Python dependencies offline, supply a prepared helper environment.
 
 For Windows source builds, follow the MSVC/Ninja setup in the
 [CI workflow](.github/workflows/build.yml); these Make-based presets are for
@@ -106,16 +114,15 @@ For CI artifacts and public release preparation, see
 
 ## Working on the code
 
-After cloning and preparing Kiwi as above, use the development build for faster
+After cloning, use the development build for faster
 iteration and debugging:
 
 ```sh
 ./scripts/dev run
 ```
 
-Python is optional for development unless you're working on YouTube caption
-fetching. For that, prepare `.venv-youtube` using the commands above (on Windows,
-use `.venv-youtube/Scripts/python.exe`).
+The Debug preset leaves caption bundling off. To enable it, configure with
+`-DSORI_BUNDLE_TRANSCRIPT_HELPER=ON`; the build prepares its private environment.
 
 To select a Qt SDK for development, use
 `cmake --preset dev -DCMAKE_PREFIX_PATH=/path/to/qt`. When running Cargo directly,
@@ -214,6 +221,9 @@ If the preview SDK lacks WebEngine, verify embeds in the regular build.
 ## Transcript helper troubleshooting
 
 Sori prefers the bundled helper, then falls back to `.venv-youtube` in development.
+An existing development environment can be prepared with `python3 -m venv
+.venv-youtube` followed by `.venv-youtube/bin/python -m pip install -r
+scripts/requirements-youtube-build.txt`.
 `SORI_PYTHON` selects a development interpreter; the CMake setting
 `SORI_HELPER_PYTHON` selects the interpreter used to package it.
 `SORI_TEST_PYTHON` selects the environment for CTest's Python suite.

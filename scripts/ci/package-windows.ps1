@@ -5,7 +5,6 @@ $prefix = Join-Path $project 'build/windows-install'
 $stage = Join-Path $prefix 'bin'
 & cmake --install build --prefix $prefix
 if ($LASTEXITCODE -ne 0) { throw 'Application staging failed' }
-Copy-Item resources/kiwi "$stage/kiwi" -Recurse -Force
 Copy-Item "$env:MPV_ROOT/bin/*.dll" $stage -Force
 foreach ($tool in @('ffmpeg', 'ffprobe')) {
     $binary = Get-ChildItem "$env:ChocolateyInstall/lib/ffmpeg" -Recurse -Filter "$tool.exe" | Select-Object -First 1

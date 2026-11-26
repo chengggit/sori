@@ -31,7 +31,7 @@ Developer ID signing and notarization are not configured.
 
 ## Linux AppImage
 
-Prepare the development dependencies, `.venv-youtube`, and `appstreamcli`
+Prepare the development dependencies, Python with pip/venv, and `appstreamcli`
 (`appstream` on Fedora), then run:
 
 ```sh

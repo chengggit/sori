@@ -32,13 +32,11 @@ fetch_tool linuxdeploy/linuxdeploy-plugin-qt linuxdeploy-plugin-qt-x86_64.AppIma
 fetch_tool AppImage/appimagetool appimagetool-x86_64.AppImage e8c1169c4af66c3184d7ee110713d4be04befe671fa358e2c1591ee840553b03
 fetch_tool AppImage/type2-runtime runtime-x86_64 617aa77314d57c8b8e4fae9c3f0b35af7b30d5529cb69e98f64f92510ed98a46
 
-cmake -P scripts/setup-kiwi.cmake
 cmake --preset release
 cmake --build --preset release --parallel "${CMAKE_BUILD_PARALLEL_LEVEL:-2}"
 # Only this workflow's generated AppDir is replaced.
 rm -rf -- "$appdir"
 cmake --install build --prefix "$appdir/usr"
-cmake -E copy_directory resources/kiwi "$appdir/usr/bin/kiwi"
 
 export APPIMAGE_EXTRACT_AND_RUN=1
 export NO_STRIP=1

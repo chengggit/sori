@@ -44,7 +44,28 @@ if(WIN32)
     target_sources(sori PRIVATE packaging/windows/sori.rc)
     target_include_directories(sori PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/packaging/windows")
 endif()
-target_compile_definitions(sori PRIVATE SORI_KIWI_DIR="${CMAKE_CURRENT_SOURCE_DIR}/resources/kiwi")
+option(SORI_ALLOW_DOWNLOADS "Allow project resource downloads during builds (Cargo has its own offline mode)" ON)
+option(SORI_PREPARE_KIWI "Prepare pinned Kiwi resources automatically" ON)
+set(SORI_KIWI_DIR "${CMAKE_BINARY_DIR}/deps/kiwi" CACHE PATH "Prepared Kiwi library and models")
+if(CMAKE_CROSSCOMPILING AND SORI_PREPARE_KIWI)
+    message(FATAL_ERROR "Cross builds must supply target Kiwi resources with SORI_PREPARE_KIWI=OFF and SORI_KIWI_DIR.")
+endif()
+if(WIN32)
+    set(_kiwi_library kiwi.dll)
+elseif(APPLE)
+    set(_kiwi_library libkiwi.dylib)
+else()
+    set(_kiwi_library libkiwi.so)
+endif()
+add_custom_target(kiwi-resources
+    COMMAND "${CMAKE_COMMAND}" "-DSORI_KIWI_DIR=${SORI_KIWI_DIR}"
+        "-DSORI_PREPARE_KIWI=${SORI_PREPARE_KIWI}" "-DSORI_ALLOW_DOWNLOADS=${SORI_ALLOW_DOWNLOADS}"
+        "-DKIWI_LIBRARY=${_kiwi_library}" -P "${CMAKE_SOURCE_DIR}/scripts/prepare-kiwi.cmake"
+    VERBATIM)
+add_dependencies(sori kiwi-resources)
+target_compile_definitions(sori PRIVATE SORI_KIWI_DIR="${SORI_KIWI_DIR}")
+install(DIRECTORY "${SORI_KIWI_DIR}/" DESTINATION bin/kiwi
+    PATTERN "setup.lock" EXCLUDE PATTERN ".setup" EXCLUDE)
 option(SORI_QML_PREVIEW "Enable QML live preview for local development" OFF)
 if(SORI_QML_PREVIEW)
     if(Qt6_VERSION VERSION_LESS 6.12)
@@ -80,6 +101,8 @@ add_custom_command(OUTPUT "${CORE_LIB}"
 add_custom_target(sori-core DEPENDS "${CORE_LIB}")
 add_dependencies(sori sori-core)
 
+include(scripts/bundle-youtube.cmake)
+
 enable_testing()
 add_test(NAME rust
     COMMAND "${CMAKE_COMMAND}" -E env "QMAKE=${SORI_QMAKE}"
@@ -103,14 +126,16 @@ add_test(NAME qml COMMAND "${CMAKE_COMMAND}" -E env
     -input "${CMAKE_SOURCE_DIR}/tests/qml")
 set_tests_properties(qml PROPERTIES TIMEOUT 90)
 
-# Python remains optional. Register helper tests when its development environment exists.
-if(WIN32)
+# Use the managed helper environment for tests, or an existing development environment.
+if(SORI_BUNDLE_TRANSCRIPT_HELPER)
+    set(_sori_test_python "${_sori_helper_python}")
+elseif(WIN32)
     set(_sori_test_python "${CMAKE_SOURCE_DIR}/.venv-youtube/Scripts/python.exe")
 else()
     set(_sori_test_python "${CMAKE_SOURCE_DIR}/.venv-youtube/bin/python")
 endif()
 set(SORI_TEST_PYTHON "${_sori_test_python}" CACHE FILEPATH "Python with youtube-transcript-api for helper tests")
-if(EXISTS "${SORI_TEST_PYTHON}")
+if(EXISTS "${SORI_TEST_PYTHON}" OR TARGET caption-python)
     add_test(NAME python COMMAND "${SORI_TEST_PYTHON}" -m unittest discover
         -s "${CMAKE_SOURCE_DIR}/tests/python")
 else()
@@ -206,5 +231,4 @@ qt_add_resources(sori "watch" PREFIX "/" FILES
     assets/Inter-Variable.ttf assets/NotoSansKR-Regular.otf
 )
 
-include(scripts/bundle-youtube.cmake)
 install(TARGETS sori RUNTIME DESTINATION bin BUNDLE DESTINATION .)
