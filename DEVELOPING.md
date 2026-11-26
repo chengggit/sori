@@ -18,6 +18,11 @@ The later development sections are for working on the code. For contribution gui
 | libmpv development files              | Found through pkg-config on Linux/macOS; `MPV_ROOT` on Windows |
 | FFmpeg and FFprobe on PATH            | Media inspection, subtitles, and thumbnails                    |
 | Git and Bash                          | Dependencies and the `scripts/dev` helper                      |
+| Python 3 with pip and venv support     | Required for default Release builds to bundle the caption helper; optional with `-DSORI_BUNDLE_TRANSCRIPT_HELPER=OFF` |
+
+Install Python through your system package manager or Python distribution.
+CMake creates the private helper environment and installs its packages during
+the build; it does not install Python itself. Packaged-app users don't need Python.
 
 Most local development and testing has been on Fedora 44. The
 [CI workflow](.github/workflows/build.yml) also shows the Ubuntu 24.04, Windows,
@@ -29,7 +34,7 @@ Example dependencies install on Fedora 44:
 ```sh
 sudo dnf install git gcc-c++ make cmake pkgconf-pkg-config mpv-devel \
   qt6-qtbase-devel qt6-qtbase-private-devel qt6-qtdeclarative-devel \
-  qt6-qtsvg qt6-qtwebengine-devel qt6-qtpdf-devel ffmpeg-free
+  qt6-qtsvg qt6-qtwebengine-devel qt6-qtpdf-devel ffmpeg-free python3 python3-pip
 ```
 
 Install Rust through [rustup](https://rustup.rs/). Other distributions may need a
@@ -37,7 +42,7 @@ separate Qt SDK if their packaged Qt version is below the minimum.
 
 ## Build for your own use
 
-After installing the prerequisites and Python 3 with pip/venv support, run:
+After installing the prerequisites above, run:
 
 ```sh
 git clone https://github.com/chengggit/sori.git
