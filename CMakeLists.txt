@@ -20,6 +20,12 @@ if(WIN32)
 else()
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(MPV REQUIRED IMPORTED_TARGET mpv)
+    # Some mpv pkg-config files omit Cflags even when headers are outside the
+    # compiler's default search paths (notably Homebrew on Apple Silicon).
+    pkg_get_variable(MPV_HEADER_ROOT mpv includedir)
+    find_path(MPV_INCLUDE_DIR mpv/client.h HINTS "${MPV_HEADER_ROOT}" ${MPV_INCLUDE_DIRS} REQUIRED)
+    set_property(TARGET PkgConfig::MPV APPEND PROPERTY
+        INTERFACE_INCLUDE_DIRECTORIES "${MPV_INCLUDE_DIR}")
     set(SORI_MPV_TARGET PkgConfig::MPV)
 endif()
 get_target_property(SORI_QMAKE Qt6::qmake IMPORTED_LOCATION)
@@ -106,7 +112,7 @@ include(scripts/bundle-youtube.cmake)
 enable_testing()
 add_test(NAME rust
     COMMAND "${CMAKE_COMMAND}" -E env "QMAKE=${SORI_QMAKE}"
-        "${CARGO_EXECUTABLE}" test --locked
+        "${CARGO_EXECUTABLE}" test --profile "${CORE_PROFILE}" --locked
         --manifest-path "${CORE_DIR}/Cargo.toml" --target-dir "${CORE_TARGET}"
 )
 add_executable(sori-bridge-test tests/native/bridge_smoke.cpp)
