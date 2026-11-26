@@ -16,6 +16,7 @@ foreach ($tool in @('ffmpeg', 'ffprobe')) {
 if ($LASTEXITCODE -ne 0) { throw 'Qt deployment failed' }
 New-Item -ItemType Directory -Force "$stage/licenses" | Out-Null
 Copy-Item LICENSE, assets/*LICENSE*, assets/OFL-*.txt, assets/kiwi/*LICENSE "$stage/licenses/" -Force
+if (Test-Path "$env:MPV_ROOT/licenses") { Copy-Item "$env:MPV_ROOT/licenses/*" "$stage/licenses/" -Force }
 $version = (& python -c "import tomllib; print(tomllib.load(open('core/Cargo.toml','rb'))['package']['version'])").Trim()
 if ($LASTEXITCODE -ne 0 -or $version -notmatch '^\d+\.\d+\.\d+([+-][0-9A-Za-z.-]+)?$') { throw 'Invalid application version' }
 $compiler = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6/ISCC.exe'

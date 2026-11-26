@@ -10,8 +10,15 @@ see [CONTRIBUTING.md](../CONTRIBUTING.md).
 ## CI artifacts
 
 [Desktop builds](../.github/workflows/build.yml) runs on pushes to `main`, version
-tags, pull requests, and manual dispatch. It builds and tests with Qt 6.10.2,
-Kiwi resources, and the private Python caption helper.
+tags, pull requests, and manual dispatch, using Qt 6.10.2.
+
+- **Pull requests:** build and test on all three platforms, without Rust optimization,
+  caption-helper bundling, or installers. Caption logic is still tested in Python.
+- **Main, version tags, and manual runs:** optimized builds, bundled captions,
+  installers, and package smoke checks.
+
+Compiled Rust dependencies, Qt, pip downloads, and Kiwi resources are cached.
+The first run or a toolchain change still needs a cold build.
 
 | Target                           | Package                                             |
 | -------------------------------- | --------------------------------------------------- |
@@ -26,7 +33,9 @@ hosted runs and clean-system testing before being advertised as supported.
 The Windows installer uses `%LOCALAPPDATA%\Programs\Sori` without administrator
 access. It offers shortcuts and an uninstaller that preserves separate user
 data. CI checks a silent install, installed tools, and uninstall.
-The installer is unsigned. macOS CI verifies the DMG and ad-hoc app signature;
+The installer bundles the Vulkan loader required by its mpv DLL and the loader's
+license. It does not require a system-wide Vulkan SDK. The installer is unsigned.
+macOS CI verifies the DMG and ad-hoc app signature;
 Developer ID signing and notarization are not configured.
 
 ## Linux AppImage

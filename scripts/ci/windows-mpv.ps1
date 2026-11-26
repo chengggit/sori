@@ -13,6 +13,17 @@ if (!$dll -or !$header) { throw 'mpv archive is missing DLL or headers' }
 New-Item -ItemType Directory -Force "$destination/include", "$destination/lib", "$destination/bin" | Out-Null
 if ([IO.Path]::GetFullPath($header.Directory.FullName) -ne [IO.Path]::GetFullPath("$destination/include/mpv")) { Copy-Item $header.Directory.FullName "$destination/include/mpv" -Recurse -Force }
 Copy-Item $dll.FullName "$destination/bin/$($dll.Name)" -Force
+# This mpv build imports vulkan-1.dll even when playback uses OpenGL. Ship the
+# redistributable loader privately; do not require a machine-wide Vulkan SDK.
+$runtimeArchive = Join-Path $env:RUNNER_TEMP 'vulkan-runtime.zip'
+Invoke-WebRequest 'https://sdk.lunarg.com/sdk/download/1.4.363.0/windows/VulkanRT-X64-1.4.363.0-Components.zip' -OutFile $runtimeArchive
+if ((Get-FileHash $runtimeArchive -Algorithm SHA256).Hash.ToLowerInvariant() -ne 'a25a927aa8b9f0371048f1861cf88ac3b9bc9b1fb332c42d897c8ab32695769a') { throw 'Vulkan runtime checksum mismatch' }
+$runtimeDir = Join-Path $env:RUNNER_TEMP 'vulkan-runtime'
+Expand-Archive $runtimeArchive $runtimeDir -Force
+$runtime = Join-Path $runtimeDir 'VulkanRT-X64-1.4.363.0-Components'
+Copy-Item "$runtime/x64/vulkan-1.dll" "$destination/bin/" -Force
+New-Item -ItemType Directory -Force "$destination/licenses" | Out-Null
+Copy-Item "$runtime/VulkanRT-License.txt" "$destination/licenses/" -Force
 $exports = & dumpbin /nologo /exports $dll.FullName
 if ($LASTEXITCODE -ne 0) { throw 'dumpbin failed' }
 $symbols = @($exports | ForEach-Object { if ($_ -match '^\s+\d+\s+[0-9A-F]+\s+[0-9A-F]+\s+(mpv_\w+)') { $Matches[1] } })

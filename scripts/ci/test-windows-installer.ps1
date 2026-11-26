@@ -10,7 +10,7 @@ $process = Start-Process $installer.FullName -Wait -PassThru -ArgumentList @(
 )
 if ($process.ExitCode -ne 0) { throw "Installer failed: $($process.ExitCode)" }
 foreach ($file in @('sori.exe', 'QtWebEngineProcess.exe', 'ffmpeg.exe', 'ffprobe.exe',
-                    'kiwi/lib/kiwi.dll', 'kiwi/models/cong/base/cong.mdl',
+                    'vulkan-1.dll', 'kiwi/lib/kiwi.dll', 'kiwi/models/cong/base/cong.mdl',
                     'helpers/sori-youtube-transcript/sori-youtube-transcript.exe')) {
     if (!(Test-Path (Join-Path $installDir $file))) { throw "Installed payload is missing: $file" }
 }

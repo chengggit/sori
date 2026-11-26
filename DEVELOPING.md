@@ -91,6 +91,8 @@ cmake --preset dev -DSORI_BUNDLE_TRANSCRIPT_HELPER=ON
 Install Visual Studio Build Tools with **Desktop development with C++**, Ninja,
 and the MSVC x64 Qt SDK. You'll also need an mpv development directory containing
 `include/mpv/client.h`, `lib/mpv.lib` (an MSVC import library), and its DLLs in `bin/`.
+The mpv build used by CI also needs `vulkan-1.dll`; its setup script supplies the
+loader privately.
 
 Open **Developer PowerShell for VS** with the x64 compiler tools enabled. From
 Sori's project root, set your actual Qt and mpv paths, then build and launch:

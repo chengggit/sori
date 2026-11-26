@@ -27,7 +27,12 @@ jobs:
             os: macos-15
             qt-arch: clang_64
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 90
+    timeout-minutes: 60
+    env:
+      CI_BUILD_TYPE: Release
+      # Keep the release Qt/CRT ABI on Windows, but avoid expensive Rust
+      # optimization for PR checks. Main/tags/manual runs build optimized apps.
+      CARGO_PROFILE_RELEASE_OPT_LEVEL: ${{ github.event_name == 'pull_request' && '0' || '3' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -35,6 +40,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+          cache: pip
+          cache-dependency-path: 'scripts/requirements-youtube*.txt'
       - name: Linux dependencies
         if: runner.os == 'Linux'
         run: |
@@ -44,6 +51,7 @@ jobs:
         if: runner.os == 'macOS'
         run: |
           brew install mpv ffmpeg pkg-config ninja
+          echo "MACOSX_DEPLOYMENT_TARGET=15.0" >> "$GITHUB_ENV"
           echo "RUSTFLAGS=-Lnative=$(brew --prefix mpv)/lib" >> "$GITHUB_ENV"
           echo "PKG_CONFIG_PATH=$(brew --prefix mpv)/lib/pkgconfig" >> "$GITHUB_ENV"
       - uses: ilammy/msvc-dev-cmd@v1
@@ -69,21 +77,47 @@ jobs:
         with:
           version: '6.10.2'
           arch: ${{ matrix.qt-arch }}
-          modules: 'qtpdf qtwebengine qtwebchannel qtpositioning qtshadertools'
+          modules: 'qtpdf qtwebengine qtwebchannel qtpositioning qtshadertools qtserialport'
           cache: true
       - name: Rust toolchain
         shell: bash
         run: |
           rustup toolchain install stable --profile minimal
           rustup default stable
+      - name: Cache compiled Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: 'core -> ../build/cargo'
+          key: '${{ runner.os }}-${{ runner.arch }}-qt6.10.2-${{ env.CI_BUILD_TYPE }}-opt${{ env.CARGO_PROFILE_RELEASE_OPT_LEVEL }}'
+          cache-on-failure: true
+      - name: Cache Kiwi resources
+        uses: actions/cache@v4
+        with:
+          path: build/deps/kiwi
+          key: kiwi-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('scripts/setup-kiwi.cmake') }}
+      - name: Python test environment
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          python -m venv .venv-youtube
+          if [[ "$RUNNER_OS" == Windows ]]; then python_path=.venv-youtube/Scripts/python.exe; else python_path=.venv-youtube/bin/python; fi
+          "$python_path" -m pip install -r scripts/requirements-youtube.txt
       - name: Configure
         shell: bash
         run: |
           extra=()
+          bundle=ON
+          if [[ "$GITHUB_EVENT_NAME" == pull_request ]]; then bundle=OFF; fi
           if [[ "$RUNNER_OS" == Windows ]]; then extra+=("-DMPV_ROOT=$MPV_ROOT"); fi
-          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DSORI_REQUIRE_WEBENGINE=ON -DSORI_BUNDLE_TRANSCRIPT_HELPER=ON "${extra[@]}"
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE="$CI_BUILD_TYPE" -DSORI_REQUIRE_WEBENGINE=ON -DSORI_BUNDLE_TRANSCRIPT_HELPER="$bundle" "${extra[@]}"
       - name: Build
         run: cmake --build build --parallel 2
+      - name: Windows test runtime
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          Copy-Item "$env:MPV_ROOT/bin/*.dll" build/ -Force
+          dumpbin /dependents build/sori-bridge-test.exe
       - name: Tests
         run: ctest --test-dir build --verbose --timeout 600
       - name: Prepare native test fixtures
@@ -95,12 +129,14 @@ jobs:
           if [[ "$RUNNER_OS" == Windows ]]; then export QMAKE="$QT_ROOT_DIR/bin/qmake.exe"; fi
           cargo test --release --locked --manifest-path core/Cargo.toml --target-dir build/cargo nlp::tests -- --include-ignored
       - name: Package
+        if: github.event_name != 'pull_request'
         run: cmake --build build --target package
       - name: Windows install and uninstall check
-        if: runner.os == 'Windows'
+        if: github.event_name != 'pull_request' && runner.os == 'Windows'
         shell: pwsh
         run: ./scripts/ci/test-windows-installer.ps1
       - uses: actions/upload-artifact@v4
+        if: github.event_name != 'pull_request'
         with:
           name: sori-${{ runner.os }}-${{ runner.arch }}
           if-no-files-found: error
