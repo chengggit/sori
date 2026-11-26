@@ -24,7 +24,7 @@ jobs:
             os: windows-2022
             qt-arch: win64_msvc2022_64
           - name: macOS arm64
-            os: macos-14
+            os: macos-15
             qt-arch: clang_64
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
@@ -69,7 +69,7 @@ jobs:
         with:
           version: '6.10.2'
           arch: ${{ matrix.qt-arch }}
-          modules: 'qtwebengine qtwebchannel qtpositioning qtshadertools'
+          modules: 'qtpdf qtwebengine qtwebchannel qtpositioning qtshadertools'
           cache: true
       - name: Rust toolchain
         shell: bash

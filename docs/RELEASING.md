@@ -17,7 +17,7 @@ Kiwi resources, and the private Python caption helper.
 | -------------------------------- | --------------------------------------------------- |
 | Ubuntu 24.04 LTS x86_64          | AppImage                                            |
 | Windows Server 2022 x86_64, MSVC | Per-user Inno Setup `.exe` installer                |
-| macOS 14 arm64                   | `.dmg` with `Sori.app` and an Applications shortcut |
+| macOS 15 arm64                   | `.dmg` with `Sori.app` and an Applications shortcut |
 
 Packages include SHA-256 checksums. CI uploads build candidates; it does not
 publish GitHub releases automatically. Windows/macOS still need successful
