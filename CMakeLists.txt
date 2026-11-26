@@ -149,6 +149,12 @@ else()
 endif()
 
 target_link_libraries(sori PRIVATE "${CORE_LIB}" Qt6::Quick Qt6::OpenGL Qt6::Test Qt6::PdfQuick ${SORI_MPV_TARGET})
+if(WIN32)
+    # Rust's staticlib uses Windows named-pipe APIs from ntdll. Cargo supplies
+    # this when linking Rust binaries; CMake must supply it for our executables.
+    target_link_libraries(sori PRIVATE ntdll)
+    target_link_libraries(sori-bridge-test PRIVATE ntdll)
+endif()
 if(TARGET Qt6::WebEngineQuick)
     target_link_libraries(sori PRIVATE Qt6::WebEngineQuick)
     target_compile_definitions(sori PRIVATE SORI_WEB_ENGINE)
