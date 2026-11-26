@@ -2,22 +2,23 @@
 set -euo pipefail
 project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$project_dir"
-stage="$project_dir/build/macos-dmg"
+build_dir="${SORI_BUILD_DIR:-$project_dir/build}"
+stage="$build_dir/macos-dmg"
 app="$stage/Sori.app"
 version="$(python3 -c "import tomllib; print(tomllib.load(open('core/Cargo.toml','rb'))['package']['version'])")"
-output="$project_dir/build/Sori-$version-macos-arm64-unnotarized.dmg"
+output="$build_dir/Sori-$version-macos-arm64-unnotarized.dmg"
 rm -rf -- "$stage"
 mkdir -p "$stage"
-ditto build/sori.app "$app"
-kiwi_dir="$(sed -n 's/^SORI_KIWI_DIR:PATH=//p' build/CMakeCache.txt)"
+ditto "$build_dir/sori.app" "$app"
+kiwi_dir="$(sed -n 's/^SORI_KIWI_DIR:PATH=//p' "$build_dir/CMakeCache.txt")"
 cp -R "$kiwi_dir" "$app/Contents/MacOS/kiwi"
-cp -R build/helpers "$app/Contents/MacOS/helpers"
+cp -R "$build_dir/helpers" "$app/Contents/MacOS/helpers"
 cp "$(command -v ffmpeg)" "$(command -v ffprobe)" "$app/Contents/MacOS/"
 mkdir -p "$app/Contents/Resources/licenses"
 cp LICENSE assets/*LICENSE* assets/OFL-*.txt assets/kiwi/*LICENSE "$app/Contents/Resources/licenses/"
 
 # Generate the native icon using the platform's tools and the shared PNG.
-iconset="$project_dir/build/sori.iconset"
+iconset="$build_dir/sori.iconset"
 mkdir -p "$iconset"
 for size in 16 32 128 256 512; do
     sips -z "$size" "$size" packaging/linux/sori.png --out "$iconset/icon_${size}x${size}.png" >/dev/null
@@ -49,5 +50,5 @@ codesign --verify --deep --strict "$mount_dir/Sori.app"
 hdiutil detach "$mount_dir"
 rmdir "$mount_dir"
 trap - EXIT
-cd "$project_dir/build"
+cd "$build_dir"
 shasum -a 256 "$(basename "$output")" > "$(basename "$output").sha256"

@@ -11,10 +11,14 @@ fi
 
 case "$command" in
     build|run)
+        if [[ "$command" == run && $# -gt 0 ]]; then
+            echo "Usage: ./scripts/dev run" >&2
+            exit 2
+        fi
         cmake --preset dev
         cmake --build --preset dev --parallel
         if [[ "$command" == run ]]; then
-            exec "$project_dir/build/development/sori" "$@"
+            exec "$project_dir/build/development/sori"
         fi
         ;;
     test)
@@ -30,7 +34,7 @@ case "$command" in
         exec "$project_dir/scripts/appimage" "$@"
         ;;
     *)
-        echo "Usage: ./scripts/dev {build|run [video]|test|release|appimage}" >&2
+        echo "Usage: ./scripts/dev {build|run|test|release|appimage}" >&2
         exit 2
         ;;
 esac

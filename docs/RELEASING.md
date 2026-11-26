@@ -35,10 +35,10 @@ Prepare the development dependencies, Python with pip/venv, and `appstreamcli`
 (`appstream` on Fedora), then run:
 
 ```sh
-./scripts/dev appimage
+cmake --build build --target package
 ```
 
-This builds Release, recreates `build/appimage/Sori.AppDir/`, and bundles
+After configuring a Release build, this builds the app, recreates `build/appimage/Sori.AppDir/`, and bundles
 Qt/QML/WebEngine, mpv dependencies, FFmpeg/FFprobe, Kiwi, and the private caption
 helper. Packaging tools and the AppImage runtime are checksum-pinned and cached
 in `build/appimage-tools/`. Review upstream changes before updating failed pins.
@@ -66,3 +66,7 @@ Fedora 44 candidate requires glibc 2.43; it cannot be advertised for older syste
 
 A plain `cmake --install` stages the app and caption helper, but does not perform
 the complete native dependency deployment used by these packaging scripts.
+
+The explicit `package` target also selects the DMG or Windows installer on those
+platforms. Outputs and staging stay in the selected build directory; normal
+builds do not package.

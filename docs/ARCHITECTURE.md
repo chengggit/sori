@@ -103,6 +103,8 @@ builds bundle its private runtime; local workflows do not require Python.
   does not download resources. Existing resources and offline setup are supported.
 - Use one matching Qt SDK for all Qt modules and the Rust bridge.
 - CI targets Ubuntu 24.04 LTS, Windows x86_64, and macOS arm64.
+- The explicit CMake `package` target builds and dispatches platform packaging;
+  normal builds do not package. Staging and outputs use the selected build directory.
 - Artifacts: Linux AppImage, per-user Windows Inno Setup installer, and macOS
   DMG with an Applications shortcut. Windows signing and Apple Developer ID
   signing/notarization are separate release steps.

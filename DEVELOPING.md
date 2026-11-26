@@ -8,28 +8,16 @@ The later development sections are for working on the code. For contribution gui
 
 ## Prerequisites
 
-| Dependency                            | Notes                                                          |
-| ------------------------------------- | -------------------------------------------------------------- |
-| Rust stable and Cargo                 | Core logic and Qt Bridge                                       |
-| C++17 compiler                        | GCC/Clang on Linux/macOS; MSVC on Windows                      |
-| CMake 3.21+ and a build tool          | The local presets use Make; CI uses Ninja                      |
-| Qt 6.10+                              | Quick/QML, OpenGL, Test, SVG, PDF, and WebEngine Quick         |
-| Matching Qt private headers and qmake | Use one complete SDK for C++ and Rust                          |
-| libmpv development files              | Found through pkg-config on Linux/macOS; `MPV_ROOT` on Windows |
-| FFmpeg and FFprobe on PATH            | Media inspection, subtitles, and thumbnails                    |
-| Git and Bash                          | Dependencies and the `scripts/dev` helper                      |
-| Python 3 with pip and venv support     | Required for default Release builds to bundle the caption helper; optional with `-DSORI_BUNDLE_TRANSCRIPT_HELPER=OFF` |
+- Rust stable and Cargo ([rustup](https://rustup.rs/))
+- C++17 compiler (GCC/Clang, or MSVC on Windows)
+- CMake 3.21+ and Make or Ninja
+- Qt 6.10+: Quick/QML, OpenGL, Test, SVG, PDF, WebEngine Quick, matching private headers, and qmake
+- libmpv development files and pkg-config (`MPV_ROOT` on Windows)
+- FFmpeg and FFprobe on PATH
+- Python 3 with venv/pip support (unless caption bundling is disabled)
+- Git and Bash
 
-Install Python through your system package manager or Python distribution.
-CMake creates the private helper environment and installs its packages during
-the build; it does not install Python itself. Packaged-app users don't need Python.
-
-Most local development and testing has been on Fedora 44. The
-[CI workflow](.github/workflows/build.yml) also shows the Ubuntu 24.04, Windows,
-and macOS setup, though the Windows/macOS jobs still need their first hosted
-runs. For Windows, use MSVC rather than MinGW.
-
-Example dependencies install on Fedora 44:
+Fedora 44 packages:
 
 ```sh
 sudo dnf install git gcc-c++ make cmake pkgconf-pkg-config mpv-devel \
@@ -37,8 +25,8 @@ sudo dnf install git gcc-c++ make cmake pkgconf-pkg-config mpv-devel \
   qt6-qtsvg qt6-qtwebengine-devel qt6-qtpdf-devel ffmpeg-free python3 python3-pip
 ```
 
-Install Rust through [rustup](https://rustup.rs/). Other distributions may need a
-separate Qt SDK if their packaged Qt version is below the minimum.
+Use one matching Qt SDK. For other platforms, see the dependency setup in
+[CI](.github/workflows/build.yml); Windows builds use MSVC.
 
 ## Build for your own use
 
@@ -68,12 +56,12 @@ configuration command.
 
 Optional configuration flags:
 
-| Flag | Purpose |
-| ---- | ------- |
-| `-DSORI_BUNDLE_TRANSCRIPT_HELPER=OFF` | Build without bundling captions; no build-time Python required |
-| `-DSORI_ALLOW_DOWNLOADS=OFF` | Reject missing Kiwi/Python setup instead of downloading |
-| `-DSORI_KIWI_DIR=/path/to/kiwi -DSORI_PREPARE_KIWI=OFF` | Use existing native library and models |
-| `-DSORI_HELPER_PYTHON=/path/to/python` | Use an existing environment containing the requirements in `scripts/requirements-youtube-build.txt` |
+| Flag                                                    | Purpose                                                                                             |
+| ------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `-DSORI_BUNDLE_TRANSCRIPT_HELPER=OFF`                   | Build without bundling captions; no build-time Python required                                      |
+| `-DSORI_ALLOW_DOWNLOADS=OFF`                            | Reject missing Kiwi/Python setup instead of downloading                                             |
+| `-DSORI_KIWI_DIR=/path/to/kiwi -DSORI_PREPARE_KIWI=OFF` | Use existing native library and models                                                              |
+| `-DSORI_HELPER_PYTHON=/path/to/python`                  | Use an existing environment containing the requirements in `scripts/requirements-youtube-build.txt` |
 
 `SORI_ALLOW_DOWNLOADS` controls our resource setup, not Cargo. For fully offline
 builds, also cache Rust dependencies and set `CARGO_NET_OFFLINE=true`.
@@ -85,34 +73,26 @@ Unix systems.
 
 ## Build a package
 
-Want a packaged app for yourself? After completing the source build above, use
-the matching command below on the target OS. You don't need the maintainer
-release checklist for a personal package.
-
-### Linux AppImage (x86_64)
-
-Install `appstreamcli` (`appstream` on Fedora/Ubuntu), then run:
+After configuring a Release build as above, run:
 
 ```sh
-./scripts/dev appimage
+cmake --build build --target package
 ```
 
-The AppImage and checksum appear in `build/`. Make the `.AppImage` executable
-and launch it. If FUSE is unavailable, use `APPIMAGE_EXTRACT_AND_RUN=1`.
-Compatibility still depends on your build system's Linux ABI.
+This builds Sori and creates an AppImage (Linux x86_64), DMG (macOS Apple Silicon),
+or installer (Windows x86_64) in your selected build directory, with a checksum.
+Packaging requires caption bundling to be enabled.
 
-### macOS DMG (Apple Silicon)
+Additional packaging tools:
 
-The current packaging script targets arm64. Use Python 3.11+ and set
-`QT_ROOT_DIR` to the same Qt SDK used for your source build:
+- Linux: `curl`, `readelf`, and `appstreamcli` (`appstream` on Fedora/Ubuntu).
+- macOS: Python 3.11+ and the standard signing/disk-image tools.
+- Windows: PowerShell, Inno Setup 6, and the media-tool setup used in CI.
 
-```sh
-QT_ROOT_DIR=/path/to/qt bash scripts/ci/package-macos.sh
-```
-
-The DMG and checksum appear in `build/`. Open the DMG and drag Sori into
-Applications. This package is ad-hoc signed and isn't notarized, so macOS may
-require approval to open it. macOS packaging still awaits its first hosted CI run.
+On Linux, make the AppImage executable to launch it; without FUSE, use
+`APPIMAGE_EXTRACT_AND_RUN=1`. On macOS, open the DMG and drag Sori into Applications.
+Windows installers are unsigned; macOS packages are ad-hoc signed, not notarized.
+Linux compatibility depends on the build system's ABI.
 
 For CI artifacts and public release preparation, see
 [docs/RELEASING.md](docs/RELEASING.md).
@@ -137,14 +117,13 @@ set `QMAKE` to the same SDK's qmake that CMake uses.
 
 Run these from the repository root:
 
-| Command                                  | Purpose                                                       |
-| ---------------------------------------- | ------------------------------------------------------------- |
-| `./scripts/dev build`                    | Build the development app                                     |
-| `./scripts/dev run`                      | Build and launch it                                           |
-| `./scripts/dev run "/path/to/video.mkv"` | Launch with a local video                                     |
-| `./scripts/dev test`                     | Build the bridge test and run the registered test suites      |
-| `./scripts/dev release`                  | Build the optimized app and transcript helper                 |
-| `./scripts/dev appimage`                 | Package a Linux x86_64 AppImage; also requires `appstreamcli` |
+| Command                  | Purpose                                                       |
+| ------------------------ | ------------------------------------------------------------- |
+| `./scripts/dev build`    | Build the development app                                     |
+| `./scripts/dev run`      | Build and launch it                                           |
+| `./scripts/dev test`     | Build the bridge test and run the registered test suites      |
+| `./scripts/dev release`  | Build the optimized app and transcript helper                 |
+| `./scripts/dev appimage` | Package a Linux x86_64 AppImage; also requires `appstreamcli` |
 
 Development output is under `build/development/`; release output is under
 `build/`. Rebuild and restart after code changes, including embedded QML.
@@ -201,11 +180,11 @@ to debug Rust and C++ together. Useful breakpoints are `main` and
 `sori_qt_register_models`. If Fedora only provides `/usr/libexec/gdb`, set
 `RUST_GDB=/usr/libexec/gdb` when launching the wrapper.
 
-| Tool | Configuration |
-| ---- | ------------- |
+| Tool          | Configuration                                                                             |
+| ------------- | ----------------------------------------------------------------------------------------- |
 | rust-analyzer | Open `core/` or set `linkedProjects` to `core/Cargo.toml`; use the selected SDK's `QMAKE` |
-| clangd | Configure first; `.clangd` uses `build/development/compile_commands.json` |
-| qmlls | Run the selected SDK's `qmlls -b build/development --no-cmake-calls` |
+| clangd        | Configure first; `.clangd` uses `build/development/compile_commands.json`                 |
+| qmlls         | Run the selected SDK's `qmlls -b build/development --no-cmake-calls`                      |
 
 Runtime-registered Rust models currently have limited QML completion.
 

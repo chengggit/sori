@@ -1,9 +1,10 @@
 $ErrorActionPreference = 'Stop'
 $project = (Resolve-Path "$PSScriptRoot/../..").Path
 Set-Location $project
-$prefix = Join-Path $project 'build/windows-install'
+$buildDir = if ($env:SORI_BUILD_DIR) { $env:SORI_BUILD_DIR } else { Join-Path $project 'build' }
+$prefix = Join-Path $buildDir 'windows-install'
 $stage = Join-Path $prefix 'bin'
-& cmake --install build --prefix $prefix
+& cmake --install $buildDir --prefix $prefix
 if ($LASTEXITCODE -ne 0) { throw 'Application staging failed' }
 Copy-Item "$env:MPV_ROOT/bin/*.dll" $stage -Force
 foreach ($tool in @('ffmpeg', 'ffprobe')) {
@@ -19,9 +20,9 @@ $version = (& python -c "import tomllib; print(tomllib.load(open('core/Cargo.tom
 if ($LASTEXITCODE -ne 0 -or $version -notmatch '^\d+\.\d+\.\d+([+-][0-9A-Za-z.-]+)?$') { throw 'Invalid application version' }
 $compiler = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6/ISCC.exe'
 if (!(Test-Path $compiler)) { throw 'Inno Setup 6 is required (included in the Windows CI image)' }
-& $compiler "/DStageDir=$stage" "/DOutputDir=$project/build" "/DAppVersion=$version" packaging/windows/sori.iss
+& $compiler "/DStageDir=$stage" "/DOutputDir=$buildDir" "/DAppVersion=$version" packaging/windows/sori.iss
 if ($LASTEXITCODE -ne 0) { throw 'Installer compilation failed' }
-$installer = Join-Path $project "build/Sori-$version-windows-x86_64-setup-unsigned.exe"
+$installer = Join-Path $buildDir "Sori-$version-windows-x86_64-setup-unsigned.exe"
 if (!(Test-Path $installer)) { throw 'Installer artifact was not created' }
 $hash = (Get-FileHash $installer -Algorithm SHA256).Hash.ToLowerInvariant()
 "$hash  $([IO.Path]::GetFileName($installer))" | Set-Content "$installer.sha256" -Encoding ascii

@@ -11,8 +11,9 @@ import sysconfig
 
 appdir = Path(sys.argv[1]).resolve()
 project = Path(__file__).resolve().parent.parent
+build_dir = Path(sys.argv[2]).resolve()
 kiwi_cache = next(
-    line.split("=", 1)[1] for line in (project / "build/CMakeCache.txt").read_text().splitlines()
+    line.split("=", 1)[1] for line in (build_dir / "CMakeCache.txt").read_text().splitlines()
     if line.startswith("SORI_KIWI_DIR:PATH=")
 )
 qmake = os.environ.get("QMAKE", "qmake6")
@@ -38,11 +39,11 @@ for path in (appdir / "usr").rglob("*"):
     if relative.parts[0] == "libexec":
         candidates.insert(0, libexec / path.name)
     if str(relative) == "bin/sori":
-        candidates.insert(0, project / "build/sori")
+        candidates.insert(0, build_dir / "sori")
     if str(relative).startswith("bin/helpers/"):
-        candidates.insert(0, project / "build" / Path(*relative.parts[1:]))
-    if str(relative) == "bin/kiwi/lib/libkiwi.so":
-        candidates.insert(0, Path(kiwi_cache) / "lib/libkiwi.so")
+        candidates.insert(0, build_dir / Path(*relative.parts[1:]))
+    if relative.parts[:2] == ("bin", "kiwi"):
+        candidates.insert(0, Path(kiwi_cache).joinpath(*relative.parts[2:]))
     original = next((candidate for candidate in candidates if candidate.is_file()), None)
     if original is None:
         original = next((candidate for candidate in libdir.rglob(path.name) if candidate.is_file()), None)

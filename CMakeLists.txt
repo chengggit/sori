@@ -232,3 +232,14 @@ qt_add_resources(sori "watch" PREFIX "/" FILES
 )
 
 install(TARGETS sori RUNTIME DESTINATION bin BUNDLE DESTINATION .)
+
+# Explicit packaging never runs as part of a normal build.
+add_custom_target(package
+    COMMAND "${CMAKE_COMMAND}" "-DSOURCE_DIR=${CMAKE_SOURCE_DIR}"
+        "-DBUILD_DIR=${CMAKE_BINARY_DIR}" "-DCONFIG=$<CONFIG>"
+        "-DBUNDLE_HELPER=${SORI_BUNDLE_TRANSCRIPT_HELPER}"
+        "-DQMAKE=${SORI_QMAKE}" "-DMPV_ROOT=${MPV_ROOT}"
+        -P "${CMAKE_SOURCE_DIR}/scripts/package.cmake"
+    DEPENDS sori
+    USES_TERMINAL
+    VERBATIM)

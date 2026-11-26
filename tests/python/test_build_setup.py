@@ -16,6 +16,30 @@ class BuildSetupTests(unittest.TestCase):
             capture_output=True, text=True, timeout=15,
         )
 
+    def test_package_requires_release_and_caption_helper(self):
+        result = self.run_setup('package.cmake', CONFIG='Debug', BUNDLE_HELPER='ON')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('Packages require Release', result.stderr)
+        result = self.run_setup('package.cmake', CONFIG='Release', BUNDLE_HELPER='OFF')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('SORI_BUNDLE_TRANSCRIPT_HELPER=ON', result.stderr)
+
+    @unittest.skipUnless(__import__('sys').platform.startswith('linux'), 'Linux dispatcher')
+    def test_package_passes_selected_directory_and_qt(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            script = root / 'scripts/appimage'
+            script.parent.mkdir()
+            script.write_text('printf "%s\\n%s" "$SORI_BUILD_DIR" "$QT_ROOT_DIR" > "$SORI_BUILD_DIR/observed"')
+            build = root / 'custom build'
+            build.mkdir()
+            result = self.run_setup('package.cmake', CONFIG='Release', BUNDLE_HELPER='ON',
+                                    SOURCE_DIR=root, BUILD_DIR=build,
+                                    QMAKE=root / 'qt/bin/qmake')
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual((build / 'observed').read_text().splitlines(),
+                             [str(build), str(root / 'qt')])
+
     def test_missing_external_kiwi_fails_without_downloading(self):
         with tempfile.TemporaryDirectory() as folder:
             result = self.run_setup('prepare-kiwi.cmake', SORI_KIWI_DIR=folder,
