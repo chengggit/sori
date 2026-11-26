@@ -61,8 +61,7 @@ WebEngine keeps its sandbox and user data stays in the normal Sori data director
 
 An AppImage still depends on the host ABI. Use the oldest supported build
 baseline and test target distributions. `usr/share/doc/sori/BUILDINFO.json`
-records the highest glibc requirement across bundled binaries. The initial
-Fedora 44 candidate requires glibc 2.43; it cannot be advertised for older systems.
+records the highest glibc requirement across bundled binaries.
 
 A plain `cmake --install` stages the app and caption helper, but does not perform
 the complete native dependency deployment used by these packaging scripts.
