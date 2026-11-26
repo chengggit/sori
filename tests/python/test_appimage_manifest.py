@@ -20,7 +20,7 @@ def elf(machine=62, bits=2):
 class ManifestTests(unittest.TestCase):
     def test_finds_private_multiarch_library(self):
         with tempfile.TemporaryDirectory() as folder:
-            root = Path(folder)
+            root = Path(folder).resolve()
             private = root / 'x86_64-linux-gnu/pulseaudio/libpulsecommon-16.1.so'
             private.parent.mkdir(parents=True)
             private.write_bytes(elf())
