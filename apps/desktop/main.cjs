@@ -249,6 +249,29 @@ function createWindow() {
           finishSmoke(1);
           return;
         }
+        if (smokeHash === 'settings') {
+          await window.webContents.executeJavaScript(`location.hash = '#/settings'`);
+          for (let attempt = 0; attempt < 20; attempt += 1) {
+            await new Promise((resolve) => setTimeout(resolve, 300));
+            const ready = await window.webContents.executeJavaScript(
+              'Boolean(document.querySelector("[data-testid=appearance-settings]"))',
+            );
+            if (ready) break;
+          }
+          await window.webContents.executeJavaScript(
+            'document.querySelector("[data-testid=settings-theme-dark]").click()',
+          );
+          await new Promise((resolve) => setTimeout(resolve, 300));
+          const state = await window.webContents.executeJavaScript(`(() => ({
+            dark: document.documentElement.classList.contains('dark'),
+            sections: ['appearance-settings', 'dictionary-settings', 'youtube-settings', 'embed-settings']
+              .filter((id) => document.querySelector('[data-testid=' + id + ']')).length,
+          }))()`);
+          clearTimeout(watchdog);
+          finishSmoke(state.dark && state.sections === 4 ? 0 : 1,
+            `Settings: ${JSON.stringify(state)}`);
+          return;
+        }
         if (smokeHash === 'youtube') {
           const settings = await window.webContents.executeJavaScript(`(async () => {
             const before = await window.sori.invoke('core:invoke', 'youtube:settings', {});
@@ -712,7 +735,8 @@ function createWindow() {
       smokeHash !== 'watch' &&
       smokeHash !== 'subtitles' &&
       smokeHash !== 'dictionary' &&
-      smokeHash !== 'youtube'
+      smokeHash !== 'youtube' &&
+      smokeHash !== 'settings'
         ? `#${smokeHash}`
         : '';
     window.loadURL(smoke ? `${devUrl}${smokeRoute}` : devUrl);

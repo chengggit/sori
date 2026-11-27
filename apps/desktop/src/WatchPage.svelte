@@ -5,6 +5,7 @@
   import { Button } from "$lib/components/ui/button";
   import { tokenBlocks } from "$lib/reader/tokens";
   import { tokenizeText, type KoreanToken } from "$lib/nlp/tokenization";
+  import { ui } from "$lib/ui-state.svelte";
   import { activeSubtitleCues, parseSubtitles, type SubtitleCue } from "$lib/video/subtitles";
   import { readVideo, saveVideoProgress } from "$lib/library/commands";
   import {
@@ -368,7 +369,8 @@
           {#each primaryCues as cue (cue.start)}
             <button
               type="button"
-              class="block w-full rounded px-2 py-1 text-left text-sm hover:bg-neutral-hover"
+              class="block w-full rounded px-2 text-left text-sm hover:bg-neutral-hover"
+              style:line-height={`${ui.transcriptLineHeight}px`}
               class:bg-accent-soft={cue.start <= seconds && cue.end > seconds}
               data-cue={cue.start}
               data-testid={`cue-${cue.start}`}

@@ -8,6 +8,7 @@
   import { readingPassages, tokenBlocks } from "$lib/reader/tokens";
   import { trackReadingProgress } from "$lib/reader/progress";
   import { tokenizeText, type KoreanToken } from "$lib/nlp/tokenization";
+  import { ui } from "$lib/ui-state.svelte";
   import {
     readDocument,
     saveDocumentProgress,
@@ -120,7 +121,10 @@
       <div
         bind:this={scroller}
         data-testid="reader-text"
-        class="h-[60vh] min-w-0 flex-1 overflow-auto rounded-lg border border-border bg-card p-6 font-[family-name:var(--font-korean)] text-lg leading-10 whitespace-pre-wrap"
+        class="h-[60vh] min-w-0 flex-1 overflow-auto rounded-lg border border-border bg-card p-6 whitespace-pre-wrap"
+        style:font-family={ui.readingFont === "noto" ? "var(--font-korean)" : "var(--font-ui)"}
+        style:font-size={`${ui.readerTextSize}px`}
+        style:line-height={`${ui.readerLineHeight}px`}
       >
         {#each passages as passage, passageIndex (passageIndex)}{#each tokenBlocks(passage.text, passage.tokens) as block, blockIndex (blockIndex)}{#if block.morphemes.length}<button
                 type="button"
