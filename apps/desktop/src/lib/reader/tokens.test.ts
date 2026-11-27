@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { KoreanToken } from '../nlp/tokenization';
-import { partOfSpeechLabel, readingPassages, tokenBlocks } from './tokens';
+import { partOfSpeechLabel, readingPassages, tokenBlocks, wordRanges } from './tokens';
 
 function token(form: string, tag: string, start: number, end: number): KoreanToken {
   return { form, tag, surface: form, start, end, wordIndex: 0, sentenceIndex: 0 };
@@ -26,6 +26,33 @@ describe('tokenBlocks', () => {
     const blocks = tokenBlocks('3,000회', [token('회', 'NNG', 5, 6)]);
     expect(blocks[0].text).toBe('3,000회');
     expect(blocks[0].morphemes.every((morpheme) => morpheme.form === '회')).toBe(true);
+  });
+});
+
+describe('wordRanges', () => {
+  it('matches the Qt reader.rs vector for attached numbers', () => {
+    const text = '😀 Hello, 학교에! KAIST는. 3000회, 2년, 3,000회, 1.5년, 20.';
+    const at = (value: string) => text.indexOf(value);
+    const grouped = (form: string, start: number, group: number): KoreanToken => ({
+      form,
+      tag: 'NNG',
+      surface: text.slice(start, start + form.length),
+      start,
+      end: start + form.length,
+      wordIndex: group,
+      sentenceIndex: 0,
+    });
+    const tokens = [
+      grouped('학교', at('학교'), 0),
+      grouped('에', at('학교') + 2, 0),
+      grouped('는', at('KAIST는') + 5, 1),
+      grouped('회', at('3000회') + 4, 2),
+      grouped('년', at('2년') + 1, 3),
+      grouped('회', at('3,000회') + 5, 4),
+      grouped('년', at('1.5년') + 3, 5),
+    ];
+    const clickable = wordRanges(text, tokens).map((range) => text.slice(range.start, range.end));
+    expect(clickable).toEqual(['학교에', '는', '3000회', '2년', '3,000회', '1.5년']);
   });
 });
 

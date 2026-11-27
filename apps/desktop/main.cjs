@@ -117,6 +117,18 @@ function createWindow() {
           finishSmoke(1);
           return;
         }
+        if (smokeHash === 'analysis') {
+          await new Promise((resolve) => setTimeout(resolve, 3000));
+          const result = await window.webContents.executeJavaScript(`(() => {
+            const panel = document.querySelector('[data-testid=analysis-panel]');
+            const error = document.querySelector('[data-testid=analysis-error]');
+            return { panel: Boolean(panel), terms: panel ? panel.textContent : '', error: error ? error.textContent : '' };
+          })()`);
+          clearTimeout(watchdog);
+          finishSmoke(result.panel && !result.error && result.terms.includes('학교') ? 0 : 1,
+            `Analysis page: ${JSON.stringify(result)}`);
+          return;
+        }
         if (smokeHash === 'bridge') {
           await new Promise((resolve) => setTimeout(resolve, 3000));
           const values = await window.webContents.executeJavaScript(
