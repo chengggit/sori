@@ -14,6 +14,7 @@ pub(crate) struct OEmbedResponse {
     pub(crate) author_name: String,
 }
 
+#[derive(serde::Serialize)]
 pub(crate) struct Metadata {
     pub title: String,
     pub channel: String,

@@ -256,9 +256,16 @@ in Node would be worse than keeping it).
       path. Live Wiktionary/KRDict responses were not smoke-tested (network
       dependent). All nine smoke routes pass with isolated data directories.
 
-- [ ] **14. `feat/electron-youtube`** — iframe/IFrame API playback, Data API
+- [x] **14. `feat/electron-youtube`** — iframe/IFrame API playback, Data API
       search with key, history/subscriptions, optional caption helper.
       _Done when:_ `tst_youtubeadapter` and `tst_discoverypagination` flows pass.
+      Verified: YouTube key save/remove semantics (saved key overrides the
+      `.env.local` fallback), link parsing to an embedded player, and all ten
+      smoke routes plus the packaged app. Explore page has IFrame-API playback
+      tracking, search, channel subscriptions/feed, history, and caption
+      fetching through the Rust helper. CSP now allows YouTube scripts/frames
+      and thumbnails. Live Data API and caption responses were not
+      smoke-tested (network dependent).
 
 - [ ] **15. `feat/electron-settings`** — Theme, zoom, Inter/Noto Sans KR fonts,
       dictionary provider/key, embed-tab order, `app_settings` table.

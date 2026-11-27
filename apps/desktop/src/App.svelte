@@ -7,6 +7,7 @@
   import ReaderPage from "./ReaderPage.svelte";
   import VocabularyPage from "./VocabularyPage.svelte";
   import WatchPage from "./WatchPage.svelte";
+  import YouTubePage from "./YouTubePage.svelte";
   import { loadAppearance, loadPageScale, type Appearance } from "$lib/appearance";
 
   let route = $state(location.hash);
@@ -72,6 +73,8 @@
       <VocabularyPage />
     {:else if page === "watch"}
       <WatchPage videoId={watchId} onBack={() => goTo("library")} />
+    {:else if page === "explore"}
+      <YouTubePage />
     {/if}
   </AppShell>
 {/if}

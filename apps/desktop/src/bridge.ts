@@ -30,7 +30,22 @@ export type Command =
   | "dictionary:saveKey"
   | "dictionary:select"
   | "dictionary:removeKey"
-  | "shell:openExternal";
+  | "shell:openExternal"
+  | "youtube:metadata"
+  | "youtube:duration"
+  | "youtube:search"
+  | "youtube:resolve"
+  | "youtube:feed"
+  | "youtube:addSubscription"
+  | "youtube:removeSubscription"
+  | "youtube:subscriptions"
+  | "youtube:saveProgress"
+  | "youtube:fetchTranscript"
+  | "youtube:transcript"
+  | "youtube:cacheTranscript"
+  | "youtube:settings"
+  | "youtube:saveKey"
+  | "youtube:removeKey";
 
 export interface DesktopBridge {
   invoke<T>(channel: Command, ...args: unknown[]): Promise<T>;

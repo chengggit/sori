@@ -55,6 +55,8 @@ clickable caption words, and a follow/click-to-seek transcript. PDF reading is
 at step 10. ffmpeg/ffprobe must be on PATH until the packaging step bundles
 them. Clicking a word's lookup term opens Wiktionary/KRDict definitions and
 draggable embedded Naver/Papago/custom tabs (frames retained for 30 s).
+`#/explore` hosts YouTube iframe playback, search, subscriptions/feed, history
+and caption fetching; its network calls run in Rust, not the renderer.
 
 Open `http://127.0.0.1:5173/#bridge` during development for a bridge page that
 exercises `app:ping`, `analyzeText`, and a main-process event. `#analysis` shows
