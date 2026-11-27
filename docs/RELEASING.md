@@ -33,9 +33,9 @@ The first run or a toolchain change still needs a cold build.
 | Windows Server 2022 x86_64, MSVC | Per-user Inno Setup `.exe` installer                |
 | macOS 15 arm64                   | `.dmg` with `Sori.app` and an Applications shortcut |
 
-Packages include SHA-256 checksums. Manual runs upload workflow artifacts.
+Workflow artifacts include packages and SHA-256 checksums for CI verification.
 Version-tag pushes create a draft GitHub release after all three platform jobs
-succeed, attaching the packages and checksums. Publishing is manual.
+succeed, attaching only the three packages. Publishing is manual.
 
 Before tagging, commit the version's release notes in [.github/releases/](../.github/releases/README.md):
 tag `v1.0.0` uses `.github/releases/v1.0.0.md` as the release description. Missing or empty
@@ -68,7 +68,8 @@ in `build/appimage-tools/`. Review upstream changes before updating failed pins.
 
 An isolated smoke check verifies dependency resolution, helpers, Kiwi resources,
 and startup using temporary application data. Outputs are
-`build/Sori-<git-version>-x86_64.AppImage` and its checksum.
+`build/Sori-<version>-x86_64.AppImage` and its checksum. All platform package
+filenames use the version from `core/Cargo.toml`, without the Git tag's `v` prefix.
 
 Users make the downloaded file executable and launch it. If FUSE is unavailable,
 set `APPIMAGE_EXTRACT_AND_RUN=1`. Dependencies use private runtime paths;
