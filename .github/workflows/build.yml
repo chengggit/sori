@@ -205,6 +205,27 @@ jobs:
         timeout-minutes: 5
         shell: pwsh
         run: ./scripts/ci/test-windows-installer.ps1
+      - name: Wayland OpenGL startup check
+        if: needs.changes.outputs.code == 'true' && matrix.mode == 'package' && runner.os == 'Linux'
+        timeout-minutes: 5
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: |
+          sudo apt-get install -y --no-install-recommends weston libgl1-mesa-dri
+          runtime_dir="$(mktemp -d "$RUNNER_TEMP/sori-wayland.XXXXXX")"
+          export XDG_RUNTIME_DIR="$runtime_dir"
+          log="$PWD/build/Testing/Temporary/wayland-compositor.log"
+          weston --backend=headless --renderer=gl --socket=sori-ci --idle-time=0 --no-config > "$log" 2>&1 &
+          compositor_pid=$!
+          trap 'kill "$compositor_pid" 2>/dev/null || true; wait "$compositor_pid" 2>/dev/null || true; rm -rf -- "$runtime_dir"' EXIT
+          for attempt in {1..50}; do
+            if [[ -S "$runtime_dir/sori-ci" ]]; then break; fi
+            if ! kill -0 "$compositor_pid" 2>/dev/null; then cat "$log"; exit 1; fi
+            sleep 0.2
+          done
+          if [[ ! -S "$runtime_dir/sori-ci" ]]; then cat "$log"; exit 1; fi
+          export WAYLAND_DISPLAY=sori-ci
+          python3 scripts/appimage-smoke.py build/appimage/Sori.AppDir --wayland
       - uses: actions/upload-artifact@v4
         if: needs.changes.outputs.code == 'true' && (matrix.mode == 'package')
         with:

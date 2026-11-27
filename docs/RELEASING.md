@@ -67,7 +67,9 @@ helper. Packaging tools and the AppImage runtime are checksum-pinned and cached
 in `build/appimage-tools/`. Review upstream changes before updating failed pins.
 
 An isolated smoke check verifies dependency resolution, helpers, Kiwi resources,
-and startup using temporary application data. Outputs are
+Wayland EGL client plugins, and startup using temporary application data.
+Linux package CI also checks native Wayland/OpenGL startup with a headless Weston
+compositor, in addition to the offscreen startup check. Outputs are
 `build/Sori-<git-version>-x86_64.AppImage` and its checksum.
 
 Users make the downloaded file executable and launch it. If FUSE is unavailable,
