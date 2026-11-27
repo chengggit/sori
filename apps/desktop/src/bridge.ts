@@ -24,7 +24,13 @@ export type Command =
   | "vocabulary:save"
   | "vocabulary:find"
   | "vocabulary:edit"
-  | "vocabulary:remove";
+  | "vocabulary:remove"
+  | "dictionary:lookup"
+  | "dictionary:settings"
+  | "dictionary:saveKey"
+  | "dictionary:select"
+  | "dictionary:removeKey"
+  | "shell:openExternal";
 
 export interface DesktopBridge {
   invoke<T>(channel: Command, ...args: unknown[]): Promise<T>;

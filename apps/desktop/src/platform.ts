@@ -45,6 +45,8 @@ const desktopPlatform: Platform = {
         return native(() => host.invoke<T>("video:track", payload.id, payload.index));
       case "video:attach":
         return native(() => host.invoke<T>("video:attach", payload.id));
+      case "shell:openExternal":
+        return native(() => host.invoke<T>("shell:openExternal", payload.url));
       case "analyzeText":
         return host.invoke<Response<T>>("core:invoke", command, payload);
       default:

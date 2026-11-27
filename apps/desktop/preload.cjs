@@ -12,6 +12,7 @@ const commands = Object.freeze([
   'video:probe',
   'video:track',
   'video:attach',
+  'shell:openExternal',
 ]);
 const events = Object.freeze(['core:event']);
 

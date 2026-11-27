@@ -243,11 +243,18 @@ in Node would be worse than keeping it).
       for the session but are not persisted yet; they need a file-path-based
       command. Smoke checks now use isolated data directories per route.
 
-- [ ] **13. `feat/electron-dictionaries`** — Wiktionary + KRDict services,
+- [x] **13. `feat/electron-dictionaries`** — Wiktionary + KRDict services,
       offline saved meanings, embedded Naver/Papago/KRDict/custom tabs with drag
       reorder and 30-second retention.
       _Done when:_ `tst_dictionarytabs`, `tst_dictionaryorder`, and
       `tst_dictionaryretention` flows pass.
+      Verified: KRDict key validation, provider selection and removal through
+      the Rust commands; the dictionary panel renders from analysis lookup
+      terms with two embedded tabs that drag-reorder and keep frames for 30 s.
+      Added an allowlisted `shell:openExternal` fallback for sites that refuse
+      iframing. Offline saved meanings come from the existing vocabulary edit
+      path. Live Wiktionary/KRDict responses were not smoke-tested (network
+      dependent). All nine smoke routes pass with isolated data directories.
 
 - [ ] **14. `feat/electron-youtube`** — iframe/IFrame API playback, Data API
       search with key, history/subscriptions, optional caption helper.
