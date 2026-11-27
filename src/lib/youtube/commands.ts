@@ -29,19 +29,46 @@ export function fetchDuration(id: string) {
   return platform.invoke<number>("youtube:duration", { id });
 }
 
-export function searchYouTube(query: string, page = "") {
-  return platform.invoke<YouTubeSearchPage>("youtube:search", { query, page });
+type VideoResult = Omit<YouTubeVideo, "thumbnail">;
+
+// Rust returns video identity/metadata. Artwork URLs are derived by the UI,
+// as in the Qt client; they are not fields in SearchVideo or FeedVideo.
+function withThumbnail(video: VideoResult): YouTubeVideo {
+  return {
+    ...video,
+    thumbnail: `https://i.ytimg.com/vi/${encodeURIComponent(video.id)}/mqdefault.jpg`,
+  };
+}
+
+export async function searchYouTube(query: string, page = "") {
+  const reply = await platform.invoke<{ videos: VideoResult[]; nextPage: string }>("youtube:search", {
+    query,
+    page,
+  });
+  return {
+    ...reply,
+    data: reply.data
+      ? {
+          videos: reply.data.videos.map(withThumbnail),
+          nextPageToken: reply.data.nextPage || undefined,
+        }
+      : null,
+  };
 }
 
 export function resolveChannel(input: string) {
   return platform.invoke<Subscription>("youtube:resolve", { input });
 }
 
-export function subscriptionFeed(tokens: Record<string, string> = {}) {
-  return platform.invoke<{ videos: YouTubeVideo[]; nextPageTokens: Record<string, string> }>(
-    "youtube:feed",
-    { tokens },
-  );
+export async function subscriptionFeed(tokens: Record<string, string> = {}) {
+  const reply = await platform.invoke<{
+    videos: VideoResult[];
+    nextPageTokens: Record<string, string>;
+  }>("youtube:feed", { tokens });
+  return {
+    ...reply,
+    data: reply.data ? { ...reply.data, videos: reply.data.videos.map(withThumbnail) } : null,
+  };
 }
 
 export function addSubscription(input: string) {

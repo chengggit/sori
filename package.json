@@ -25,7 +25,8 @@
     "test:migration": "node scripts/smoke-migration.mjs",
     "checksums": "node scripts/checksums.mjs",
     "format": "prettier --write \"src/**/*.{ts,svelte,css}\" \"*.{json,js,ts,md}\" \"electron/**/*.cjs\" \"tests/{electron,smoke}/**/*.cjs\" \"scripts/**/*.mjs\" \"*.md\"",
-    "format:check": "prettier --check \"src/**/*.{ts,svelte,css}\" \"*.{json,js,ts,md}\" \"electron/**/*.cjs\" \"tests/{electron,smoke}/**/*.cjs\" \"scripts/**/*.mjs\" \"*.md\""
+    "format:check": "prettier --check \"src/**/*.{ts,svelte,css}\" \"*.{json,js,ts,md}\" \"electron/**/*.cjs\" \"tests/{electron,smoke}/**/*.cjs\" \"scripts/**/*.mjs\" \"*.md\"",
+    "test:http-bridge": "node scripts/smoke-http-bridge.mjs"
   },
   "devDependencies": {
     "@lucide/svelte": "^1.82.0",

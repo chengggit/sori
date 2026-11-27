@@ -16,6 +16,10 @@ function legacyDataDirectory() {
 }
 
 function loadNative() {
+  if (app.isPackaged) {
+    process.env.SORI_FFMPEG_PATH = toolPath("ffmpeg");
+    process.env.SORI_FFPROBE_PATH = toolPath("ffprobe");
+  }
   const addonPath = !app.isPackaged
     ? join(app.getAppPath(), "native", "sori-node.node")
     : join(process.resourcesPath, "app.asar.unpacked", "native", "sori-node.node");

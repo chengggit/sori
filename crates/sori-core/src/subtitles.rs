@@ -6,8 +6,13 @@ pub(super) fn command_output(
     args: impl IntoIterator<Item = impl AsRef<std::ffi::OsStr>>,
     limit: usize,
 ) -> Result<Vec<u8>, String> {
+    let tool = match program {
+        "ffmpeg" => std::env::var_os("SORI_FFMPEG_PATH"),
+        "ffprobe" => std::env::var_os("SORI_FFPROBE_PATH"),
+        _ => None,
+    }.unwrap_or_else(|| program.into());
     crate::process::output(
-        std::process::Command::new(program).args(args), program, limit,
+        std::process::Command::new(tool).args(args), program, limit,
         std::time::Duration::from_secs(30),
     )
 }

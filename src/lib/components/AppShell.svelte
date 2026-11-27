@@ -15,6 +15,7 @@
     onScale,
     titleOverride,
     children,
+    header,
   }: {
     page: string;
     appearance: Appearance;
@@ -25,6 +26,7 @@
     onScale: (value: number) => void;
     titleOverride?: string;
     children?: Snippet;
+    header?: Snippet;
   } = $props();
 
   let open = $state(localStorage.getItem("sori-sidebar-collapsed") !== "true");
@@ -68,12 +70,23 @@
   />
   <main data-testid="page-content" class="min-w-0 flex-1 overflow-auto">
     <header class="sticky top-0 z-10 border-b border-border bg-background">
-      <div class="mx-auto flex h-14 max-w-6xl items-center gap-2 px-4 sm:px-8">
+      <div
+        class="mx-auto flex h-14 items-center gap-2 px-4 sm:px-8"
+        class:home-width={page === "home"}
+        class:max-w-6xl={page !== "home"}
+      >
         <Sidebar.Trigger class="md:hidden" />
-        <h1 data-testid="page-title" class="text-lg font-semibold">{title}</h1>
+        <h1 data-testid="page-title" class="text-lg font-semibold" class:sr-only={page === "home"}>
+          {title}
+        </h1>
+        {#if page === "home"}{@render header?.()}{/if}
       </div>
     </header>
-    <div class="mx-auto max-w-6xl px-4 py-6 sm:px-8">
+    <div
+      class="mx-auto px-4 py-6 sm:px-8"
+      class:home-width={page === "home"}
+      class:max-w-6xl={page !== "home"}
+    >
       {@render children?.()}
     </div>
   </main>
@@ -121,3 +134,9 @@
     </div>
   </Sheet.Content>
 </Sheet.Root>
+
+<style>
+  .home-width {
+    max-width: 1592px;
+  }
+</style>

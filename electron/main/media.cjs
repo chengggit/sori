@@ -1,7 +1,7 @@
 const { app } = require("electron");
 const { randomUUID } = require("node:crypto");
 const { createReadStream } = require("node:fs");
-const { realpath, stat } = require("node:fs/promises");
+const { realpath, stat, readFile } = require("node:fs/promises");
 const { extname, join } = require("node:path");
 const { Readable } = require("node:stream");
 
@@ -18,6 +18,22 @@ const videoMime = {
 const textCodecs = new Set(["subrip", "ass", "ssa", "mov_text", "webvtt", "text"]);
 const subtitleLimit = 8 * 1024 * 1024;
 const mediaFiles = new Map();
+
+async function serveThumbnail(request) {
+  const match = /^sori-thumbnail:\/\/video\/([1-9]\d*)\.jpg$/.exec(request.url);
+  if (!match) return new Response(null, { status: 404 });
+  if (!["GET", "HEAD"].includes(request.method)) return new Response(null, { status: 405 });
+  try {
+    const path = join(app.getPath("userData"), "thumbnails", `${match[1]}.jpg`);
+    const info = await stat(path);
+    if (!info.isFile() || info.size > 8 * 1024 * 1024) return new Response(null, { status: 404 });
+    return new Response(request.method === "HEAD" ? null : await readFile(path), {
+      headers: { "Content-Type": "image/jpeg", "Access-Control-Allow-Origin": "*" },
+    });
+  } catch {
+    return new Response(null, { status: 404 });
+  }
+}
 
 async function servePdf(request) {
   const match = /^sori-pdf:\/\/pdf\/(\d+)\.pdf$/.exec(request.url);
@@ -123,6 +139,7 @@ function currentMedia(id) {
 }
 
 module.exports = {
+  serveThumbnail,
   servePdf,
   serveMedia,
   exposeVideo,

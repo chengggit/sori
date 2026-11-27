@@ -30,6 +30,57 @@ module.exports = function attachSmokeChecks(window, { app, isDev, smokeHash }) {
         finishSmoke(1);
         return;
       }
+      if (smokeHash === "home") {
+        const path = join(process.env.SORI_DATA_DIR, "home-smoke.mkv");
+        execFileSync(
+          app.isPackaged
+            ? join(process.resourcesPath, "bin", process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg")
+            : "ffmpeg",
+          [
+            "-v",
+            "error",
+            "-f",
+            "lavfi",
+            "-i",
+            "color=c=blue:s=320x240:d=4",
+            "-pix_fmt",
+            "yuv420p",
+            "-y",
+            path,
+          ],
+          { timeout: 30000 },
+        );
+        const seeded = await window.webContents.executeJavaScript(`(async () => {
+          const imported = await window.sori.invoke('core:invoke', 'video:import', { path: ${JSON.stringify(path)} });
+          if (!imported.ok) throw new Error(imported.error);
+          const id = imported.data.id;
+          const saved = await window.sori.invoke('core:invoke', 'video:saveProgress', { id, seconds: 1, duration: 4 });
+          if (!saved.ok) throw new Error(saved.error);
+          const thumbnail = await window.sori.invoke('core:invoke', 'video:thumbnail', { id });
+          if (!thumbnail.ok) throw new Error(thumbnail.error);
+          return id;
+        })()`);
+        // Remount Home after seeding the real temporary library.
+        await window.webContents.executeJavaScript(`location.hash = '#/library'`);
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        await window.webContents.executeJavaScript(`location.hash = '#/home'`);
+        let result;
+        for (let attempt = 0; attempt < 30; attempt++) {
+          await new Promise((resolve) => setTimeout(resolve, 300));
+          result = await window.webContents.executeJavaScript(`(() => {
+            const card = document.querySelector('[data-testid=resume-card]');
+            const img = card?.querySelector('img');
+            return { text: card?.textContent, loaded: !!img?.naturalWidth, href: card?.querySelector('a')?.getAttribute('href') };
+          })()`);
+          if (result.loaded) break;
+        }
+        clearTimeout(watchdog);
+        finishSmoke(
+          result.loaded && result.href === "#/watch?id=" + seeded ? 0 : 1,
+          `Home page: ${JSON.stringify(result)}`,
+        );
+        return;
+      }
       if (smokeHash === "settings") {
         await window.webContents.executeJavaScript(`location.hash = '#/settings'`);
         for (let attempt = 0; attempt < 20; attempt += 1) {
