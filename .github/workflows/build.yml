@@ -38,6 +38,17 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - name: Check release notes
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          notes=".github/releases/$RELEASE_TAG.md"
+          if [[ ! -s "$notes" ]]; then
+            echo "Missing release notes: $notes. Commit them before tagging." >&2
+            exit 1
+          fi
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -163,3 +174,24 @@ jobs:
           name: windows-installer-log-${{ matrix.mode }}
           if-no-files-found: ignore
           path: build/installer-check.log
+  draft-release:
+    name: Draft release
+    needs: build
+    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: sori-*
+          merge-multiple: true
+          path: dist
+      - name: Create or update draft
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: bash scripts/ci/draft-release.sh dist

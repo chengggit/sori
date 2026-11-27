@@ -29,9 +29,16 @@ The first run or a toolchain change still needs a cold build.
 | Windows Server 2022 x86_64, MSVC | Per-user Inno Setup `.exe` installer                |
 | macOS 15 arm64                   | `.dmg` with `Sori.app` and an Applications shortcut |
 
-Packages include SHA-256 checksums. CI uploads build candidates; it does not
-publish GitHub releases automatically. Test core workflows on clean target
-systems before advertising a platform as supported.
+Packages include SHA-256 checksums. Manual runs upload workflow artifacts.
+Version-tag pushes create a draft GitHub release after all three platform jobs
+succeed, attaching the packages and checksums. Publishing is manual.
+
+Before tagging, commit the version's release notes in [.github/releases/](../.github/releases/README.md):
+tag `v1.0.0` uses `.github/releases/v1.0.0.md` as the release description. Missing or empty
+notes fail the tag build. Reruns refresh existing drafts, including their notes
+and assets; they refuse to modify published releases.
+
+Test core workflows on clean target systems before advertising a platform as supported.
 
 The Windows installer uses `%LOCALAPPDATA%\Programs\Sori` without administrator
 access. It offers shortcuts and an uninstaller that preserves separate user
