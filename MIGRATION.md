@@ -152,10 +152,16 @@ in Node would be worse than keeping it).
       three platforms; `SORI_DATA_DIR` overrides it for smoke tests so real
       libraries are never touched. Dev/bridge/packaged smoke exit 0.
 
-- [ ] **5. `feat/electron-analysis`** — Wire Kiwi → tokens → TS grouping/POS
+- [x] **5. `feat/electron-analysis`** — Wire Kiwi → tokens → TS grouping/POS
       labels/grammar into one reusable analysis component/panel.
       *Done when:* output matches the Qt app on the `nlp.rs` test corpus,
       including UTF-16 offsets and the emoji case.
+      Verified: `smoke-native.mjs` now checks the `nlp.rs` vectors (`마음/만큼/은`,
+      `NNG/JKB/JX`), emoji offset 3, and the 16 KiB limit. Ported Qt's
+      `attached_number_start` into `wordRanges` so clickable ranges match the
+      Qt vector including `3,000회` and `1.5년` (the old Svelte regex split
+      decimals). `AnalysisPanel.svelte` is reusable and exercised at `#analysis`.
+      20 Vitest tests, typecheck, and dev/packaged smoke pass.
 
 - [ ] **6. `feat/electron-shell`** — Sidebar, routing, and theme tokens from old
       `layout.css` plus current `Theme.qml`; light/dark themes, zoom, narrow

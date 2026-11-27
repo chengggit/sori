@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import AnalysisPage from './AnalysisPage.svelte';
   import BridgePage from './BridgePage.svelte';
   import { platform } from './platform';
 
@@ -22,11 +23,13 @@
 
 {#if route === '#bridge'}
   <BridgePage />
+{:else if route === '#analysis'}
+  <AnalysisPage />
 {:else}
   <main>
     <h1>Sori</h1>
     <p class="subtitle">Electron scaffold</p>
     <p class="status" data-testid="status">{status}</p>
-    <p><a href="#bridge">Dev bridge</a></p>
+    <p><a href="#bridge">Dev bridge</a> · <a href="#analysis">Analysis</a></p>
   </main>
 {/if}

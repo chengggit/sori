@@ -36,7 +36,8 @@ The library database lives in the same directory Qt used
 directory — smoke tests do this so they never open a real library.
 
 Open `http://127.0.0.1:5173/#bridge` during development for a bridge page that
-exercises `app:ping`, `analyzeText`, and a main-process event. UI logic calls
+exercises `app:ping`, `analyzeText`, and a main-process event. `#analysis` shows
+the reusable `AnalysisPanel.svelte` with real Kiwi output. UI logic calls
 `platform` (`src/platform.ts`) instead of Electron directly, so a browser
 implementation can be added later without touching components.
 
