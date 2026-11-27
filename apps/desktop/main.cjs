@@ -1,7 +1,7 @@
 const { app, BrowserWindow, dialog, ipcMain, protocol, session } = require('electron');
 const { execFile, execFileSync } = require('node:child_process');
 const { randomUUID } = require('node:crypto');
-const { createReadStream } = require('node:fs');
+const { createReadStream, writeFileSync } = require('node:fs');
 const { realpath, stat, readFile } = require('node:fs/promises');
 const { basename, extname, join } = require('node:path');
 const { homedir, tmpdir } = require('node:os');
@@ -249,6 +249,84 @@ function createWindow() {
           finishSmoke(1);
           return;
         }
+        if (smokeHash === 'subtitles') {
+          const directory = process.env.SORI_DATA_DIR || tmpdir();
+          const srtPath = join(directory, 'sori-subs.srt');
+          const videoPath = join(directory, 'sori-subs.mkv');
+          writeFileSync(
+            srtPath,
+            '1\n00:00:00,000 --> 00:00:03,000\n안녕하세요\n\n' +
+              '2\n00:00:03,000 --> 00:00:06,000\n학교에 갔어요\n',
+          );
+          execFileSync(
+            'ffmpeg',
+            [
+              '-v',
+              'error',
+              '-f',
+              'lavfi',
+              '-i',
+              'color=c=blue:s=320x240:d=6',
+              '-i',
+              srtPath,
+              '-map',
+              '0:v',
+              '-map',
+              '1:s',
+              '-c:s',
+              'srt',
+              '-pix_fmt',
+              'yuv420p',
+              '-metadata:s:s:0',
+              'language=kor',
+              '-metadata:s:s:0',
+              'title=Korean',
+              '-y',
+              videoPath,
+            ],
+            { timeout: 30000 },
+          );
+          const id = await window.webContents.executeJavaScript(`(async () => {
+            const imported = await window.sori.invoke('core:invoke', 'video:import', { path: ${JSON.stringify(videoPath)} });
+            if (!imported.ok) return -1;
+            const state = await window.sori.invoke('core:invoke', 'library:state', {});
+            return state.data.videos[0].id;
+          })()`);
+          await window.webContents.executeJavaScript(`location.hash = '#/watch?id=${id}'`);
+          let caption = '';
+          for (let attempt = 0; attempt < 30; attempt += 1) {
+            await new Promise((resolve) => setTimeout(resolve, 300));
+            caption = await window.webContents.executeJavaScript(
+              'document.querySelector("[data-testid=primary-caption]")?.textContent ?? ""',
+            );
+            if (caption.includes('안녕하세요')) break;
+          }
+          await window.webContents.executeJavaScript(`(() => {
+            document.querySelector('[data-testid=primary-caption] button')?.click();
+          })()`);
+          await new Promise((resolve) => setTimeout(resolve, 600));
+          const analysis = await window.webContents.executeJavaScript(
+            'document.querySelector("[data-testid=watch-analysis]")?.textContent ?? ""',
+          );
+          await window.webContents.executeJavaScript(`(() => {
+            document.querySelector('[data-testid=cue-3]')?.click();
+          })()`);
+          await new Promise((resolve) => setTimeout(resolve, 300));
+          const position = await window.webContents.executeJavaScript(
+            'document.querySelector("video").currentTime',
+          );
+          const transcript = await window.webContents.executeJavaScript(
+            'Boolean(document.querySelector("[data-testid=transcript]"))',
+          );
+          clearTimeout(watchdog);
+          finishSmoke(
+            caption.includes('안녕하세요') && analysis.includes('Ending') && position >= 3 && transcript
+              ? 0
+              : 1,
+            `Subtitles: ${JSON.stringify({ caption, analysis, position, transcript })}`,
+          );
+          return;
+        }
         if (smokeHash === 'watch') {
           const videoPath = join(process.env.SORI_DATA_DIR || tmpdir(), 'sori-smoke.mkv');
           execFileSync(
@@ -404,7 +482,7 @@ function createWindow() {
             remove?.click();
           })()`);
           let remaining = 1;
-          for (let attempt = 0; attempt < 10; attempt += 1) {
+          for (let attempt = 0; attempt < 20; attempt += 1) {
             await new Promise((resolve) => setTimeout(resolve, 300));
             remaining = await window.webContents.executeJavaScript(`(async () => {
               const state = await window.sori.invoke('core:invoke', 'library:state', {});
@@ -519,7 +597,8 @@ function createWindow() {
       smokeHash !== 'reader' &&
       smokeHash !== 'vocabulary' &&
       smokeHash !== 'pdf' &&
-      smokeHash !== 'watch'
+      smokeHash !== 'watch' &&
+      smokeHash !== 'subtitles'
         ? `#${smokeHash}`
         : '';
     window.loadURL(smoke ? `${devUrl}${smokeRoute}` : devUrl);

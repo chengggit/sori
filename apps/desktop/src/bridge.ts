@@ -20,6 +20,7 @@ export type Command =
   | "video:read"
   | "video:remove"
   | "video:saveProgress"
+  | "video:saveSubtitles"
   | "vocabulary:save"
   | "vocabulary:find"
   | "vocabulary:edit"

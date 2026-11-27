@@ -176,6 +176,11 @@ pub fn invoke(command: &str, payload: &Value) -> Value {
             let duration = fraction(payload, "duration")?;
             library()?.save_video_progress(id, seconds, duration)
         })()),
+        "video:saveSubtitles" => bridge::reply((|| {
+            let id = number(payload, "id")?;
+            let path = text(payload, "path")?;
+            library()?.save_video_subtitles(id, path)
+        })()),
         "vocabulary:save" => bridge::reply((|| {
             let kind = text(payload, "kind")?;
             let id = number(payload, "id")?;

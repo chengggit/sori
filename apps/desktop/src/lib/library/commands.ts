@@ -70,6 +70,10 @@ export function readVideo(
   });
 }
 
+export function saveVideoSubtitles(id: number, path: string) {
+  return platform.invoke<{ text: string }>("video:saveSubtitles", { id, path });
+}
+
 export function removeVideo(id: number) {
   return platform.invoke<null>("video:remove", { id });
 }
