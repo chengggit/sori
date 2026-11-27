@@ -21,6 +21,8 @@ const desktopPlatform: Platform = {
         return host.invoke<Response<T>>('app:ping');
       case 'dev:emit':
         return host.invoke<Response<T>>('dev:emit', payload);
+      case 'dialog:openDocument':
+        return host.invoke<Response<T>>('dialog:openDocument');
       case 'analyzeText':
         return host.invoke<Response<T>>('core:invoke', command, payload);
       default:

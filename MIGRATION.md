@@ -176,9 +176,16 @@ in Node would be worse than keeping it).
       Vite. shadcn UI primitives will be copied in as the feature pages need
       them; Qt-only behavior is layered on top of the reused Svelte components.
 
-- [ ] **7. `feat/electron-library`** — TXT import (UTF-8, ≤2 MiB), paste-as-file,
+- [x] **7. `feat/electron-library`** — TXT import (UTF-8, ≤2 MiB), paste-as-file,
       list/open/remove, background metadata jobs.
       *Done when:* matches `LibraryPage.qml`.
+      Verified: 4 Playwright tests, clean typecheck/build, and an Electron
+      smoke that inserts a Korean document through the bridge then sees it in
+      the Library page. Reused the old shadcn Button/Input primitives; the page
+      has search, file import (txt/pdf) via a native dialog, paste, edit,
+      delete confirmation, and a read-only document preview. A `library-changed`
+      event keeps the page in sync with mutations. The video shelf is read-only
+      here — import and thumbnail/duration jobs arrive with step 11.
 
 - [ ] **8. `feat/electron-reader`** — TXT reader, clickable words, analysis
       panel, debounced progress save/restore.

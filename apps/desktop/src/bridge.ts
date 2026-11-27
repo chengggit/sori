@@ -2,6 +2,7 @@ export type Command =
   | 'app:ping'
   | 'core:invoke'
   | 'dev:emit'
+  | 'dialog:openDocument'
   | 'analyzeText'
   | 'library:state'
   | 'document:add'

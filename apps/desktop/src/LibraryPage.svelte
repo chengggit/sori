@@ -1,0 +1,266 @@
+<script lang="ts">
+  import { FileText, Pencil, Plus, Search, Trash2, X } from '@lucide/svelte';
+  import { onMount } from 'svelte';
+  import { Button } from '$lib/components/ui/button';
+  import { Input } from '$lib/components/ui/input';
+  import {
+    addDocument,
+    importDocument,
+    loadLibraryState,
+    readDocument,
+    removeDocument,
+    updateDocument,
+    type DocumentView,
+  } from '$lib/library/commands';
+  import { platform } from './platform';
+
+  type LibraryItem = { id: number; title: string; pdf: boolean };
+
+  let documents = $state<LibraryItem[]>([]);
+  let videos = $state<{ id: number; title: string }[]>([]);
+  let query = $state('');
+  let error = $state('');
+  let busy = $state(false);
+  let importOpen = $state(false);
+  let editing = $state<LibraryItem | null>(null);
+  let draftTitle = $state('');
+  let draftText = $state('');
+  let preview = $state<{ title: string; document: DocumentView } | null>(null);
+  let deleting = $state<LibraryItem | null>(null);
+
+  const visibleDocuments = $derived(
+    documents.filter((item) => item.title.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())),
+  );
+  const visibleVideos = $derived(
+    videos.filter((item) => item.title.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())),
+  );
+
+  async function load() {
+    const state = await loadLibraryState();
+    if (!state.ok) {
+      error = state.error;
+      return;
+    }
+    documents = (state.data?.documents ?? []) as LibraryItem[];
+    videos = (state.data?.videos ?? []) as { id: number; title: string }[];
+    error = state.data?.error ?? '';
+  }
+
+  onMount(() => {
+    const unsubscribe = platform.onEvent('library-changed', () => void load());
+    void load();
+    return unsubscribe;
+  });
+
+  function report(result: { ok: boolean; error: string }) {
+    if (!result.ok) error = result.error;
+    return result.ok;
+  }
+
+  async function chooseFile() {
+    if (busy) return;
+    busy = true;
+    error = '';
+    try {
+      const picked = await platform.invoke<string | null>('dialog:openDocument');
+      if (!report(picked)) return;
+      if (!picked.data) return;
+      if (report(await importDocument(picked.data))) {
+        await load();
+        query = '';
+        importOpen = false;
+      }
+    } finally {
+      busy = false;
+    }
+  }
+
+  function openImport() {
+    editing = null;
+    draftTitle = '';
+    draftText = '';
+    error = '';
+    importOpen = true;
+  }
+
+  async function editDocument(item: LibraryItem) {
+    const result = await readDocument(item.id);
+    if (!report(result)) return;
+    editing = item;
+    draftTitle = item.title;
+    draftText = result.data?.content ?? '';
+    error = '';
+    importOpen = true;
+    preview = null;
+  }
+
+  async function saveDraft() {
+    if (busy || !draftText.trim()) return;
+    busy = true;
+    error = '';
+    try {
+      const result = editing
+        ? await updateDocument(editing.id, draftTitle, draftText)
+        : await addDocument(draftTitle, draftText);
+      if (!report(result)) return;
+      await load();
+      query = '';
+      importOpen = false;
+      editing = null;
+      draftTitle = '';
+      draftText = '';
+    } finally {
+      busy = false;
+    }
+  }
+
+  async function openDocument(item: LibraryItem) {
+    const result = await readDocument(item.id);
+    if (!report(result) || !result.data) return;
+    preview = { title: item.title, document: result.data };
+    deleting = null;
+  }
+
+  async function confirmDelete() {
+    if (!deleting || busy) return;
+    busy = true;
+    error = '';
+    try {
+      if (report(await removeDocument(deleting.id))) {
+        if (preview?.document && preview.document.content === '') preview = null;
+        await load();
+        deleting = null;
+      }
+    } finally {
+      busy = false;
+    }
+  }
+</script>
+
+<div class="flex flex-col gap-4">
+  <div class="flex flex-wrap items-center gap-2">
+    <div class="relative w-full max-w-sm">
+      <Search class="absolute left-2.5 top-2.5 text-muted-foreground" size={16} />
+      <Input
+        class="pl-8"
+        placeholder="Search your library"
+        aria-label="Search your library"
+        bind:value={query}
+      />
+    </div>
+    <div class="flex-1"></div>
+    <Button variant="outline" onclick={openImport} data-testid="import-text">
+      <Plus /> Import text
+    </Button>
+  </div>
+
+  {#if error}
+    <p class="text-sm text-destructive" data-testid="library-error" role="alert">{error}</p>
+  {/if}
+
+  {#if importOpen}
+    <section class="rounded-lg border border-border bg-card p-4" data-testid="import-panel">
+      <div class="mb-3 flex items-center justify-between">
+        <h2 class="text-base font-semibold">{editing ? 'Edit text' : 'Import text'}</h2>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Close"
+          onclick={() => (importOpen = false)}
+        >
+          <X />
+        </Button>
+      </div>
+      <div class="flex flex-col gap-3">
+        <Input placeholder="Title (optional)" aria-label="Title" bind:value={draftTitle} />
+        <textarea
+          class="min-h-40 w-full rounded-md border border-input bg-transparent p-3 font-[family-name:var(--font-korean)]"
+          placeholder="Paste Korean text here"
+          aria-label="Text"
+          bind:value={draftText}
+        ></textarea>
+        {#if !editing}
+          <Button variant="outline" onclick={chooseFile} disabled={busy} data-testid="choose-file">
+            <FileText /> Choose .txt or .pdf
+          </Button>
+        {/if}
+        <Button onclick={saveDraft} disabled={busy || !draftText.trim()} data-testid="save-document">
+          {editing ? 'Save changes' : 'Add to library'}
+        </Button>
+      </div>
+    </section>
+  {/if}
+
+  {#if preview}
+    <section class="rounded-lg border border-border bg-card p-4" data-testid="document-preview">
+      <div class="mb-3 flex items-center justify-between gap-2">
+        <h2 class="text-base font-semibold">{preview.title}</h2>
+        <Button variant="ghost" size="icon-sm" aria-label="Close preview" onclick={() => (preview = null)}>
+          <X />
+        </Button>
+      </div>
+      <p class="whitespace-pre-wrap font-[family-name:var(--font-korean)] leading-8">
+        {preview.document.content}
+      </p>
+    </section>
+  {/if}
+
+  <section>
+    <h2 class="mb-2 text-sm font-semibold text-muted-foreground" data-testid="text-count">
+      Texts ({documents.length})
+    </h2>
+    {#if visibleDocuments.length === 0}
+      <p class="text-sm text-muted-foreground" data-testid="empty-texts">
+        {query ? 'No matching texts' : 'No texts yet'}
+      </p>
+    {:else}
+      <ul class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3" data-testid="document-list">
+        {#each visibleDocuments as item (item.id)}
+          <li class="flex items-center gap-2 rounded-lg border border-border bg-card p-3">
+            <button
+              type="button"
+              class="flex-1 truncate text-left"
+              data-testid={`open-document-${item.id}`}
+              onclick={() => openDocument(item)}
+            >
+              <FileText size={16} class="mr-2 inline text-dashboard-accent" />
+              {item.title}{item.pdf ? ' · PDF' : ''}
+            </button>
+            <Button variant="ghost" size="icon-sm" aria-label={`Edit ${item.title}`} onclick={() => editDocument(item)}>
+              <Pencil />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={`Delete ${item.title}`}
+              onclick={() => (deleting = item)}
+            >
+              <Trash2 />
+            </Button>
+          </li>
+        {/each}
+      </ul>
+    {/if}
+  </section>
+
+  {#if visibleVideos.length}
+    <section>
+      <h2 class="mb-2 text-sm font-semibold text-muted-foreground">Videos</h2>
+      <ul class="grid gap-2 sm:grid-cols-2" data-testid="video-list">
+        {#each visibleVideos as video (video.id)}
+          <li class="truncate rounded-lg border border-border bg-card p-3">{video.title}</li>
+        {/each}
+      </ul>
+    </section>
+  {/if}
+
+  {#if deleting}
+    <div class="rounded-lg border border-destructive bg-card p-4" role="alertdialog" data-testid="delete-confirm">
+      <p class="mb-3 text-sm">Delete “{deleting.title}” from your library?</p>
+      <div class="flex gap-2">
+        <Button variant="outline" onclick={() => (deleting = null)}>Cancel</Button>
+        <Button variant="destructive" onclick={confirmDelete} disabled={busy}>Delete</Button>
+      </div>
+    </div>
+  {/if}
+</div>

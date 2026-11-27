@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, session } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, session } = require('electron');
 const { join } = require('node:path');
 const { homedir } = require('node:os');
 const { pathToFileURL } = require('node:url');
@@ -20,6 +20,7 @@ app.setPath('userData', legacyDataDirectory());
 const isDev = !app.isPackaged;
 const smoke = process.argv.includes('--smoke');
 const smokeHash = process.env.SORI_SMOKE_HASH;
+let smokeDone = false;
 const devUrl = 'http://127.0.0.1:5173/';
 const indexFile = join(__dirname, 'dist', 'index.html');
 const pageUrl = isDev ? devUrl : pathToFileURL(indexFile).href;
@@ -107,6 +108,8 @@ function createWindow() {
       finishSmoke(1, `Smoke check failed to load: ${description} (${code})`);
     });
     window.webContents.once('did-finish-load', async () => {
+      if (smokeDone) return;
+      smokeDone = true;
       try {
         const title = await window.webContents.executeJavaScript('document.title');
         const mounted = await window.webContents.executeJavaScript(
@@ -115,6 +118,23 @@ function createWindow() {
         if (title !== 'Sori' || !mounted) {
           clearTimeout(watchdog);
           finishSmoke(1);
+          return;
+        }
+        if (smokeHash === 'library') {
+          await window.webContents.executeJavaScript(
+            `window.sori.invoke('core:invoke', 'document:add', { title: '스모크 문서', content: '안녕하세요' })`,
+          );
+          await window.webContents.executeJavaScript(`location.hash = '#/library'`);
+          let listed = '';
+          for (let attempt = 0; attempt < 10; attempt += 1) {
+            await new Promise((resolve) => setTimeout(resolve, 300));
+            listed = await window.webContents.executeJavaScript(
+              'document.querySelector("[data-testid=document-list]")?.textContent ?? ""',
+            );
+            if (listed.includes('스모크 문서')) break;
+          }
+          clearTimeout(watchdog);
+          finishSmoke(listed.includes('스모크 문서') ? 0 : 1, `Library page: ${listed}`);
           return;
         }
         if (smokeHash === 'analysis') {
@@ -150,7 +170,8 @@ function createWindow() {
   }
 
   if (isDev) {
-    window.loadURL(smoke && smokeHash ? `${devUrl}#${smokeHash}` : devUrl);
+    const smokeRoute = smokeHash && smokeHash !== 'library' ? `#${smokeHash}` : '';
+    window.loadURL(smoke ? `${devUrl}${smokeRoute}` : devUrl);
   } else {
     window.loadFile(indexFile, smoke && smokeHash ? { hash: smokeHash } : {});
   }
@@ -160,14 +181,48 @@ function createWindow() {
 app.whenReady().then(() => {
   applyCsp();
   handle('app:ping', () => ({ ok: true, data: 'pong', error: '' }));
+  handle('dialog:openDocument', async (event) => {
+    const result = await dialog.showOpenDialog(BrowserWindow.fromWebContents(event.sender), {
+      title: 'Import a text or PDF file',
+      properties: ['openFile'],
+      filters: [
+        { name: 'Text and PDF files', extensions: ['txt', 'pdf'] },
+        { name: 'Text files', extensions: ['txt'] },
+        { name: 'PDF files', extensions: ['pdf'] },
+        { name: 'All files', extensions: ['*'] },
+      ],
+    });
+    if (result.canceled) return null;
+    const path = result.filePaths[0];
+    const extension = path.split('.').pop()?.toLowerCase();
+    if (extension !== 'txt' && extension !== 'pdf') {
+      throw new Error('Choose a .txt or .pdf file.');
+    }
+    return path;
+  });
   handle('dev:emit', (event, payload) => {
-    event.sender.send('core:event', { name: 'dev', payload: payload ?? null, at: Date.now() });
+    event.sender.send('core:event', {
+      name: payload?.name ?? 'dev',
+      payload: payload ?? null,
+      at: Date.now(),
+    });
     return { ok: true, data: null, error: '' };
   });
   handle('core:invoke', async (_event, command, payload) => {
     if (!native) return { ok: false, data: null, error: 'Native core is unavailable.' };
     try {
-      return JSON.parse(await native.invoke(command, JSON.stringify(payload ?? {})));
+      const reply = JSON.parse(await native.invoke(command, JSON.stringify(payload ?? {})));
+      if (reply.ok && /^(document|video|vocabulary|progress|library):/.test(command)) {
+        // Give a freshly mounted renderer time to subscribe before notifying.
+        setTimeout(() => {
+          try {
+            event.sender.send('core:event', { name: 'library-changed' });
+          } catch {
+            // The window may have closed before the notification fired.
+          }
+        }, 200);
+      }
+      return reply;
     } catch (error) {
       return {
         ok: false,

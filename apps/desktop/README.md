@@ -41,6 +41,10 @@ old Svelte app, with its OKLCH palette exposed as Tailwind tokens and Qt's
 `components.json` is ready for `npx shadcn-svelte add` when a feature needs a
 primitive. UI state (theme, zoom, sidebar) is localStorage-backed.
 
+`#/library` is the first feature page: import or paste text, search, edit,
+delete, and preview documents. Mutations emit a `library-changed` event so the
+page refreshes automatically. Video import arrives with the Watch step.
+
 Open `http://127.0.0.1:5173/#bridge` during development for a bridge page that
 exercises `app:ping`, `analyzeText`, and a main-process event. `#analysis` shows
 the reusable `AnalysisPanel.svelte` with real Kiwi output. UI logic calls
