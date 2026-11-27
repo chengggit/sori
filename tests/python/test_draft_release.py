@@ -61,7 +61,7 @@ if '--notes-file' in args:
         calls = [json.loads(line) for line in self.log.read_text().splitlines()] if self.log.exists() else []
         return result, calls
 
-    def test_creates_draft_with_handwritten_notes_and_six_assets(self):
+    def test_creates_draft_with_handwritten_notes_and_packages_only(self):
         result, calls = self.run_release()
         self.assertEqual(result.returncode, 0, result.stderr)
         create = calls[1]
@@ -71,7 +71,8 @@ if '--notes-file' in args:
         self.assertEqual(create[create.index('--notes-file') + 1], str(self.notes))
         upload = calls[2]
         self.assertEqual(upload[:3], ['release', 'upload', 'v1.0.0'])
-        self.assertEqual(len(upload[3:-1]), 6)
+        self.assertEqual(len(upload[3:-1]), 3)
+        self.assertFalse(any(asset.endswith('.sha256') for asset in upload[3:-1]))
         self.assertEqual(upload[-1], '--clobber')
 
     def test_rerun_refreshes_draft_notes_and_assets(self):

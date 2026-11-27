@@ -33,9 +33,9 @@ The first run or a toolchain change still needs a cold build.
 | Windows Server 2022 x86_64, MSVC | Per-user Inno Setup `.exe` installer                |
 | macOS 15 arm64                   | `.dmg` with `Sori.app` and an Applications shortcut |
 
-Packages include SHA-256 checksums. Manual runs upload workflow artifacts.
+Workflow artifacts include packages and SHA-256 checksums for CI verification.
 Version-tag pushes create a draft GitHub release after all three platform jobs
-succeed, attaching the packages and checksums. Publishing is manual.
+succeed, attaching only the three packages. Publishing is manual.
 
 Before tagging, commit the version's release notes in [.github/releases/](../.github/releases/README.md):
 tag `v1.0.0` uses `.github/releases/v1.0.0.md` as the release description. Missing or empty
