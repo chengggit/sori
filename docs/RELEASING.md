@@ -15,10 +15,14 @@ tags, pull requests, and manual dispatch, using Qt 6.10.2.
 - **Pull requests and main:** build and test on all three platforms, without Rust optimization,
   caption-helper bundling, or installers. Caption logic is still tested in Python.
   Main also warms caches for future PRs.
+- **Documentation-only changes:** quick status checks pass without platform
+  setup, builds, or tests. This covers root Markdown files, `docs/`, release
+  notes, and the QML test README. Required check names remain unchanged.
 - **Version tags and manual runs:** optimized builds, bundled captions,
   installers, and package smoke checks.
 
 Manual runs can package one platform or all three.
+Tags and manual runs always build, including when only documentation changed.
 
 Compiled Rust dependencies, Qt, pip downloads, and Kiwi resources are cached.
 The first run or a toolchain change still needs a cold build.
