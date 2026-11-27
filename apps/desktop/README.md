@@ -35,6 +35,11 @@ The library database lives in the same directory Qt used
 (`GenericDataLocation/com.sori.app`). Set `SORI_DATA_DIR` to use a different
 directory — smoke tests do this so they never open a real library.
 
+The UI uses Tailwind 4, Lucide icons, and shadcn-svelte conventions from the
+old Svelte app, with the Qt `Theme.qml` palette exposed as Tailwind tokens.
+`components.json` is ready for `npx shadcn-svelte add` when a feature needs a
+primitive. UI state (theme, zoom, sidebar) is localStorage-backed.
+
 Open `http://127.0.0.1:5173/#bridge` during development for a bridge page that
 exercises `app:ping`, `analyzeText`, and a main-process event. `#analysis` shows
 the reusable `AnalysisPanel.svelte` with real Kiwi output. UI logic calls

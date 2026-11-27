@@ -163,11 +163,18 @@ in Node would be worse than keeping it).
       decimals). `AnalysisPanel.svelte` is reusable and exercised at `#analysis`.
       20 Vitest tests, typecheck, and dev/packaged smoke pass.
 
-- [ ] **6. `feat/electron-shell`** — Sidebar, routing, and theme tokens from old
+- [x] **6. `feat/electron-shell`** — Sidebar, routing, and theme tokens from old
       `layout.css` plus current `Theme.qml`; light/dark themes, zoom, narrow
       widths.
       *Done when:* every page navigates in both themes and the Playwright visual
       smoke passes.
+      Verified: 3 Playwright tests (navigation, both themes, narrow-width
+      collapse), clean typecheck/build, dev and packaged smoke exit 0. Adopted
+      the old app's UI stack — Tailwind 4, Lucide, shadcn-svelte config,
+      `cn`/bits-ui/tailwind-variants — and Qt's sRGB palette as Tailwind tokens.
+      Fonts are bundled by Vite. shadcn UI primitives will be copied in as the
+      feature pages need them; Qt-only behavior is layered on top of the reused
+      Svelte components.
 
 - [ ] **7. `feat/electron-library`** — TXT import (UTF-8, ≤2 MiB), paste-as-file,
       list/open/remove, background metadata jobs.
