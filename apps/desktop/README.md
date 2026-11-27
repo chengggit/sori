@@ -42,8 +42,10 @@ old Svelte app, with its OKLCH palette exposed as Tailwind tokens and Qt's
 primitive. UI state (theme, zoom, sidebar) is localStorage-backed.
 
 `#/library` is the first feature page: import or paste text, search, edit,
-delete, and preview documents. Mutations emit a `library-changed` event so the
-page refreshes automatically. Video import arrives with the Watch step.
+delete, and open documents. Opening navigates to `#/reader?id=…`, where Korean
+words are clickable, feed the analysis panel, and scroll position is saved.
+Mutations emit a `library-changed` event so the library refreshes automatically.
+Video import arrives with the Watch step; PDF reading with step 10.
 
 Open `http://127.0.0.1:5173/#bridge` during development for a bridge page that
 exercises `app:ping`, `analyzeText`, and a main-process event. `#analysis` shows

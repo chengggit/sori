@@ -10,7 +10,6 @@
     readDocument,
     removeDocument,
     updateDocument,
-    type DocumentView,
   } from '$lib/library/commands';
   import { platform } from './platform';
 
@@ -25,7 +24,6 @@
   let editing = $state<LibraryItem | null>(null);
   let draftTitle = $state('');
   let draftText = $state('');
-  let preview = $state<{ title: string; document: DocumentView } | null>(null);
   let deleting = $state<LibraryItem | null>(null);
 
   const visibleDocuments = $derived(
@@ -91,7 +89,6 @@
     draftText = result.data?.content ?? '';
     error = '';
     importOpen = true;
-    preview = null;
   }
 
   async function saveDraft() {
@@ -114,10 +111,8 @@
     }
   }
 
-  async function openDocument(item: LibraryItem) {
-    const result = await readDocument(item.id);
-    if (!report(result) || !result.data) return;
-    preview = { title: item.title, document: result.data };
+  function openDocument(item: LibraryItem) {
+    location.hash = `#/reader?id=${item.id}`;
     deleting = null;
   }
 
@@ -127,7 +122,6 @@
     error = '';
     try {
       if (report(await removeDocument(deleting.id))) {
-        if (preview?.document && preview.document.content === '') preview = null;
         await load();
         deleting = null;
       }
@@ -188,20 +182,6 @@
           {editing ? 'Save changes' : 'Add to library'}
         </Button>
       </div>
-    </section>
-  {/if}
-
-  {#if preview}
-    <section class="rounded-lg border border-border bg-card p-4" data-testid="document-preview">
-      <div class="mb-3 flex items-center justify-between gap-2">
-        <h2 class="text-base font-semibold">{preview.title}</h2>
-        <Button variant="ghost" size="icon-sm" aria-label="Close preview" onclick={() => (preview = null)}>
-          <X />
-        </Button>
-      </div>
-      <p class="whitespace-pre-wrap font-[family-name:var(--font-korean)] leading-8">
-        {preview.document.content}
-      </p>
     </section>
   {/if}
 
