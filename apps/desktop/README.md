@@ -36,7 +36,8 @@ The library database lives in the same directory Qt used
 directory — smoke tests do this so they never open a real library.
 
 The UI uses Tailwind 4, Lucide icons, and shadcn-svelte conventions from the
-old Svelte app, with the Qt `Theme.qml` palette exposed as Tailwind tokens.
+old Svelte app, with its OKLCH palette exposed as Tailwind tokens and Qt's
+`Theme.qml` supplying layout measurements.
 `components.json` is ready for `npx shadcn-svelte add` when a feature needs a
 primitive. UI state (theme, zoom, sidebar) is localStorage-backed.
 

@@ -1,5 +1,5 @@
-/* Palette mirrors qml/style/Theme.qml, the sRGB form of the original Svelte
-   OKLCH tokens in src/routes/layout.css. */
+/* OKLCH palette from the original Svelte src/routes/layout.css. Sizes below
+   keep the Qt theme's measurements. */
 @font-face {
   font-family: Inter;
   src: url('./assets/fonts/Inter-Variable.ttf') format('truetype-variations');
@@ -15,26 +15,26 @@
 
 :root {
   color-scheme: light;
-  --background: #f2f4f2;
-  --sidebar: #fafbfa;
-  --neutral-hover: #f3f3f3;
-  --card: #fbfcfb;
-  --foreground: #0a0a0a;
-  --muted-foreground: #595d59;
-  --border: #e1e4e0;
-  --sidebar-border: #e1e4e0;
-  --sidebar-selection: #e1e7d7;
-  --primary: #242c1a;
-  --primary-foreground: #fafafa;
-  --accent: #55733f;
-  --on-accent: #ffffff;
-  --accent-hover: #4d693a;
-  --accent-soft: #dde4d3;
-  --hero: #e4ecdc;
-  --chip: #e0e6d6;
-  --dashboard-accent: #436717;
-  --dashboard-progress: #70934a;
-  --destructive: #b84a42;
+  --background: oklch(0.964 0.003 145);
+  --sidebar: oklch(0.986 0.002 145);
+  --neutral-hover: oklch(0.97 0 0);
+  --card: oklch(0.991 0.002 145);
+  --foreground: oklch(0.145 0 0);
+  --muted-foreground: oklch(0.473 0.009 145);
+  --border: oklch(0.915 0.006 130);
+  --sidebar-border: oklch(0.915 0.006 130);
+  --sidebar-selection: oklch(0.919 0.022 125);
+  --primary: oklch(0.279 0.034 128);
+  --primary-foreground: oklch(0.985 0 0);
+  --accent: oklch(0.469 0.114 131);
+  --on-accent: oklch(0.985 0 0);
+  --accent-hover: oklch(0.469 0.114 131);
+  --accent-soft: oklch(0.916 0.022 125);
+  --hero: oklch(0.932 0.022 128);
+  --chip: oklch(0.916 0.022 125);
+  --dashboard-accent: oklch(0.469 0.114 131);
+  --dashboard-progress: oklch(0.62 0.108 130);
+  --destructive: oklch(0.577 0.245 27.325);
   --radius-sm: 8px;
   --radius: 12px;
   --radius-large: 20px;
@@ -47,24 +47,24 @@
 
 :root.dark {
   color-scheme: dark;
-  --background: #0a0a0a;
-  --sidebar: #171717;
-  --neutral-hover: #262626;
-  --card: #171717;
-  --foreground: #fafafa;
-  --muted-foreground: #a1a1a1;
-  --border: #303030;
-  --sidebar-border: #2e2e2e;
-  --sidebar-selection: #34432b;
-  --primary: #e5e5e5;
-  --primary-foreground: #171717;
-  --accent: #aac991;
-  --on-accent: #182212;
-  --accent-hover: #bedaab;
-  --accent-soft: #34432b;
-  --hero: #1f2619;
-  --chip: #2a3224;
-  --dashboard-accent: #9ec378;
-  --dashboard-progress: #9ec378;
-  --destructive: #f4a096;
+  --background: oklch(0.145 0 0);
+  --sidebar: oklch(0.205 0 0);
+  --neutral-hover: oklch(0.269 0 0);
+  --card: oklch(0.205 0 0);
+  --foreground: oklch(0.985 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --border: oklch(1 0 0 / 10%);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-selection: oklch(0.305 0.027 132);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --accent: oklch(0.772 0.108 130);
+  --on-accent: oklch(0.205 0 0);
+  --accent-hover: oklch(0.772 0.108 130);
+  --accent-soft: oklch(0.305 0.027 132);
+  --hero: oklch(0.257 0.025 132);
+  --chip: oklch(0.305 0.027 132);
+  --dashboard-accent: oklch(0.772 0.108 130);
+  --dashboard-progress: oklch(0.772 0.108 130);
+  --destructive: oklch(0.704 0.191 22.216);
 }

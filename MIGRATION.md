@@ -171,10 +171,10 @@ in Node would be worse than keeping it).
       Verified: 3 Playwright tests (navigation, both themes, narrow-width
       collapse), clean typecheck/build, dev and packaged smoke exit 0. Adopted
       the old app's UI stack — Tailwind 4, Lucide, shadcn-svelte config,
-      `cn`/bits-ui/tailwind-variants — and Qt's sRGB palette as Tailwind tokens.
-      Fonts are bundled by Vite. shadcn UI primitives will be copied in as the
-      feature pages need them; Qt-only behavior is layered on top of the reused
-      Svelte components.
+      `cn`/bits-ui/tailwind-variants — and its OKLCH palette as Tailwind tokens;
+      Qt's `Theme.qml` supplies the layout measurements. Fonts are bundled by
+      Vite. shadcn UI primitives will be copied in as the feature pages need
+      them; Qt-only behavior is layered on top of the reused Svelte components.
 
 - [ ] **7. `feat/electron-library`** — TXT import (UTF-8, ≤2 MiB), paste-as-file,
       list/open/remove, background metadata jobs.
