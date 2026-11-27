@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { Bookmark, Compass, History, House, Library, PanelLeft } from "@lucide/svelte";
+  import { Bookmark, Compass, History, House, Library, PanelLeft, Settings } from "@lucide/svelte";
   import type { Snippet } from "svelte";
   import { appearanceOptions, clampPageScale, type Appearance } from "$lib/appearance";
   import { cn } from "$lib/utils";
@@ -32,6 +32,7 @@
     { page: "library", label: "My Library", icon: Library },
     { page: "vocabulary", label: "Vocabulary", icon: Bookmark },
     { page: "history", label: "History", icon: History },
+    { page: "settings", label: "Settings", icon: Settings },
   ];
 
   let collapsed = $state(localStorage.getItem("sori-sidebar-collapsed") === "true");

@@ -267,9 +267,15 @@ in Node would be worse than keeping it).
       and thumbnails. Live Data API and caption responses were not
       smoke-tested (network dependent).
 
-- [ ] **15. `feat/electron-settings`** — Theme, zoom, Inter/Noto Sans KR fonts,
+- [x] **15. `feat/electron-settings`** — Theme, zoom, Inter/Noto Sans KR fonts,
       dictionary provider/key, embed-tab order, `app_settings` table.
       _Done when:_ matches `SettingsSheet.qml`.
+      Verified: 9 Playwright tests, clean typecheck/build, settings smoke
+      (four sections + theme switch), all eleven smoke routes and the packaged
+      app. Shared `ui` state persists theme, zoom, reading font/size/line-height
+      and transcript line-height; reader and transcript honor them. Dictionary
+      provider/key, YouTube key, and embedded-tab enable/reorder are all managed
+      in one settings page using the existing `app_settings` table.
 
 - [ ] **16. `feat/electron-packaging`** — electron-builder AppImage / per-user
       NSIS / DMG, icons, ASAR, `extraResources` for Kiwi + ffmpeg, checksums,
