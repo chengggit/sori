@@ -18,6 +18,15 @@
   --color-input: var(--input);
   --color-ring: var(--ring);
   --color-border: var(--border);
+  --color-card-foreground: var(--foreground);
+  --color-popover: var(--card);
+  --color-popover-foreground: var(--foreground);
+  --color-accent-foreground: var(--foreground);
+  --color-accent: var(--neutral-hover);
+  --color-sidebar-foreground: var(--foreground);
+  --color-sidebar-accent: var(--sidebar-selection);
+  --color-sidebar-accent-foreground: var(--foreground);
+  --color-sidebar-ring: var(--ring);
   --color-sidebar: var(--sidebar);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-selection: var(--sidebar-selection);
@@ -53,7 +62,7 @@ select {
 }
 
 a {
-  color: var(--accent);
+  color: inherit;
 }
 
 :focus-visible {

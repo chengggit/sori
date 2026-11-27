@@ -28,13 +28,18 @@
   let scroller = $state<HTMLElement>();
   let stopTracking: (() => void) | undefined;
 
-  onDestroy(() => stopTracking?.());
+  let active = true;
+  onDestroy(() => {
+    active = false;
+    stopTracking?.();
+  });
   onMount(() => {
     void open();
   });
 
   async function open() {
     const result = await readDocument(documentId);
+    if (!active) return;
     if (!result.ok || !result.data) {
       error = result.error || "Document not found.";
       return;
@@ -45,10 +50,13 @@
     const parts = readingPassages(result.data.content);
     passages = parts.map((part) => ({ ...part, tokens: [] as KoreanToken[] }));
     await tick();
+    if (!active) return;
 
     for (const [index, part] of parts.entries()) {
       try {
-        passages[index].tokens = await tokenizeText(part.text);
+        const tokens = await tokenizeText(part.text);
+        if (!active) return;
+        passages[index].tokens = tokens;
       } catch (cause) {
         error = cause instanceof Error ? cause.message : String(cause);
         return;

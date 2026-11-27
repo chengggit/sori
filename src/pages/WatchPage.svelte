@@ -166,14 +166,17 @@
     node?.scrollIntoView({ block: "nearest" });
   });
 
+  let active = true;
   onMount(() => {
     void (async () => {
       const saved = await readVideo(videoId);
+      if (!active) return;
       if (!saved.ok || !saved.data) {
         error = saved.error || "Video not found.";
         return;
       }
       const opened = await exposeVideo(saved.data.path);
+      if (!active) return;
       if (!opened.ok || !opened.data) {
         error = opened.error || "Could not open this video.";
         return;
@@ -181,7 +184,7 @@
       source = opened.data;
       lastSaved = saved.data.seconds;
       const info = await probeVideo(opened.data.id);
-      if (!info.ok) return;
+      if (!active || !info.ok) return;
       probe = info.data;
       if (info.data?.error) error = info.data.error;
 
@@ -199,6 +202,7 @@
   });
 
   onDestroy(() => {
+    active = false;
     if (video && duration) void save(video.currentTime);
   });
 </script>

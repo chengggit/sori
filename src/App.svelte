@@ -23,6 +23,7 @@
   $effect(() => {
     document.documentElement.classList.toggle("dark", dark);
     document.documentElement.style.zoom = String(ui.pageScale);
+    document.documentElement.style.setProperty("--app-scale", String(ui.pageScale));
     persistUi();
   });
 
@@ -72,11 +73,11 @@
     {#if page === "library"}
       <LibraryPage />
     {:else if page === "reader"}
-      <ReaderPage documentId={readerId} onBack={() => goTo("library")} />
+      {#key readerId}<ReaderPage documentId={readerId} onBack={() => goTo("library")} />{/key}
     {:else if page === "vocabulary"}
       <VocabularyPage />
     {:else if page === "watch"}
-      <WatchPage videoId={watchId} onBack={() => goTo("library")} />
+      {#key watchId}<WatchPage videoId={watchId} onBack={() => goTo("library")} />{/key}
     {:else if page === "explore"}
       <YouTubePage />
     {:else if page === "settings"}
