@@ -77,6 +77,15 @@ function loadNative() {
 
 const native = loadNative();
 
+function toolPath(name) {
+  if (!app.isPackaged) return name;
+  const directory = join(process.resourcesPath, "bin");
+  if (process.platform === "darwin" && name === "ffprobe") {
+    return join(directory, "ffprobe", process.arch, "ffprobe");
+  }
+  return join(directory, process.platform === "win32" ? `${name}.exe` : name);
+}
+
 async function servePdf(request) {
   const match = /^sori-pdf:\/\/pdf\/(\d+)\.pdf$/.exec(request.url);
   if (!match) return new Response(null, { status: 404 });
@@ -789,7 +798,7 @@ app.whenReady().then(() => {
     const selected = currentMedia(id);
     try {
       const { stdout } = await run(
-        'ffprobe',
+        toolPath('ffprobe'),
         [
           '-v',
           'error',
@@ -834,7 +843,7 @@ app.whenReady().then(() => {
   });
   handle('video:track', async (_event, id, index) => {
     const selected = currentMedia(id);
-    const probe = await run('ffprobe', [
+    const probe = await run(toolPath('ffprobe'), [
       '-v',
       'error',
       '-protocol_whitelist',
@@ -854,7 +863,7 @@ app.whenReady().then(() => {
     if (!track) throw new Error('Choose a text subtitle track.');
     try {
       const { stdout } = await run(
-        'ffmpeg',
+        toolPath('ffmpeg'),
         [
           '-v',
           'error',

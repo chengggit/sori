@@ -277,10 +277,17 @@ in Node would be worse than keeping it).
       provider/key, YouTube key, and embedded-tab enable/reorder are all managed
       in one settings page using the existing `app_settings` table.
 
-- [ ] **16. `feat/electron-packaging`** — electron-builder AppImage / per-user
+- [x] **16. `feat/electron-packaging`** — electron-builder AppImage / per-user
       NSIS / DMG, icons, ASAR, `extraResources` for Kiwi + ffmpeg, checksums,
       signing/notarization, CI artifacts, release notes template.
       _Done when:_ clean-system install and launch verified on all three OSes.
+      Verified locally: AppImage contains the custom icon, Kiwi lib/models and
+      bundled ffmpeg/ffprobe; packaged PDF and subtitle smokes pass using those
+      bundled resources. `SHA256SUMS.txt` is generated and uploaded with
+      artifacts. CI now prepares Kiwi resources before native tests. Windows
+      and macOS packages and clean-system installs are still CI-only; signing
+      and notarization remain unconfigured, matching the Qt release posture.
+      The optional Python caption helper is still not bundled.
 
 - [ ] **17. `release/electron-cutover`** — Full parity audit against
       `PRODUCT.md` and `USAGE.md`, migrate a real library once more, rewrite all
