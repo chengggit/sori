@@ -1,4 +1,4 @@
-import { platform } from '../../platform';
+import { platform } from "../../platform";
 
 /** Analyzed morpheme form. Conjugated forms can differ from the surface. */
 export type KoreanToken = {
@@ -12,14 +12,14 @@ export type KoreanToken = {
   sentenceIndex: number;
 };
 
-const storageKey = 'sori-token-cache';
+const storageKey = "sori-token-cache";
 const memoryCache = new Map<string, KoreanToken[]>();
 const maxEntries = 80;
 
 function readPersistentCache(): Record<string, KoreanToken[]> {
   try {
-    const value: unknown = JSON.parse(localStorage.getItem(storageKey) ?? '{}');
-    return value && typeof value === 'object' ? (value as Record<string, KoreanToken[]>) : {};
+    const value: unknown = JSON.parse(localStorage.getItem(storageKey) ?? "{}");
+    return value && typeof value === "object" ? (value as Record<string, KoreanToken[]>) : {};
   } catch {
     return {};
   }
@@ -47,8 +47,8 @@ export async function tokenizeText(text: string): Promise<KoreanToken[]> {
     return persistent;
   }
 
-  const reply = await platform.invoke<KoreanToken[]>('analyzeText', { text });
-  if (!reply.ok) throw new Error(reply.error || 'Korean analysis failed.');
+  const reply = await platform.invoke<KoreanToken[]>("analyzeText", { text });
+  if (!reply.ok) throw new Error(reply.error || "Korean analysis failed.");
   const tokens = reply.data ?? [];
 
   memoryCache.delete(key);

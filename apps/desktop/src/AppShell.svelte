@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { Bookmark, Compass, History, House, Library, PanelLeft } from '@lucide/svelte';
-  import type { Snippet } from 'svelte';
-  import { appearanceOptions, clampPageScale, type Appearance } from '$lib/appearance';
-  import { cn } from '$lib/utils';
+  import { Bookmark, Compass, History, House, Library, PanelLeft } from "@lucide/svelte";
+  import type { Snippet } from "svelte";
+  import { appearanceOptions, clampPageScale, type Appearance } from "$lib/appearance";
+  import { cn } from "$lib/utils";
 
   let {
     page,
@@ -27,17 +27,17 @@
   } = $props();
 
   const links = [
-    { page: 'home', label: 'Home', icon: House },
-    { page: 'explore', label: 'Explore', icon: Compass },
-    { page: 'library', label: 'My Library', icon: Library },
-    { page: 'vocabulary', label: 'Vocabulary', icon: Bookmark },
-    { page: 'history', label: 'History', icon: History },
+    { page: "home", label: "Home", icon: House },
+    { page: "explore", label: "Explore", icon: Compass },
+    { page: "library", label: "My Library", icon: Library },
+    { page: "vocabulary", label: "Vocabulary", icon: Bookmark },
+    { page: "history", label: "History", icon: History },
   ];
 
-  let collapsed = $state(localStorage.getItem('sori-sidebar-collapsed') === 'true');
-  $effect(() => localStorage.setItem('sori-sidebar-collapsed', String(collapsed)));
+  let collapsed = $state(localStorage.getItem("sori-sidebar-collapsed") === "true");
+  $effect(() => localStorage.setItem("sori-sidebar-collapsed", String(collapsed)));
 
-  const title = $derived(titleOverride ?? links.find((link) => link.page === page)?.label ?? 'Home');
+  const title = $derived(titleOverride ?? links.find((link) => link.page === page)?.label ?? "Home");
 </script>
 
 <div class="flex h-screen overflow-hidden">
@@ -45,8 +45,8 @@
     data-testid="sidebar"
     aria-label="Navigation"
     class={cn(
-      'flex shrink-0 flex-col gap-6 border-r border-sidebar-border bg-sidebar px-2.5 py-3.5 transition-[width] duration-200 ease-out',
-      collapsed ? 'w-14' : 'w-52',
+      "flex shrink-0 flex-col gap-6 border-r border-sidebar-border bg-sidebar px-2.5 py-3.5 transition-[width] duration-200 ease-out",
+      collapsed ? "w-14" : "w-52",
     )}
   >
     <div class="flex min-h-9 items-center justify-between pl-2.5 pr-0.5">
@@ -68,10 +68,10 @@
           type="button"
           data-testid={`nav-${link.page}`}
           title={link.label}
-          aria-current={page === link.page ? 'page' : undefined}
+          aria-current={page === link.page ? "page" : undefined}
           class={cn(
-            'flex h-[34px] w-full items-center gap-3 rounded-[14px] px-3 text-left hover:bg-neutral-hover',
-            page === link.page && 'bg-sidebar-selection text-dashboard-accent',
+            "flex h-[34px] w-full items-center gap-3 rounded-[14px] px-3 text-left hover:bg-neutral-hover",
+            page === link.page && "bg-sidebar-selection text-dashboard-accent",
           )}
           onclick={() => onPage(link.page)}
         >
@@ -89,8 +89,8 @@
             type="button"
             data-testid={`theme-${option.value}`}
             class={cn(
-              'rounded-lg border border-border bg-card px-2 py-1 text-[11px] hover:bg-neutral-hover',
-              appearance === option.value && 'bg-accent-soft',
+              "rounded-lg border border-border bg-card px-2 py-1 text-[11px] hover:bg-neutral-hover",
+              appearance === option.value && "bg-accent-soft",
             )}
             onclick={() => onAppearance(option.value)}
           >
@@ -111,7 +111,7 @@
         />
       </label>
       <p class="m-0 text-[11px] text-muted-foreground" data-testid="theme-state">
-        {dark ? 'Dark' : 'Light'}
+        {dark ? "Dark" : "Light"}
       </p>
     </div>
   </aside>

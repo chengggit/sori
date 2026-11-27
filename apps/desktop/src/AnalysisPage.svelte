@@ -1,12 +1,12 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import AnalysisPanel from './AnalysisPanel.svelte';
-  import type { Analysis } from './lib/reader/analysis';
-  import { tokenizeText, type KoreanToken } from './lib/nlp/tokenization';
+  import { onMount } from "svelte";
+  import AnalysisPanel from "./AnalysisPanel.svelte";
+  import type { Analysis } from "./lib/reader/analysis";
+  import { tokenizeText, type KoreanToken } from "./lib/nlp/tokenization";
 
-  let text = $state('😀 학교에 갔어요.');
+  let text = $state("😀 학교에 갔어요.");
   let tokens = $state<KoreanToken[]>([]);
-  let error = $state('');
+  let error = $state("");
 
   const analysis = $derived<Analysis | null>(
     tokens.length ? { word: text.trim(), context: text.trim(), tokens } : null,
@@ -15,7 +15,7 @@
   async function run() {
     try {
       tokens = await tokenizeText(text);
-      error = '';
+      error = "";
     } catch (cause) {
       tokens = [];
       error = cause instanceof Error ? cause.message : String(cause);

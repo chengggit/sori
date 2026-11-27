@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { FileText, Pencil, Plus, Search, Trash2, X } from '@lucide/svelte';
-  import { onMount } from 'svelte';
-  import { Button } from '$lib/components/ui/button';
-  import { Input } from '$lib/components/ui/input';
+  import { FileText, Pencil, Plus, Search, Trash2, X } from "@lucide/svelte";
+  import { onMount } from "svelte";
+  import { Button } from "$lib/components/ui/button";
+  import { Input } from "$lib/components/ui/input";
   import {
     addDocument,
     importDocument,
@@ -10,24 +10,26 @@
     readDocument,
     removeDocument,
     updateDocument,
-  } from '$lib/library/commands';
-  import { platform } from './platform';
+  } from "$lib/library/commands";
+  import { platform } from "./platform";
 
   type LibraryItem = { id: number; title: string; pdf: boolean };
 
   let documents = $state<LibraryItem[]>([]);
   let videos = $state<{ id: number; title: string }[]>([]);
-  let query = $state('');
-  let error = $state('');
+  let query = $state("");
+  let error = $state("");
   let busy = $state(false);
   let importOpen = $state(false);
   let editing = $state<LibraryItem | null>(null);
-  let draftTitle = $state('');
-  let draftText = $state('');
+  let draftTitle = $state("");
+  let draftText = $state("");
   let deleting = $state<LibraryItem | null>(null);
 
   const visibleDocuments = $derived(
-    documents.filter((item) => item.title.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())),
+    documents.filter((item) =>
+      item.title.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()),
+    ),
   );
   const visibleVideos = $derived(
     videos.filter((item) => item.title.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())),
@@ -41,11 +43,11 @@
     }
     documents = (state.data?.documents ?? []) as LibraryItem[];
     videos = (state.data?.videos ?? []) as { id: number; title: string }[];
-    error = state.data?.error ?? '';
+    error = state.data?.error ?? "";
   }
 
   onMount(() => {
-    const unsubscribe = platform.onEvent('library-changed', () => void load());
+    const unsubscribe = platform.onEvent("library-changed", () => void load());
     void load();
     return unsubscribe;
   });
@@ -58,14 +60,14 @@
   async function chooseFile() {
     if (busy) return;
     busy = true;
-    error = '';
+    error = "";
     try {
-      const picked = await platform.invoke<string | null>('dialog:openDocument');
+      const picked = await platform.invoke<string | null>("dialog:openDocument");
       if (!report(picked)) return;
       if (!picked.data) return;
       if (report(await importDocument(picked.data))) {
         await load();
-        query = '';
+        query = "";
         importOpen = false;
       }
     } finally {
@@ -75,9 +77,9 @@
 
   function openImport() {
     editing = null;
-    draftTitle = '';
-    draftText = '';
-    error = '';
+    draftTitle = "";
+    draftText = "";
+    error = "";
     importOpen = true;
   }
 
@@ -86,26 +88,26 @@
     if (!report(result)) return;
     editing = item;
     draftTitle = item.title;
-    draftText = result.data?.content ?? '';
-    error = '';
+    draftText = result.data?.content ?? "";
+    error = "";
     importOpen = true;
   }
 
   async function saveDraft() {
     if (busy || !draftText.trim()) return;
     busy = true;
-    error = '';
+    error = "";
     try {
       const result = editing
         ? await updateDocument(editing.id, draftTitle, draftText)
         : await addDocument(draftTitle, draftText);
       if (!report(result)) return;
       await load();
-      query = '';
+      query = "";
       importOpen = false;
       editing = null;
-      draftTitle = '';
-      draftText = '';
+      draftTitle = "";
+      draftText = "";
     } finally {
       busy = false;
     }
@@ -119,7 +121,7 @@
   async function confirmDelete() {
     if (!deleting || busy) return;
     busy = true;
-    error = '';
+    error = "";
     try {
       if (report(await removeDocument(deleting.id))) {
         await load();
@@ -155,13 +157,8 @@
   {#if importOpen}
     <section class="rounded-lg border border-border bg-card p-4" data-testid="import-panel">
       <div class="mb-3 flex items-center justify-between">
-        <h2 class="text-base font-semibold">{editing ? 'Edit text' : 'Import text'}</h2>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Close"
-          onclick={() => (importOpen = false)}
-        >
+        <h2 class="text-base font-semibold">{editing ? "Edit text" : "Import text"}</h2>
+        <Button variant="ghost" size="icon-sm" aria-label="Close" onclick={() => (importOpen = false)}>
           <X />
         </Button>
       </div>
@@ -171,15 +168,14 @@
           class="min-h-40 w-full rounded-md border border-input bg-transparent p-3 font-[family-name:var(--font-korean)]"
           placeholder="Paste Korean text here"
           aria-label="Text"
-          bind:value={draftText}
-        ></textarea>
+          bind:value={draftText}></textarea>
         {#if !editing}
           <Button variant="outline" onclick={chooseFile} disabled={busy} data-testid="choose-file">
             <FileText /> Choose .txt or .pdf
           </Button>
         {/if}
         <Button onclick={saveDraft} disabled={busy || !draftText.trim()} data-testid="save-document">
-          {editing ? 'Save changes' : 'Add to library'}
+          {editing ? "Save changes" : "Add to library"}
         </Button>
       </div>
     </section>
@@ -191,7 +187,7 @@
     </h2>
     {#if visibleDocuments.length === 0}
       <p class="text-sm text-muted-foreground" data-testid="empty-texts">
-        {query ? 'No matching texts' : 'No texts yet'}
+        {query ? "No matching texts" : "No texts yet"}
       </p>
     {:else}
       <ul class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3" data-testid="document-list">
@@ -204,9 +200,14 @@
               onclick={() => openDocument(item)}
             >
               <FileText size={16} class="mr-2 inline text-dashboard-accent" />
-              {item.title}{item.pdf ? ' · PDF' : ''}
+              {item.title}{item.pdf ? " · PDF" : ""}
             </button>
-            <Button variant="ghost" size="icon-sm" aria-label={`Edit ${item.title}`} onclick={() => editDocument(item)}>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={`Edit ${item.title}`}
+              onclick={() => editDocument(item)}
+            >
               <Pencil />
             </Button>
             <Button
@@ -235,7 +236,11 @@
   {/if}
 
   {#if deleting}
-    <div class="rounded-lg border border-destructive bg-card p-4" role="alertdialog" data-testid="delete-confirm">
+    <div
+      class="rounded-lg border border-destructive bg-card p-4"
+      role="alertdialog"
+      data-testid="delete-confirm"
+    >
       <p class="mb-3 text-sm">Delete “{deleting.title}” from your library?</p>
       <div class="flex gap-2">
         <Button variant="outline" onclick={() => (deleting = null)}>Cancel</Button>

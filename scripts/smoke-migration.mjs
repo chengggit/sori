@@ -1,16 +1,16 @@
-import { mkdtempSync, rmSync } from 'node:fs';
-import { createRequire } from 'node:module';
-import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
-import { DatabaseSync } from 'node:sqlite';
-import { fileURLToPath } from 'node:url';
+import { mkdtempSync, rmSync } from "node:fs";
+import { createRequire } from "node:module";
+import { tmpdir } from "node:os";
+import { dirname, join } from "node:path";
+import { DatabaseSync } from "node:sqlite";
+import { fileURLToPath } from "node:url";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const require = createRequire(import.meta.url);
-const addon = require(join(root, 'apps', 'desktop', 'native', 'sori-node.node'));
+const addon = require(join(root, "apps", "desktop", "native", "sori-node.node"));
 
-const directory = mkdtempSync(join(tmpdir(), 'sori-migration-'));
-const databasePath = join(directory, 'library.sqlite3');
+const directory = mkdtempSync(join(tmpdir(), "sori-migration-"));
+const databasePath = join(directory, "library.sqlite3");
 try {
   // A pre-release library: no pdf_path, duration or thumbnail columns, and
   // none of the newer tables. CREATE TABLE IF NOT EXISTS alone cannot add them.
@@ -60,28 +60,33 @@ try {
   old.close();
 
   addon.initLibrary(directory);
-  const reply = JSON.parse(await addon.invoke('library:state', '{}'));
-  if (!reply.ok || reply.data.documents.length !== 1) throw new Error('Old library did not open.');
+  const reply = JSON.parse(await addon.invoke("library:state", "{}"));
+  if (!reply.ok || reply.data.documents.length !== 1) throw new Error("Old library did not open.");
 
   const upgraded = new DatabaseSync(databasePath);
   const columns = (table) =>
-    upgraded.prepare(`PRAGMA table_info(${table})`).all().map((column) => column.name);
+    upgraded
+      .prepare(`PRAGMA table_info(${table})`)
+      .all()
+      .map((column) => column.name);
   for (const [table, column] of [
-    ['documents', 'pdf_path'],
-    ['videos', 'duration'],
-    ['videos', 'thumbnail'],
+    ["documents", "pdf_path"],
+    ["videos", "duration"],
+    ["videos", "thumbnail"],
   ]) {
     if (!columns(table).includes(column)) throw new Error(`${table}.${column} was not migrated.`);
   }
-  for (const table of ['video_transcripts', 'youtube_transcripts', 'app_settings']) {
-    const found = upgraded.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(table);
+  for (const table of ["video_transcripts", "youtube_transcripts", "app_settings"]) {
+    const found = upgraded
+      .prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?")
+      .get(table);
     if (!found) throw new Error(`${table} was not created.`);
   }
-  const title = upgraded.prepare('SELECT title FROM documents WHERE id=7').get().title;
-  if (title !== '한국어') throw new Error('Existing data was lost.');
+  const title = upgraded.prepare("SELECT title FROM documents WHERE id=7").get().title;
+  if (title !== "한국어") throw new Error("Existing data was lost.");
   upgraded.close();
 
-  console.log('Migration smoke: OK');
+  console.log("Migration smoke: OK");
 } finally {
   rmSync(directory, { recursive: true, force: true });
 }

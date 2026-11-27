@@ -1,0 +1,15 @@
+node_modules
+build
+apps/desktop/dist
+apps/desktop/release
+apps/desktop/native
+apps/desktop/public/icons
+apps/desktop/src/assets/fonts
+package-lock.json
+*.png
+*.webp
+*.svg
+*.ico
+*.icns
+*.ttf
+*.otf

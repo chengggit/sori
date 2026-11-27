@@ -5,40 +5,40 @@ function timestamp(value: string): number {
   if (!match) return NaN;
   const [, hours, minutes, seconds, milliseconds] = match;
   return (
-    Number(hours ?? 0) * 3600 +
-    Number(minutes) * 60 +
-    Number(seconds) +
-    Number(milliseconds) / 1000
+    Number(hours ?? 0) * 3600 + Number(minutes) * 60 + Number(seconds) + Number(milliseconds) / 1000
   );
 }
 
 function plainText(text: string) {
   const entities: Record<string, string> = {
-    amp: '&',
-    lt: '<',
-    gt: '>',
-    nbsp: ' ',
-    lrm: '\u200e',
-    rlm: '\u200f',
+    amp: "&",
+    lt: "<",
+    gt: ">",
+    nbsp: " ",
+    lrm: "\u200e",
+    rlm: "\u200f",
   };
   return text
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<[^>\n]*>/g, '')
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<[^>\n]*>/g, "")
     .replace(/&(amp|lt|gt|nbsp|lrm|rlm);/g, (entity, name: string) => entities[name] ?? entity)
     .trim();
 }
 
 export function parseSubtitles(source: string): SubtitleCue[] {
   const cues: SubtitleCue[] = [];
-  for (const block of source.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n').split(/\n[ \t]*\n+/)) {
-    const lines = block.trim().split('\n');
+  for (const block of source
+    .replace(/^\uFEFF/, "")
+    .replace(/\r\n?/g, "\n")
+    .split(/\n[ \t]*\n+/)) {
+    const lines = block.trim().split("\n");
     if (/^(WEBVTT|NOTE|STYLE|REGION)(?:\s|$)/.test(lines[0])) continue;
-    const timingLine = lines[0].includes('-->') ? 0 : 1;
-    const timing = /^(\S+)\s+-->\s+(\S+)/.exec(lines[timingLine]?.trim() ?? '');
+    const timingLine = lines[0].includes("-->") ? 0 : 1;
+    const timing = /^(\S+)\s+-->\s+(\S+)/.exec(lines[timingLine]?.trim() ?? "");
     if (!timing) continue;
     const start = timestamp(timing[1]);
     const end = timestamp(timing[2]);
-    const text = plainText(lines.slice(timingLine + 1).join('\n'));
+    const text = plainText(lines.slice(timingLine + 1).join("\n"));
     if (Number.isFinite(start) && Number.isFinite(end) && end > start && text) {
       cues.push({ start, end, text });
     }

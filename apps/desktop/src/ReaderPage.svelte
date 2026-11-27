@@ -1,19 +1,20 @@
 <script lang="ts">
-  import { ArrowLeft } from '@lucide/svelte';
-  import { onDestroy, onMount, tick } from 'svelte';
-  import AnalysisPanel from './AnalysisPanel.svelte';
-  import { Button } from '$lib/components/ui/button';
-  import type { Analysis } from '$lib/reader/analysis';
-  import { readingPassages, tokenBlocks } from '$lib/reader/tokens';
-  import { trackReadingProgress } from '$lib/reader/progress';
-  import { tokenizeText, type KoreanToken } from '$lib/nlp/tokenization';
+  import { ArrowLeft } from "@lucide/svelte";
+  import { onDestroy, onMount, tick } from "svelte";
+  import AnalysisPanel from "./AnalysisPanel.svelte";
+  import PdfReader from "./PdfReader.svelte";
+  import { Button } from "$lib/components/ui/button";
+  import type { Analysis } from "$lib/reader/analysis";
+  import { readingPassages, tokenBlocks } from "$lib/reader/tokens";
+  import { trackReadingProgress } from "$lib/reader/progress";
+  import { tokenizeText, type KoreanToken } from "$lib/nlp/tokenization";
   import {
     readDocument,
     saveDocumentProgress,
     saveWord,
     type DocumentView,
     type VocabularyDraft,
-  } from '$lib/library/commands';
+  } from "$lib/library/commands";
 
   let { documentId, onBack }: { documentId: number; onBack: () => void } = $props();
 
@@ -22,7 +23,7 @@
   let document = $state<DocumentView | null>(null);
   let passages = $state<Passage[]>([]);
   let selected = $state<Analysis | null>(null);
-  let error = $state('');
+  let error = $state("");
   let scroller = $state<HTMLElement>();
   let stopTracking: (() => void) | undefined;
 
@@ -34,14 +35,11 @@
   async function open() {
     const result = await readDocument(documentId);
     if (!result.ok || !result.data) {
-      error = result.error || 'Document not found.';
+      error = result.error || "Document not found.";
       return;
     }
     document = result.data;
-    if (result.data.pdfPath) {
-      error = 'PDF reading arrives in a later step. This document is stored as a PDF.';
-      return;
-    }
+    if (result.data.pdfPath) return;
 
     const parts = readingPassages(result.data.content);
     passages = parts.map((part) => ({ ...part, tokens: [] as KoreanToken[] }));
@@ -79,8 +77,22 @@
     };
   }
 
+  async function analyzePdfWord(word: string) {
+    try {
+      selected = { word, context: word, tokens: await tokenizeText(word) };
+    } catch (cause) {
+      error = cause instanceof Error ? cause.message : String(cause);
+    }
+  }
+
+  function savePdfProgress(position: number) {
+    void saveDocumentProgress(documentId, position).then((saved) => {
+      if (!saved.ok) error = saved.error;
+    });
+  }
+
   async function save(draft: VocabularyDraft) {
-    const saved = await saveWord('document', documentId, draft);
+    const saved = await saveWord("document", documentId, draft);
     if (!saved.ok) error = saved.error;
   }
 </script>
@@ -95,18 +107,31 @@
   {/if}
 
   <div class="flex flex-wrap gap-4">
-    <div
-      bind:this={scroller}
-      data-testid="reader-text"
-      class="h-[60vh] min-w-0 flex-1 overflow-auto rounded-lg border border-border bg-card p-6 font-[family-name:var(--font-korean)] text-lg leading-10 whitespace-pre-wrap"
-    >
-      {#each passages as passage, passageIndex (passageIndex)}{#each tokenBlocks(passage.text, passage.tokens) as block, blockIndex (blockIndex)}{#if block.morphemes.length}<button
-            type="button"
-            data-testid={`token-${block.start}`}
-            class="rounded underline decoration-dotted underline-offset-4 hover:bg-accent-soft"
-            onclick={() => analyze(block)}
-          >{block.text}</button>{:else}<span>{block.text}</span>{/if}{/each}{/each}
-    </div>
+    {#if document?.pdfPath}
+      <div class="min-w-0 flex-1" data-testid="pdf-reader">
+        <PdfReader
+          {documentId}
+          position={document.position}
+          onProgress={savePdfProgress}
+          onWord={analyzePdfWord}
+        />
+      </div>
+    {:else}
+      <div
+        bind:this={scroller}
+        data-testid="reader-text"
+        class="h-[60vh] min-w-0 flex-1 overflow-auto rounded-lg border border-border bg-card p-6 font-[family-name:var(--font-korean)] text-lg leading-10 whitespace-pre-wrap"
+      >
+        {#each passages as passage, passageIndex (passageIndex)}{#each tokenBlocks(passage.text, passage.tokens) as block, blockIndex (blockIndex)}{#if block.morphemes.length}<button
+                type="button"
+                data-testid={`token-${block.start}`}
+                class="rounded underline decoration-dotted underline-offset-4 hover:bg-accent-soft"
+                onclick={() => analyze(block)}
+              >
+                {block.text}
+              </button>{:else}<span>{block.text}</span>{/if}{/each}{/each}
+      </div>
+    {/if}
 
     {#if selected}
       <aside class="w-full min-w-72 max-w-md" data-testid="reader-analysis">

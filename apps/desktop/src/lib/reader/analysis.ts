@@ -1,4 +1,4 @@
-import type { KoreanToken } from '../nlp/tokenization';
+import type { KoreanToken } from "../nlp/tokenization";
 
 export type Analysis = {
   word: string;

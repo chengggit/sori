@@ -17,6 +17,8 @@
     "desktop:test:migration": "node scripts/smoke-migration.mjs",
     "desktop:test:unit": "npm run test:unit -w @sori/desktop",
     "desktop:test:e2e": "npm run test:e2e -w @sori/desktop",
-    "desktop:package": "npm run desktop:native:release && npm run package -w @sori/desktop"
+    "desktop:package": "npm run desktop:native:release && npm run package -w @sori/desktop",
+    "format": "prettier --write \"apps/desktop/src/**/*.{ts,svelte,css}\" \"apps/desktop/*.{json,js,ts,md}\" \"scripts/**/*.mjs\" \"*.md\"",
+    "format:check": "prettier --check \"apps/desktop/src/**/*.{ts,svelte,css}\" \"apps/desktop/*.{json,js,ts,md}\" \"scripts/**/*.mjs\" \"*.md\""
   }
 }

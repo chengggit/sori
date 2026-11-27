@@ -1,6 +1,9 @@
-const { app, BrowserWindow, dialog, ipcMain, session } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, protocol, session } = require('electron');
+const { createReadStream } = require('node:fs');
+const { stat } = require('node:fs/promises');
 const { join } = require('node:path');
 const { homedir } = require('node:os');
+const { Readable } = require('node:stream');
 const { pathToFileURL } = require('node:url');
 
 // Avoid a userData directory derived from the scoped workspace name.
@@ -16,6 +19,13 @@ function legacyDataDirectory() {
   return join(app.getPath('appData'), 'com.sori.app');
 }
 app.setPath('userData', legacyDataDirectory());
+
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: 'sori-pdf',
+    privileges: { standard: true, secure: true, stream: true, supportFetchAPI: true, corsEnabled: true },
+  },
+]);
 
 const isDev = !app.isPackaged;
 const smoke = process.argv.includes('--smoke');
@@ -45,12 +55,57 @@ function loadNative() {
 
 const native = loadNative();
 
+async function servePdf(request) {
+  const match = /^sori-pdf:\/\/pdf\/(\d+)\.pdf$/.exec(request.url);
+  if (!match) return new Response(null, { status: 404 });
+  if (!['GET', 'HEAD'].includes(request.method)) return new Response(null, { status: 405 });
+
+  const path = join(app.getPath('userData'), 'pdfs', `${match[1]}.pdf`);
+  let info;
+  try {
+    info = await stat(path);
+  } catch {
+    return new Response(null, { status: 404 });
+  }
+  if (!info.isFile()) return new Response(null, { status: 404 });
+
+  let start = 0;
+  let end = info.size - 1;
+  const headers = {
+    'Content-Type': 'application/pdf',
+    'Accept-Ranges': 'bytes',
+    'Access-Control-Allow-Origin': '*',
+  };
+  const range = request.headers.get('range');
+  const unsatisfiable = () =>
+    new Response(null, {
+      status: 416,
+      headers: { ...headers, 'Content-Range': `bytes */${info.size}` },
+    });
+  if (range) {
+    const parts = /^bytes=(\d*)-(\d*)$/.exec(range);
+    if (!parts || (!parts[1] && !parts[2])) return unsatisfiable();
+    if (parts[1]) {
+      start = Number(parts[1]);
+      if (parts[2]) end = Math.min(end, Number(parts[2]));
+    } else {
+      start = Math.max(0, info.size - Number(parts[2]));
+    }
+    if (!Number.isSafeInteger(start) || start > end) return unsatisfiable();
+    headers['Content-Range'] = `bytes ${start}-${end}/${info.size}`;
+  }
+  headers['Content-Length'] = String(end - start + 1);
+  const body =
+    request.method === 'HEAD' ? null : Readable.toWeb(createReadStream(path, { start, end }));
+  return new Response(body, { status: range ? 206 : 200, headers });
+}
+
 function applyCsp() {
   // Dev needs the Vite HMR socket; packaged builds allow no network origins.
   // Dictionary and YouTube allowlists will be added when those features land.
   const csp = isDev
-    ? "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' ws://127.0.0.1:5173"
-    : "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'none'";
+    ? "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' sori-pdf: ws://127.0.0.1:5173"
+    : "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src sori-pdf:";
 
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     callback({
@@ -120,6 +175,56 @@ function createWindow() {
           finishSmoke(1);
           return;
         }
+        if (smokeHash === 'pdf') {
+          const fixture = join(process.cwd(), 'tests', 'fixtures', 'pdf-rendering.pdf');
+          const id = await window.webContents.executeJavaScript(`(async () => {
+            const imported = await window.sori.invoke('core:invoke', 'document:import', { path: ${JSON.stringify(fixture)} });
+            if (!imported.ok) return -1;
+            const state = await window.sori.invoke('core:invoke', 'library:state', {});
+            return state.data.documents[0].id;
+          })()`);
+          await window.webContents.executeJavaScript(`location.hash = '#/reader?id=${id}'`);
+          let pages = 0;
+          for (let attempt = 0; attempt < 20; attempt += 1) {
+            await new Promise((resolve) => setTimeout(resolve, 300));
+            pages = await window.webContents.executeJavaScript(
+              'document.querySelectorAll("[data-testid=pdf-container] canvas").length',
+            );
+            if (pages > 0) break;
+          }
+          const problem = await window.webContents.executeJavaScript(
+            'document.querySelector("[data-testid=pdf-error]")?.textContent ?? ""',
+          );
+          const spans = await window.webContents.executeJavaScript(
+            'document.querySelectorAll("[data-testid=pdf-container] .textLayer span").length',
+          );
+          let analysis = '';
+          if (spans > 0) {
+            await window.webContents.executeJavaScript(
+              'document.querySelector("[data-testid=pdf-container] .textLayer span").click()',
+            );
+            for (let attempt = 0; attempt < 10; attempt += 1) {
+              await new Promise((resolve) => setTimeout(resolve, 300));
+              analysis = await window.webContents.executeJavaScript(
+                'document.querySelector("[data-testid=reader-analysis]")?.textContent ?? ""',
+              );
+              if (analysis) break;
+            }
+          }
+          await window.webContents.executeJavaScript(`(() => {
+            const scroll = [...document.querySelectorAll('button')]
+              .find((node) => node.textContent.trim() === 'Scroll');
+            scroll?.click();
+          })()`);
+          await new Promise((resolve) => setTimeout(resolve, 1200));
+          const scrollPages = await window.webContents.executeJavaScript(
+            'document.querySelectorAll("[data-testid=pdf-container] canvas").length',
+          );
+          clearTimeout(watchdog);
+          finishSmoke(id > 0 && pages > 0 && scrollPages > 0 && !problem && analysis ? 0 : 1,
+            `PDF page: ${JSON.stringify({ id, pages, spans, analysis, scrollPages, problem })}`);
+          return;
+        }
         if (smokeHash === 'vocabulary') {
           await window.webContents.executeJavaScript(`(async () => {
             await window.sori.invoke('core:invoke', 'document:add', { title: '단어 스모크', content: '안녕하세요' });
@@ -159,20 +264,23 @@ function createWindow() {
           await window.webContents.executeJavaScript(`(() => {
             document.querySelector('[aria-label="Remove 안녕"]').click();
           })()`);
-          await new Promise((resolve) => setTimeout(resolve, 300));
+          await new Promise((resolve) => setTimeout(resolve, 600));
+          const dialogVisible = await window.webContents.executeJavaScript(
+            'Boolean(document.querySelector("[data-testid=vocabulary-delete]"))',
+          );
           await window.webContents.executeJavaScript(`(() => {
             const remove = [...document.querySelectorAll('[data-testid=vocabulary-delete] button')]
               .find((node) => node.textContent.includes('Remove'));
             remove?.click();
           })()`);
-          await new Promise((resolve) => setTimeout(resolve, 600));
+          await new Promise((resolve) => setTimeout(resolve, 1000));
           const remaining = await window.webContents.executeJavaScript(`(async () => {
             const state = await window.sori.invoke('core:invoke', 'library:state', {});
             return state.data.vocabulary.length;
           })()`);
           clearTimeout(watchdog);
           finishSmoke(meaning === 'hello' && remaining === 0 ? 0 : 1,
-            `Vocabulary page: ${JSON.stringify({ meaning, remaining })}`);
+            `Vocabulary page: ${JSON.stringify({ meaning, dialogVisible, remaining })}`);
           return;
         }
         if (smokeHash === 'reader') {
@@ -275,7 +383,8 @@ function createWindow() {
       smokeHash &&
       smokeHash !== 'library' &&
       smokeHash !== 'reader' &&
-      smokeHash !== 'vocabulary'
+      smokeHash !== 'vocabulary' &&
+      smokeHash !== 'pdf'
         ? `#${smokeHash}`
         : '';
     window.loadURL(smoke ? `${devUrl}${smokeRoute}` : devUrl);
@@ -286,6 +395,7 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  protocol.handle('sori-pdf', servePdf);
   applyCsp();
   handle('app:ping', () => ({ ok: true, data: 'pong', error: '' }));
   handle('dialog:openDocument', async (event) => {

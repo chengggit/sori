@@ -1,9 +1,9 @@
 <script lang="ts">
-  import type { KoreanToken } from './lib/nlp/tokenization';
-  import type { Analysis } from './lib/reader/analysis';
-  import { wordBreakdown, wholeWordTerms } from './lib/reader/breakdown';
-  import { partOfSpeechLabel } from './lib/reader/tokens';
-  import type { VocabularyDraft } from './lib/library/commands';
+  import type { KoreanToken } from "./lib/nlp/tokenization";
+  import type { Analysis } from "./lib/reader/analysis";
+  import { wordBreakdown, wholeWordTerms } from "./lib/reader/breakdown";
+  import { partOfSpeechLabel } from "./lib/reader/tokens";
+  import type { VocabularyDraft } from "./lib/library/commands";
 
   let {
     analysis,
@@ -14,9 +14,7 @@
   } = $props();
 
   const parts = $derived(wordBreakdown(analysis.tokens));
-  const normalized = $derived(
-    analysis.normalizedForm ?? parts.map((part) => part.form).join(''),
-  );
+  const normalized = $derived(analysis.normalizedForm ?? parts.map((part) => part.form).join(""));
   const terms = $derived(analysis.lookupTerms ?? wholeWordTerms(analysis.word, analysis.tokens));
 
   function save() {
@@ -45,7 +43,7 @@
     {/each}
   </ol>
 
-  <p class="terms">Look up: {terms.join(' · ')}</p>
+  <p class="terms">Look up: {terms.join(" · ")}</p>
   {#if onSave}
     <button type="button" onclick={save}>Save word</button>
   {/if}

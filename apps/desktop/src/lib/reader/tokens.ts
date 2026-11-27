@@ -1,4 +1,4 @@
-import type { KoreanToken } from '../nlp/tokenization';
+import type { KoreanToken } from "../nlp/tokenization";
 
 export type TokenBlock = {
   text: string;
@@ -116,33 +116,33 @@ export function tokenBlocks(text: string, tokens: KoreanToken[]): TokenBlock[] {
 }
 
 const partOfSpeechLabels: Record<string, string> = {
-  NNG: 'Noun',
-  NNP: 'Proper noun',
-  NNB: 'Dependent noun',
-  NP: 'Pronoun',
-  NR: 'Numeral',
-  VV: 'Verb',
-  VA: 'Adjective',
-  VX: 'Auxiliary',
-  VCP: 'Copula',
-  VCN: 'Negative copula',
-  MM: 'Determiner',
-  MAG: 'Adverb',
-  MAJ: 'Conjunctive adverb',
-  IC: 'Interjection',
-  XPN: 'Prefix',
-  XSN: 'Noun suffix',
-  XSV: 'Verb suffix',
-  XSA: 'Adjective suffix',
-  XR: 'Root',
-  SL: 'Foreign word',
-  SH: 'Hanja',
-  SN: 'Number',
+  NNG: "Noun",
+  NNP: "Proper noun",
+  NNB: "Dependent noun",
+  NP: "Pronoun",
+  NR: "Numeral",
+  VV: "Verb",
+  VA: "Adjective",
+  VX: "Auxiliary",
+  VCP: "Copula",
+  VCN: "Negative copula",
+  MM: "Determiner",
+  MAG: "Adverb",
+  MAJ: "Conjunctive adverb",
+  IC: "Interjection",
+  XPN: "Prefix",
+  XSN: "Noun suffix",
+  XSV: "Verb suffix",
+  XSA: "Adjective suffix",
+  XR: "Root",
+  SL: "Foreign word",
+  SH: "Hanja",
+  SN: "Number",
 };
 
 export function partOfSpeechLabel(tag: string) {
-  const base = tag.split('-')[0];
-  if (base.startsWith('J')) return 'Particle';
-  if (base.startsWith('E')) return 'Ending';
-  return partOfSpeechLabels[base] ?? (base.startsWith('S') ? 'Punctuation' : 'Other');
+  const base = tag.split("-")[0];
+  if (base.startsWith("J")) return "Particle";
+  if (base.startsWith("E")) return "Ending";
+  return partOfSpeechLabels[base] ?? (base.startsWith("S") ? "Punctuation" : "Other");
 }
