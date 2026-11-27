@@ -82,17 +82,20 @@ TestCase {
         const headerHeight = grid.headerItem.height
         const firstY = grid.itemAtIndex(0).y
         const scrollY = grid.contentY
+        const animation = findChild(page, "discoveryLoadingAnimation")
+        verify(animation !== null)
+        // Allow busy runners to render an intermediate frame, then wait for
+        // the actual endpoints rather than sampling at an exact elapsed time.
+        animation.duration = 1000
         page.refreshDiscovery(true)
-        wait(80)
-        verify(row.reveal > 0 && row.reveal < 1, "Refresh should slide down")
-        tryCompare(row, "reveal", 1)
+        tryVerify(() => row.reveal > 0 && row.reveal < 1, 2000, "Refresh should slide down")
+        tryCompare(row, "reveal", 1, 3000)
         compare(grid.headerItem.height, headerHeight, "The loading overlay must not resize the header")
         compare(grid.itemAtIndex(0).y, firstY, "Refresh must not shift the videos")
         compare(grid.contentY, scrollY, "Refresh must not shift the viewport")
         YouTube.subscriptionFeedFinished(page.request, {ok:false, data:null, error:"Test failure"})
-        wait(80)
-        verify(row.reveal > 0 && row.reveal < 1, "Completion should slide back up")
-        tryCompare(row, "reveal", 0)
+        tryVerify(() => row.reveal > 0 && row.reveal < 1, 2000, "Completion should slide back up")
+        tryCompare(row, "reveal", 0, 3000)
     }
 
     function test_more_videos_preserve_existing_grid() {

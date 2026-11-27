@@ -107,6 +107,7 @@ add_custom_command(OUTPUT "${CORE_LIB}"
         --manifest-path "${CORE_DIR}/Cargo.toml" --target-dir "${CORE_TARGET}"
     DEPENDS "${SORI_QMAKE}" ${CORE_SOURCES} "${CORE_DIR}/Cargo.toml" "${CORE_DIR}/Cargo.lock"
         "${CMAKE_CURRENT_SOURCE_DIR}/scripts/youtube_transcript.py"
+    USES_TERMINAL
     VERBATIM
 )
 add_custom_target(sori-core DEPENDS "${CORE_LIB}")
