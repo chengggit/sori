@@ -93,9 +93,10 @@ in Node would be worse than keeping it).
 
 ## To-do list
 
-- [ ] **0. `chore/electron-prep`** — Back up the current tree, create
+- [x] **0. `chore/electron-prep`** — Back up the current tree, create
       `electron/migration`, add this checklist and the decision record.
       *Done when:* branch exists and the Qt baseline `./scripts/dev test` passes.
+      Backup: `~/Documents/sori-qt` at `e0896f7`; baseline 4/4 CTest suites passed.
 
 - [ ] **1. `feat/electron-scaffold`** — `apps/desktop` with Vite + Svelte 5 +
       strict TS, Electron 45.3.2, electron-builder config, preload/main security
