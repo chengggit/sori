@@ -1,14 +1,14 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import AnalysisPage from "./AnalysisPage.svelte";
-  import AppShell from "./AppShell.svelte";
-  import BridgePage from "./BridgePage.svelte";
-  import LibraryPage from "./LibraryPage.svelte";
-  import ReaderPage from "./ReaderPage.svelte";
-  import SettingsPage from "./SettingsPage.svelte";
-  import VocabularyPage from "./VocabularyPage.svelte";
-  import WatchPage from "./WatchPage.svelte";
-  import YouTubePage from "./YouTubePage.svelte";
+  import AnalysisPage from "./dev/AnalysisPage.svelte";
+  import AppShell from "$lib/components/AppShell.svelte";
+  import BridgePage from "./dev/BridgePage.svelte";
+  import LibraryPage from "./pages/LibraryPage.svelte";
+  import ReaderPage from "./pages/ReaderPage.svelte";
+  import SettingsPage from "./pages/SettingsPage.svelte";
+  import VocabularyPage from "./pages/VocabularyPage.svelte";
+  import WatchPage from "./pages/WatchPage.svelte";
+  import YouTubePage from "./pages/YouTubePage.svelte";
   import { persistUi, ui } from "$lib/ui-state.svelte";
 
   let route = $state(location.hash);

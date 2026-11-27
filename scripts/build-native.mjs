@@ -19,7 +19,7 @@ const library =
     : process.platform === "darwin"
       ? "libsori_node.dylib"
       : "libsori_node.so";
-const destination = join(root, "apps", "desktop", "native", "sori-node.node");
+const destination = join(root, "native", "sori-node.node");
 
 mkdirSync(dirname(destination), { recursive: true });
 copyFileSync(join(target, library), destination);

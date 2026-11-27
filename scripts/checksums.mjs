@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
-const releaseDirectory = join(root, "apps", "desktop", "release");
+const releaseDirectory = join(root, "release");
 const artifacts = readdirSync(releaseDirectory)
   .filter((name) => /\.(AppImage|exe|dmg)$/.test(name))
   .sort();

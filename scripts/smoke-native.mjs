@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 
 const root = dirname(dirname(fileURLToPath(import.meta.url)));
 const require = createRequire(import.meta.url);
-const addon = require(join(root, "apps", "desktop", "native", "sori-node.node"));
+const addon = require(join(root, "native", "sori-node.node"));
 
 addon.init(join(root, "resources", "kiwi"));
 

@@ -23,7 +23,7 @@ Windows builds are unsigned; macOS builds are not notarized.
 
 ## Version tags
 
-Version strings come from `apps/desktop/package.json` and electron-builder's
+Version strings come from `package.json` and electron-builder's
 `artifactName`. Before tagging, copy
 [`.github/releases/ELECTRON-TEMPLATE.md`](../.github/releases/ELECTRON-TEMPLATE.md)
 to `.github/releases/<tag>.md` and fill it in. Tag builds attach that file as

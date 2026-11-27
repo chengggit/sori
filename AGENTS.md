@@ -22,7 +22,7 @@ Read relevant existing files; do not assume missing documentation exists.
 
 | Layer    | Responsibility                                                    |
 | -------- | ----------------------------------------------------------------- |
-| Svelte   | Presentation and interaction (`apps/desktop/src`)                 |
+| Svelte   | Presentation and interaction (`src`)                              |
 | Electron | Window lifecycle, protocol handlers, native dialogs, preload IPC  |
 | Rust     | Application logic, persistence, media/dictionary/YouTube services |
 | napi-rs  | JSON command bridge between Electron main and the Rust core       |

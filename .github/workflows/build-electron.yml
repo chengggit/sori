@@ -35,30 +35,31 @@ jobs:
       - run: npm ci
       - name: Prepare Kiwi resources
         run: cmake -P scripts/setup-kiwi.cmake
-      - run: npm run desktop:test:core
-      - run: npm run desktop:native
-      - run: npm run desktop:test:native
-      - run: npm run desktop:test:persistence
-      - run: npm run desktop:test:migration
-      - run: npm run desktop:typecheck
-      - run: npm run desktop:test:unit
-      - run: npm run desktop:build
+      - run: npm run test:core
+      - run: npm run native
+      - run: npm run test:native
+      - run: npm run test:persistence
+      - run: npm run test:migration
+      - run: npm run typecheck
+      - run: npm run test:unit
+      - run: npm run test:electron
+      - run: npm run build
       - name: Install Playwright Chromium
         run: npx playwright install chromium
       - name: Install Playwright system dependencies
         if: runner.os == 'Linux'
         run: npx playwright install-deps chromium
-      - run: npm run desktop:test:e2e
+      - run: npm run test:e2e
       - name: Package
-        run: npm run desktop:package
+        run: npm run package
       - name: Checksums
-        run: npm run desktop:checksums
+        run: npm run checksums
       - uses: actions/upload-artifact@v4
         with:
           name: electron-${{ matrix.os }}
           path: |
-            apps/desktop/release/*.AppImage
-            apps/desktop/release/*.exe
-            apps/desktop/release/*.dmg
-            apps/desktop/release/SHA256SUMS.txt
+            release/*.AppImage
+            release/*.exe
+            release/*.dmg
+            release/SHA256SUMS.txt
           if-no-files-found: warn

@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Maximize, Pause, Play } from "@lucide/svelte";
   import { onDestroy, onMount } from "svelte";
-  import AnalysisPanel from "./AnalysisPanel.svelte";
+  import AnalysisPanel from "$lib/reader/AnalysisPanel.svelte";
   import { Button } from "$lib/components/ui/button";
   import { tokenBlocks } from "$lib/reader/tokens";
   import { tokenizeText, type KoreanToken } from "$lib/nlp/tokenization";

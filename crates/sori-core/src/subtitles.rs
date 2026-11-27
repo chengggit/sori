@@ -1,5 +1,5 @@
 //! Subtitle subprocess helpers. Full SRT/VTT parsing lives in TypeScript at
-//! `apps/desktop/src/lib/video/subtitles.ts`, so it is not duplicated here.
+//! `src/lib/video/subtitles.ts`, so it is not duplicated here.
 
 pub(super) fn command_output(
     program: &str,

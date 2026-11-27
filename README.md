@@ -28,6 +28,10 @@ dictionary lookups and YouTube features need an internet connection.
 See [DEVELOPING.md](DEVELOPING.md) to build and run from source. The app uses
 Electron, Svelte and Rust; packages ship for Linux, Windows and macOS.
 
+The [project structure guide](docs/PROJECT_STRUCTURE.md) maps the Electron,
+Svelte, and Rust code. Sori targets the Electron desktop app; a separate browser
+or localhost client is not planned.
+
 The [usage guide](docs/USAGE.md) covers reading, playback controls, and
 dictionaries. [MIGRATION.md](MIGRATION.md) records the move from Qt to Electron.
 

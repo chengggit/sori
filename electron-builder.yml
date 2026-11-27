@@ -1,13 +1,13 @@
 appId: com.sori.app
 productName: Sori
 executableName: Sori
-icon: ../../assets/icon.png
+icon: assets/icon.png
 directories:
   output: release
 files:
   - dist/**
-  - main.cjs
-  - preload.cjs
+  - electron/**
+  - tests/smoke/**
   - package.json
   - native/**
 asar: true
@@ -18,7 +18,7 @@ npmRebuild: false
 artifactName: Sori-${version}-${arch}.${ext}
 # Offline Kiwi library and models live next to the app resources.
 extraResources:
-  - from: ../../resources/kiwi
+  - from: resources/kiwi
     to: kiwi
 # FFmpeg is only used for probing/extracting subtitle tracks, not playback.
 # Signing/notarization is intentionally not configured; release builds stay unsigned.
@@ -27,9 +27,9 @@ linux:
   category: Education
   syncDesktopName: true
   extraResources:
-    - from: ../../node_modules/ffmpeg-static/ffmpeg
+    - from: node_modules/ffmpeg-static/ffmpeg
       to: bin/ffmpeg
-    - from: ../../node_modules/ffprobe-static/bin/linux/x64/ffprobe
+    - from: node_modules/ffprobe-static/bin/linux/x64/ffprobe
       to: bin/ffprobe
 win:
   target:
@@ -37,9 +37,9 @@ win:
     arch:
       - x64
   extraResources:
-    - from: ../../node_modules/ffmpeg-static/ffmpeg.exe
+    - from: node_modules/ffmpeg-static/ffmpeg.exe
       to: bin/ffmpeg.exe
-    - from: ../../node_modules/ffprobe-static/bin/win32/x64/ffprobe.exe
+    - from: node_modules/ffprobe-static/bin/win32/x64/ffprobe.exe
       to: bin/ffprobe.exe
 nsis:
   perMachine: false
@@ -53,7 +53,7 @@ mac:
       - arm64
   category: public.app-category.education
   extraResources:
-    - from: ../../node_modules/ffmpeg-static/ffmpeg
+    - from: node_modules/ffmpeg-static/ffmpeg
       to: bin/ffmpeg
-    - from: ../../node_modules/ffprobe-static/bin/darwin
+    - from: node_modules/ffprobe-static/bin/darwin
       to: bin/ffprobe

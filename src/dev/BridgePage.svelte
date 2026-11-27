@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { platform } from "./platform";
-  import type { KoreanToken } from "./lib/nlp/tokenization";
+  import { platform } from "../platform";
+  import type { KoreanToken } from "$lib/nlp/tokenization";
 
   let ping = $state("waiting…");
   let analysis = $state("waiting…");

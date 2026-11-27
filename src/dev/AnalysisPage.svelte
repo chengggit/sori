@@ -1,8 +1,8 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import AnalysisPanel from "./AnalysisPanel.svelte";
-  import type { Analysis } from "./lib/reader/analysis";
-  import { tokenizeText, type KoreanToken } from "./lib/nlp/tokenization";
+  import AnalysisPanel from "$lib/reader/AnalysisPanel.svelte";
+  import type { Analysis } from "$lib/reader/analysis";
+  import { tokenizeText, type KoreanToken } from "$lib/nlp/tokenization";
 
   let text = $state("😀 학교에 갔어요.");
   let tokens = $state<KoreanToken[]>([]);

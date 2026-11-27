@@ -31,13 +31,13 @@ git clone https://github.com/chengggit/sori.git
 cd sori
 npm ci
 cmake -P scripts/setup-kiwi.cmake
-npm run desktop:native
-npm run desktop:package
-npm run desktop:checksums
+npm run native
+npm run package
+npm run checksums
 ```
 
 The package target builds the renderer, the release napi addon, and a platform
-package in `apps/desktop/release/`, then writes `SHA256SUMS.txt`.
+package in `release/`, then writes `SHA256SUMS.txt`.
 
 - **Linux x86_64:** AppImage. Without FUSE, use `APPIMAGE_EXTRACT_AND_RUN=1`.
 - **macOS arm64:** DMG.
@@ -49,8 +49,8 @@ Packages are unsigned; macOS packages are not notarized. For releases see
 To build without packaging:
 
 ```sh
-npm run desktop:build
-npm run desktop:dev
+npm run build
+npm run dev
 ```
 
 ## Development
@@ -58,31 +58,35 @@ npm run desktop:dev
 Run from the repository root:
 
 ```sh
-npm run desktop:dev          # builds the debug addon, Vite, and Electron
+npm run dev          # builds the debug addon, Vite, and Electron
 ```
 
 `SORI_DATA_DIR` overrides the library directory. Smoke checks use it so they
 never touch your real library. By default Sori uses the same directory the Qt
 app used (`GenericDataLocation/com.sori.app`).
 
-UI work happens in `apps/desktop/src`; shared logic lives in `src/lib`. Keep
-Electron-specific calls behind `src/platform.ts`.
+UI work happens in `src`: routed screens live in `pages/`, feature
+helpers and components in `lib/`, and diagnostics in `dev/`. Electron main and
+preload live in `electron/`. Keep renderer desktop calls behind
+`src/platform.ts`. The [desktop layout guide](docs/PROJECT_STRUCTURE.md) maps each
+module to its owner.
 
 ## Windows development
 
 Use PowerShell with Node 24 LTS and a stable Rust toolchain. No Qt SDK, MSVC
 mpv build, or Vulkan SDK is required. Prepare Kiwi with
-`cmake -P scripts/setup-kiwi.cmake`, then run `npm run desktop:dev`.
+`cmake -P scripts/setup-kiwi.cmake`, then run `npm run dev`.
 
 ## Testing
 
 ```sh
-npm run desktop:test:core        # Rust domain tests
-npm run desktop:test:native      # Kiwi analysis through the addon
-npm run desktop:test:persistence # CRUD through the bridge on a temp DB
-npm run desktop:test:migration   # upgrade the old Tauri schema fixture
-npm run desktop:test:unit        # Vitest helpers
-npm run desktop:test:e2e         # Playwright renderer tests
+npm run test:core        # Rust domain tests
+npm run test:native      # Kiwi analysis through the addon
+npm run test:persistence # CRUD through the bridge on a temp DB
+npm run test:migration   # upgrade the old Tauri schema fixture
+npm run test:unit        # Vitest helpers
+npm run test:electron    # Electron IPC/security regressions (no display)
+npm run test:e2e         # Playwright renderer tests
 npm run format:check             # Prettier (with Svelte plugin)
 ```
 
@@ -98,6 +102,6 @@ Playwright needs a browser once: `npx playwright install chromium`.
 - Kiwi setup honours `KIWI_DESTINATION` and `SORI_ALLOW_DOWNLOADS`-style
   preparation; see `scripts/setup-kiwi.cmake` for the pinned resources.
 
-Debugging: run `npm run desktop:dev`, then use Electron's DevTools from the
+Debugging: run `npm run dev`, then use Electron's DevTools from the
 window menu or a debugger attached to the main process. Rust changes require
-`npm run desktop:native` to rebuild the addon.
+`npm run native` to rebuild the addon.

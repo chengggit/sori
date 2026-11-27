@@ -1,8 +1,8 @@
 <script lang="ts">
   import { ArrowLeft } from "@lucide/svelte";
   import { onDestroy, onMount, tick } from "svelte";
-  import AnalysisPanel from "./AnalysisPanel.svelte";
-  import PdfReader from "./PdfReader.svelte";
+  import AnalysisPanel from "$lib/reader/AnalysisPanel.svelte";
+  import PdfReader from "$lib/reader/PdfReader.svelte";
   import { Button } from "$lib/components/ui/button";
   import type { Analysis } from "$lib/reader/analysis";
   import { readingPassages, tokenBlocks } from "$lib/reader/tokens";

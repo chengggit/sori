@@ -31,9 +31,10 @@ Formatting and checks:
 
 ```sh
 npm run format:check
-npm run desktop:test:core
-npm run desktop:test:unit
-npm run desktop:test:e2e
+npm run test:core
+npm run test:unit
+npm run test:electron
+npm run test:e2e
 ```
 
 For commit messages, use `type(scope): description`, for example

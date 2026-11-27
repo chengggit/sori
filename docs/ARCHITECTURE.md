@@ -10,13 +10,28 @@ Layer responsibilities are listed in `AGENTS.md`. Additional constraints:
 
 - Every fallible operation uses the `{ ok, data, error }` envelope from
   `bridge.rs`. Mutations and absent lookups may return null data.
-- UI calls `apps/desktop/src/platform.ts`; it never imports Electron or Node.
-  The web implementation can replace this seam without touching components.
+- UI calls `src/platform.ts`; it never imports Electron or Node.
+  This keeps desktop integration out of components.
 - Async commands are Promises at the bridge boundary; superseded results are
   discarded by the caller where relevant.
 - Properties and player controls are lifecycle APIs, not operation results.
 - Imported files and local SQLite data remain authoritative.
 - Renderer, protocol handlers, and media protocol outlive their views.
+
+## Repository layout
+
+- `electron/main/` owns Electron lifecycle, IPC, protocols and security.
+- `electron/preload/index.cjs` exposes the sandboxed bridge.
+- `src/` is the Svelte renderer: `pages/` holds routed screens,
+  `dev/` holds diagnostics, and `lib/` holds feature helpers/components and shared UI.
+- `crates/sori-core/` owns application logic; `crates/sori-node/` is its napi binding.
+- Root `scripts/`, `resources/`, `assets/` and `tests/fixtures/` are shared by
+  native builds, packaging and integration checks.
+
+This is one npm application plus a Cargo workspace. Electron does not require
+Tauri's `src-tauri` shape. Main/preload run as CommonJS; Vite bundles the renderer.
+Generated `native/`, `dist/`, and `release/` stay outside source directories.
+See the [desktop layout guide](PROJECT_STRUCTURE.md) for individual modules.
 
 ## Services and command dispatcher
 
@@ -24,19 +39,19 @@ Layer responsibilities are listed in `AGENTS.md`. Additional constraints:
 with Qt/mpv adapters removed. `crates/sori-node` exposes `init`,
 `initLibrary` and `invoke(command, payload)` through napi-rs.
 
-| Module                                | Responsibility                                             |
-| ------------------------------------- | ---------------------------------------------------------- |
-| `db.rs`, `schema.sql`                 | SQLite initialization and explicit migrations              |
-| `library_service.rs`                  | Library state and domain operations; no UI dependency      |
-| `documents.rs`, `document_import.rs`  | TXT/PDF import validation and storage                      |
-| `vocabulary.rs`                       | Saved words, meanings, tags, and source snapshots           |
-| `nlp.rs`                              | Dedicated Kiwi thread with UTF-16 token offsets             |
-| `reader.rs` (TS port)                 | Bounded passage splitting and token grouping                |
-| `subtitles.rs` (TS port)              | SRT/VTT parsing; Rust keeps only bounded subprocess output  |
-| `video_library.rs`                    | Canonical video paths, ffprobe/FFmpeg helpers, checkpoints  |
-| `youtube.rs` + `youtube/*`            | HTTP orchestration, parsing, settings and local store       |
-| `dictionary.rs`, `krdict.rs`          | Wiktionary and KRDict lookup                                |
-| `youtube_transcript.rs`               | Optional caption helper orchestration and cache             |
+| Module                               | Responsibility                                             |
+| ------------------------------------ | ---------------------------------------------------------- |
+| `db.rs`, `schema.sql`                | SQLite initialization and explicit migrations              |
+| `library_service.rs`                 | Library state and domain operations; no UI dependency      |
+| `documents.rs`, `document_import.rs` | TXT/PDF import validation and storage                      |
+| `vocabulary.rs`                      | Saved words, meanings, tags, and source snapshots          |
+| `nlp.rs`                             | Dedicated Kiwi thread with UTF-16 token offsets            |
+| `reader.rs` (TS port)                | Bounded passage splitting and token grouping               |
+| `subtitles.rs` (TS port)             | SRT/VTT parsing; Rust keeps only bounded subprocess output |
+| `video_library.rs`                   | Canonical video paths, ffprobe/FFmpeg helpers, checkpoints |
+| `youtube.rs` + `youtube/*`           | HTTP orchestration, parsing, settings and local store      |
+| `dictionary.rs`, `krdict.rs`         | Wiktionary and KRDict lookup                               |
+| `youtube_transcript.rs`              | Optional caption helper orchestration and cache            |
 
 ## Persistence
 
@@ -77,7 +92,7 @@ with Qt/mpv adapters removed. `crates/sori-node` exposes `init`,
 
 ## Build, packaging, and validation
 
-- npm workspaces build the renderer; Cargo builds the Rust core and napi addon.
+- npm builds the renderer; Cargo builds the Rust core and napi addon.
 - `scripts/setup-kiwi.cmake` prepares pinned Kiwi resources; configuration does
   not download resources.
 - electron-builder produces AppImage, per-user NSIS installer, and DMG with the

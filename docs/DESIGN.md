@@ -14,7 +14,7 @@ layouts and measurements.
 
 ## Consistency
 
-- Reuse `apps/desktop/src/lib/components/` and the OKLCH tokens in `theme.css`.
+- Reuse `src/lib/components/` and the OKLCH tokens in `theme.css`.
 - Tailwind 4, Lucide icons, and shadcn-svelte conventions come from the original
   Svelte app; keep the same spacing, typography, colors and control behavior.
 - Use Inter for UI and Noto Sans KR for Korean reading text by default.

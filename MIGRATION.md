@@ -10,10 +10,9 @@ into the integration branch, and update the document when a decision changes.
 - Qt text layout was inconsistent across platforms; Windows builds had broken
   layout.
 - Qt WebEngine made the app effectively an Electron app already, without
-  Electron's ecosystem or web-client reuse.
+  Electron's ecosystem.
 - Tauri/WebGTK was painful to work with.
-- Electron's renderer is web technology, so the same UI can later serve a web
-  client for people who don't want to install another desktop app.
+- Electron keeps the Svelte UI on a consistent Chromium runtime across platforms.
 
 ## Decisions
 
@@ -23,10 +22,18 @@ into the integration branch, and update the document when a decision changes.
 | Rust backend       | Keep it, expose through a napi-rs N-API addon   | Preserves field-tested domain logic and its tests; N-API is ABI-stable so no rebuild per Electron version; one app binary to ship                                                                                         |
 | Kiwi               | Keep the native Rust binding and vendored patch | Same tokens, UTF-16 offsets, POS tags, and tests; the patch fixes an out-of-bounds crash in Kiwi 0.24's `tagToString` probing (see `core/vendor/kiwi-rs/SORI-PATCH.md`) — it is not Qt-specific and Electron needs it too |
 | Playback           | Chromium `<video>` only, no mpv                 | The Electron demo plays real MKVs through a privileged `sori-media://` Range-streaming protocol                                                                                                                           |
-| Web client         | Keep the door open, don't build it yet          | Define a `Platform` interface now; add a browser adapter only if web becomes real                                                                                                                                         |
+| Web client         | Dropped after migration review                  | Keep `Platform` as the desktop integration boundary                                                                                                                                                                       |
 | Repository         | Same repo, long-lived migration branch          | Preserves git history and issue/release continuity                                                                                                                                                                        |
 
-## Target shape
+## Current scope
+
+Sori targets Electron desktop only. The browser/localhost client idea is dropped.
+The app now lives at the repository root with `electron/`, `src/`, and `crates/`;
+there is no npm workspace. `platform` remains the renderer's desktop integration
+boundary. See [Project structure](docs/PROJECT_STRUCTURE.md). Earlier checklist
+entries below retain historical migration paths and decisions.
+
+## Original target shape
 
 ```text
 apps/desktop      # Electron main/preload + Vite/Svelte renderer
@@ -307,9 +314,19 @@ in Node would be worse than keeping it).
       live online responses and Windows/macOS clean installs are CI-only.
       Tagging and publishing the first Electron release remain manual steps.
 
-Steps 7–15 are independent feature slices and can be reordered by priority. If
-a web client ever starts, it begins after step 3, where the `Platform` seam
-exists; no other step needs to change for it.
+Steps 7–15 were independent feature slices. A separate browser or localhost
+client is no longer planned.
+
+## Earlier post-cutover structure cleanup
+
+The desktop workspace now separates Electron main/preload under `electron/`,
+routed Svelte screens under `src/pages/`, diagnostics under `src/dev/`, and
+feature components alongside their helpers in `src/lib/`. Main-process smoke
+checks live in `tests/smoke/` and remain included in packages for validation.
+This earlier cleanup retained the npm/Cargo workspace split; the subsequent
+root layout removed the npm workspace as described in Current scope above. See
+[the desktop layout guide](docs/PROJECT_STRUCTURE.md) for the current tree; the
+step-by-step entries above record the original migration state.
 
 ## Post-cutover backlog (deferred)
 

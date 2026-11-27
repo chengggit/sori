@@ -1,10 +1,10 @@
 <script lang="ts">
-  import type { KoreanToken } from "./lib/nlp/tokenization";
-  import type { Analysis } from "./lib/reader/analysis";
-  import { wordBreakdown, wholeWordTerms } from "./lib/reader/breakdown";
-  import { partOfSpeechLabel } from "./lib/reader/tokens";
-  import type { VocabularyDraft } from "./lib/library/commands";
-  import DictionaryPanel from "./DictionaryPanel.svelte";
+  import type { KoreanToken } from "$lib/nlp/tokenization";
+  import type { Analysis } from "$lib/reader/analysis";
+  import { wordBreakdown, wholeWordTerms } from "$lib/reader/breakdown";
+  import { partOfSpeechLabel } from "$lib/reader/tokens";
+  import type { VocabularyDraft } from "$lib/library/commands";
+  import DictionaryPanel from "$lib/dictionary/DictionaryPanel.svelte";
 
   let lookupTerm = $state<string | null>(null);
 

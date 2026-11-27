@@ -14,7 +14,7 @@
     importVideo,
   } from "$lib/library/commands";
   import { openVideoPicker } from "$lib/video/commands";
-  import { platform } from "./platform";
+  import { platform } from "../platform";
 
   type LibraryItem = { id: number; title: string; pdf: boolean };
 
