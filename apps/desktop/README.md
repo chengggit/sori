@@ -20,6 +20,8 @@ npm run desktop:test:unit
 npm run desktop:test:e2e     # needs Playwright Chromium installed
 npm run desktop:build        # renderer bundle in apps/desktop/dist
 npm run desktop:package      # release addon + platform package
+npm run format               # Prettier (Svelte plugin) from the old app
+npm run format:check
 ```
 
 `desktop:native` and `desktop:native:release` build the napi-rs addon into

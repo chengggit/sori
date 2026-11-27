@@ -19,7 +19,7 @@ export function trackReadingProgress(
     const current = position;
     saved = current;
     void save(current).then(
-      () => reportError(''),
+      () => reportError(""),
       (error) => {
         saved = -1;
         reportError(`Could not save reading position. ${String(error)}`);
@@ -36,11 +36,11 @@ export function trackReadingProgress(
   }
 
   element.scrollTop = initial * Math.max(0, element.scrollHeight - element.clientHeight);
-  element.addEventListener('scroll', onScroll);
-  window.addEventListener('pagehide', record);
+  element.addEventListener("scroll", onScroll);
+  window.addEventListener("pagehide", record);
   return () => {
-    element.removeEventListener('scroll', onScroll);
-    window.removeEventListener('pagehide', record);
+    element.removeEventListener("scroll", onScroll);
+    window.removeEventListener("pagehide", record);
     record();
   };
 }

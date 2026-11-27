@@ -1,9 +1,9 @@
 <script lang="ts">
-  import { Pencil, Search, Trash2, X } from '@lucide/svelte';
-  import { onMount } from 'svelte';
-  import { Button } from '$lib/components/ui/button';
-  import { Input } from '$lib/components/ui/input';
-  import { editWord, loadLibraryState, removeWord, type VocabularyEdit } from '$lib/library/commands';
+  import { Pencil, Search, Trash2, X } from "@lucide/svelte";
+  import { onMount } from "svelte";
+  import { Button } from "$lib/components/ui/button";
+  import { Input } from "$lib/components/ui/input";
+  import { editWord, loadLibraryState, removeWord, type VocabularyEdit } from "$lib/library/commands";
 
   type Definition = {
     term?: string;
@@ -27,51 +27,62 @@
     tags: string[];
   };
 
-  const sortOptions = ['Recent', 'Oldest', 'A–Z', 'Z–A'] as const;
+  const sortOptions = ["Recent", "Oldest", "A–Z", "Z–A"] as const;
   const wordClasses = [
-    'noun', 'verb', 'adjective', 'adverb', 'pronoun',
-    'determiner', 'particle', 'conjunction', 'interjection', 'numeral',
+    "noun",
+    "verb",
+    "adjective",
+    "adverb",
+    "pronoun",
+    "determiner",
+    "particle",
+    "conjunction",
+    "interjection",
+    "numeral",
   ];
 
   let entries = $state<VocabularyEntry[]>([]);
-  let query = $state('');
-  let typeFilter = $state('All types');
-  let sort = $state<(typeof sortOptions)[number]>('Recent');
-  let error = $state('');
+  let query = $state("");
+  let typeFilter = $state("All types");
+  let sort = $state<(typeof sortOptions)[number]>("Recent");
+  let error = $state("");
   let details = $state<VocabularyEntry | null>(null);
   let editing = $state<VocabularyEntry | null>(null);
-  let normalizedForm = $state('');
-  let meaning = $state('');
-  let note = $state('');
-  let tags = $state('');
+  let normalizedForm = $state("");
+  let meaning = $state("");
+  let note = $state("");
+  let tags = $state("");
   let deleting = $state<VocabularyEntry | null>(null);
   let busy = $state(false);
 
   function partOfSpeech(entry: VocabularyEntry) {
-    const value = (entry.definition?.partOfSpeech ?? '').trim().toLowerCase();
+    const value = (entry.definition?.partOfSpeech ?? "").trim().toLowerCase();
     if (value) return value;
     for (const tag of entry.tags ?? []) {
-      const normalized = tag.trim().toLowerCase().replace(/s$/, '');
+      const normalized = tag.trim().toLowerCase().replace(/s$/, "");
       if (wordClasses.includes(normalized)) return normalized;
     }
-    return '';
+    return "";
   }
 
   function capitalize(value: string) {
-    return value ? value.charAt(0).toUpperCase() + value.slice(1) : '';
+    return value ? value.charAt(0).toUpperCase() + value.slice(1) : "";
   }
 
   function displayWord(entry: VocabularyEntry) {
-    const normalized = (entry.normalizedForm ?? '').trim();
+    const normalized = (entry.normalizedForm ?? "").trim();
     return normalized && normalized !== entry.word ? normalized : entry.word;
   }
 
   function formatMeaning(entry: VocabularyEntry) {
-    return (entry.definition?.text ?? '').trim().replace(/\s*\n+\s*/g, '; ').replace(/[ \t]+/g, ' ');
+    return (entry.definition?.text ?? "")
+      .trim()
+      .replace(/\s*\n+\s*/g, "; ")
+      .replace(/[ \t]+/g, " ");
   }
 
   const typeOptions = $derived([
-    'All types',
+    "All types",
     ...[...new Set(entries.map((entry) => capitalize(partOfSpeech(entry))).filter(Boolean))].sort(
       (a, b) => a.localeCompare(b),
     ),
@@ -80,7 +91,7 @@
   const filtered = $derived.by(() => {
     const needle = query.trim().normalize().toLowerCase();
     const result = entries.filter((entry) => {
-      if (typeFilter !== 'All types' && partOfSpeech(entry) !== typeFilter.toLowerCase()) return false;
+      if (typeFilter !== "All types" && partOfSpeech(entry) !== typeFilter.toLowerCase()) return false;
       if (!needle) return true;
       return [
         entry.word,
@@ -96,9 +107,9 @@
     });
     const created = (entry: VocabularyEntry) => Number(entry.createdAt) || 0;
     result.sort((a, b) => {
-      if (sort === 'Oldest') return created(a) - created(b) || a.id - b.id;
-      if (sort === 'A–Z') return displayWord(a).localeCompare(displayWord(b));
-      if (sort === 'Z–A') return displayWord(b).localeCompare(displayWord(a));
+      if (sort === "Oldest") return created(a) - created(b) || a.id - b.id;
+      if (sort === "A–Z") return displayWord(a).localeCompare(displayWord(b));
+      if (sort === "Z–A") return displayWord(b).localeCompare(displayWord(a));
       return created(b) - created(a) || b.id - a.id;
     });
     return result;
@@ -111,8 +122,8 @@
       return;
     }
     entries = (state.data?.vocabulary ?? []) as VocabularyEntry[];
-    error = state.data?.error ?? '';
-    if (!typeOptions.includes(typeFilter)) typeFilter = 'All types';
+    error = state.data?.error ?? "";
+    if (!typeOptions.includes(typeFilter)) typeFilter = "All types";
   }
 
   onMount(() => {
@@ -122,22 +133,29 @@
   function startEdit(entry: VocabularyEntry) {
     editing = entry;
     normalizedForm = entry.normalizedForm ?? entry.word;
-    meaning = entry.definition?.text ?? '';
-    note = entry.definition?.note ?? '';
-    tags = entry.tags.join(', ');
-    error = '';
+    meaning = entry.definition?.text ?? "";
+    note = entry.definition?.note ?? "";
+    tags = entry.tags.join(", ");
+    error = "";
   }
 
   async function saveEdit() {
     if (!editing || busy || !normalizedForm.trim()) return;
     busy = true;
-    error = '';
+    error = "";
     try {
       const input: VocabularyEdit = {
         normalizedForm: normalizedForm.trim(),
         meaning,
         note,
-        tags: [...new Set(tags.split(',').map((tag) => tag.trim()).filter(Boolean))],
+        tags: [
+          ...new Set(
+            tags
+              .split(",")
+              .map((tag) => tag.trim())
+              .filter(Boolean),
+          ),
+        ],
       };
       const saved = await editWord(editing.id, input);
       if (!saved.ok) {
@@ -154,7 +172,7 @@
   async function confirmDelete() {
     if (!deleting || busy) return;
     busy = true;
-    error = '';
+    error = "";
     try {
       const removed = await removeWord(deleting.id);
       if (!removed.ok) {
@@ -174,7 +192,12 @@
   <div class="flex flex-wrap items-center gap-2">
     <div class="relative w-full max-w-sm">
       <Search class="absolute left-2.5 top-2.5 text-muted-foreground" size={16} />
-      <Input class="pl-8" placeholder="Search vocabulary" aria-label="Search vocabulary" bind:value={query} />
+      <Input
+        class="pl-8"
+        placeholder="Search vocabulary"
+        aria-label="Search vocabulary"
+        bind:value={query}
+      />
     </div>
     <select
       class="h-9 rounded-md border border-input bg-transparent px-2 text-sm"
@@ -196,7 +219,7 @@
     </select>
     <span class="ml-auto text-sm text-muted-foreground" data-testid="vocabulary-count">
       {filtered.length} of {entries.length}
-      {entries.length === 1 ? 'saved word' : 'saved words'}
+      {entries.length === 1 ? "saved word" : "saved words"}
     </span>
   </div>
 
@@ -208,7 +231,12 @@
     <section class="rounded-lg border border-border bg-card p-4" data-testid="vocabulary-editor">
       <div class="mb-3 flex items-center justify-between">
         <h2 class="text-base font-semibold">Edit “{editing.word}”</h2>
-        <Button variant="ghost" size="icon-sm" aria-label="Close editor" onclick={() => (editing = null)}>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Close editor"
+          onclick={() => (editing = null)}
+        >
           <X />
         </Button>
       </div>
@@ -218,16 +246,18 @@
           class="min-h-20 w-full rounded-md border border-input bg-transparent p-2"
           aria-label="Meaning"
           placeholder="Meaning"
-          bind:value={meaning}
-        ></textarea>
+          bind:value={meaning}></textarea>
         <textarea
           class="min-h-20 w-full rounded-md border border-input bg-transparent p-2"
           aria-label="Note"
           placeholder="Note"
-          bind:value={note}
-        ></textarea>
+          bind:value={note}></textarea>
         <Input aria-label="Tags" placeholder="Tags, comma separated" bind:value={tags} />
-        <Button onclick={saveEdit} disabled={busy || !normalizedForm.trim()} data-testid="save-vocabulary">
+        <Button
+          onclick={saveEdit}
+          disabled={busy || !normalizedForm.trim()}
+          data-testid="save-vocabulary"
+        >
           Save changes
         </Button>
       </div>
@@ -235,8 +265,11 @@
   {/if}
 
   {#if filtered.length === 0}
-    <p class="rounded-lg border border-border bg-card p-8 text-center text-muted-foreground" data-testid="empty-vocabulary">
-      {query || typeFilter !== 'All types' ? 'No matching words' : 'No saved words yet'}
+    <p
+      class="rounded-lg border border-border bg-card p-8 text-center text-muted-foreground"
+      data-testid="empty-vocabulary"
+    >
+      {query || typeFilter !== "All types" ? "No matching words" : "No saved words yet"}
     </p>
   {:else}
     <ul class="grid gap-2 lg:grid-cols-2" data-testid="vocabulary-list">
@@ -251,16 +284,28 @@
             >
               <span class="font-[family-name:var(--font-korean)] text-lg">{displayWord(entry)}</span>
               {#if partOfSpeech(entry)}
-                <span class="ml-2 rounded bg-accent-soft px-1.5 py-0.5 text-xs">{capitalize(partOfSpeech(entry))}</span>
+                <span class="ml-2 rounded bg-accent-soft px-1.5 py-0.5 text-xs">
+                  {capitalize(partOfSpeech(entry))}
+                </span>
               {/if}
               {#if formatMeaning(entry)}
                 <span class="mt-1 block text-sm text-muted-foreground">{formatMeaning(entry)}</span>
               {/if}
             </button>
-            <Button variant="ghost" size="icon-sm" aria-label={`Edit ${entry.word}`} onclick={() => startEdit(entry)}>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={`Edit ${entry.word}`}
+              onclick={() => startEdit(entry)}
+            >
               <Pencil />
             </Button>
-            <Button variant="ghost" size="icon-sm" aria-label={`Remove ${entry.word}`} onclick={() => (deleting = entry)}>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={`Remove ${entry.word}`}
+              onclick={() => (deleting = entry)}
+            >
               <Trash2 />
             </Button>
           </div>
@@ -280,7 +325,12 @@
     <section class="rounded-lg border border-border bg-card p-4" data-testid="vocabulary-details">
       <div class="mb-2 flex items-center justify-between">
         <h2 class="text-lg font-semibold">{displayWord(details)}</h2>
-        <Button variant="ghost" size="icon-sm" aria-label="Close details" onclick={() => (details = null)}>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Close details"
+          onclick={() => (details = null)}
+        >
           <X />
         </Button>
       </div>
@@ -294,7 +344,11 @@
   {/if}
 
   {#if deleting}
-    <div class="rounded-lg border border-destructive bg-card p-4" role="alertdialog" data-testid="vocabulary-delete">
+    <div
+      class="rounded-lg border border-destructive bg-card p-4"
+      role="alertdialog"
+      data-testid="vocabulary-delete"
+    >
       <p class="mb-3 text-sm">Remove “{deleting.word}” from Vocabulary?</p>
       <div class="flex gap-2">
         <Button variant="outline" onclick={() => (deleting = null)}>Cancel</Button>

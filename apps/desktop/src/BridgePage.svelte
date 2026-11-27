@@ -1,30 +1,30 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
-  import { platform } from './platform';
-  import type { KoreanToken } from './lib/nlp/tokenization';
+  import { onMount } from "svelte";
+  import { platform } from "./platform";
+  import type { KoreanToken } from "./lib/nlp/tokenization";
 
-  let ping = $state('waiting…');
-  let analysis = $state('waiting…');
-  let event = $state('waiting…');
+  let ping = $state("waiting…");
+  let analysis = $state("waiting…");
+  let event = $state("waiting…");
 
   onMount(() => {
-    const unsubscribe = platform.onEvent('dev', (payload) => {
+    const unsubscribe = platform.onEvent("dev", (payload) => {
       event = JSON.stringify(payload);
     });
 
     void (async () => {
       try {
-        const reply = await platform.invoke<string>('app:ping');
+        const reply = await platform.invoke<string>("app:ping");
         ping = reply.ok ? String(reply.data) : reply.error;
 
-        const tokens = await platform.invoke<KoreanToken[]>('analyzeText', {
-          text: '학교에 갔어요.',
+        const tokens = await platform.invoke<KoreanToken[]>("analyzeText", {
+          text: "학교에 갔어요.",
         });
         analysis = tokens.ok
-          ? (tokens.data ?? []).map((token) => `${token.form}/${token.tag}`).join(' ')
+          ? (tokens.data ?? []).map((token) => `${token.form}/${token.tag}`).join(" ")
           : tokens.error;
 
-        await platform.invoke('dev:emit', { message: 'bridge ready' });
+        await platform.invoke("dev:emit", { message: "bridge ready" });
       } catch (error) {
         ping = error instanceof Error ? error.message : String(error);
       }

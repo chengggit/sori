@@ -17,14 +17,14 @@ into the integration branch, and update the document when a decision changes.
 
 ## Decisions
 
-| Decision | Choice | Reason |
-| --- | --- | --- |
-| Frontend framework | Keep Svelte 5 + TypeScript | Old Svelte codebase is the same repo's pre-Qt ancestor with current deps; it already builds as a static SPA via `adapter-static` |
-| Rust backend | Keep it, expose through a napi-rs N-API addon | Preserves field-tested domain logic and its tests; N-API is ABI-stable so no rebuild per Electron version; one app binary to ship |
-| Kiwi | Keep the native Rust binding and vendored patch | Same tokens, UTF-16 offsets, POS tags, and tests; the patch fixes an out-of-bounds crash in Kiwi 0.24's `tagToString` probing (see `core/vendor/kiwi-rs/SORI-PATCH.md`) — it is not Qt-specific and Electron needs it too |
-| Playback | Chromium `<video>` only, no mpv | The Electron demo plays real MKVs through a privileged `sori-media://` Range-streaming protocol |
-| Web client | Keep the door open, don't build it yet | Define a `Platform` interface now; add a browser adapter only if web becomes real |
-| Repository | Same repo, long-lived migration branch | Preserves git history and issue/release continuity |
+| Decision           | Choice                                          | Reason                                                                                                                                                                                                                    |
+| ------------------ | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Frontend framework | Keep Svelte 5 + TypeScript                      | Old Svelte codebase is the same repo's pre-Qt ancestor with current deps; it already builds as a static SPA via `adapter-static`                                                                                          |
+| Rust backend       | Keep it, expose through a napi-rs N-API addon   | Preserves field-tested domain logic and its tests; N-API is ABI-stable so no rebuild per Electron version; one app binary to ship                                                                                         |
+| Kiwi               | Keep the native Rust binding and vendored patch | Same tokens, UTF-16 offsets, POS tags, and tests; the patch fixes an out-of-bounds crash in Kiwi 0.24's `tagToString` probing (see `core/vendor/kiwi-rs/SORI-PATCH.md`) — it is not Qt-specific and Electron needs it too |
+| Playback           | Chromium `<video>` only, no mpv                 | The Electron demo plays real MKVs through a privileged `sori-media://` Range-streaming protocol                                                                                                                           |
+| Web client         | Keep the door open, don't build it yet          | Define a `Platform` interface now; add a browser adapter only if web becomes real                                                                                                                                         |
+| Repository         | Same repo, long-lived migration branch          | Preserves git history and issue/release continuity                                                                                                                                                                        |
 
 ## Target shape
 
@@ -42,12 +42,12 @@ alongside `rusqlite` — one owner per data store.
 
 ## Reuse map
 
-| Source | Reuse |
-| --- | --- |
-| Old Svelte app (`~/Documents/sori`) | Pure TS modules: `src/lib/features/reader/{tokens,breakdown,progress}.ts`, `features/nlp/tokenization.ts`, `features/video/{subtitles,playback}.ts`, `features/dashboard/{youtube,playback}.ts`, `features/dictionary/{dictionary,embedded,embed-settings}.ts`, typed service wrappers; theme tokens from `src/routes/layout.css`; fonts/icons/licenses |
-| Current Qt app | Feature spec (`docs/PRODUCT.md`, `docs/USAGE.md`), `core/src/schema.sql`, domain services (`vocabulary`, `dictionary`, `krdict`, `youtube`, `reader`, etc.), Kiwi resources, QML test flows in `tests/qml/` |
-| Electron demo (`~/Documents/Code/sori-electron-player`) | `sori-media://` scheme + Range streamer, security setup (`contextIsolation`, `sandbox`, `contextBridge`, sender-frame validation, CSP), Watch interactions and metrics |
-| Do not port | Tauri plugins/capabilities, `convertFileSrc`, `isTauri`, webview zoom APIs, `@get-air/video-tauri`, `video_http.rs`, uncommitted WebKit hacks, dead `DictionaryLookup.svelte`, Linux-only `build-linux.cjs`, exposed `.env.local` key (rotate it) |
+| Source                                                  | Reuse                                                                                                                                                                                                                                                                                                                                                   |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Old Svelte app (`~/Documents/sori`)                     | Pure TS modules: `src/lib/features/reader/{tokens,breakdown,progress}.ts`, `features/nlp/tokenization.ts`, `features/video/{subtitles,playback}.ts`, `features/dashboard/{youtube,playback}.ts`, `features/dictionary/{dictionary,embedded,embed-settings}.ts`, typed service wrappers; theme tokens from `src/routes/layout.css`; fonts/icons/licenses |
+| Current Qt app                                          | Feature spec (`docs/PRODUCT.md`, `docs/USAGE.md`), `core/src/schema.sql`, domain services (`vocabulary`, `dictionary`, `krdict`, `youtube`, `reader`, etc.), Kiwi resources, QML test flows in `tests/qml/`                                                                                                                                             |
+| Electron demo (`~/Documents/Code/sori-electron-player`) | `sori-media://` scheme + Range streamer, security setup (`contextIsolation`, `sandbox`, `contextBridge`, sender-frame validation, CSP), Watch interactions and metrics                                                                                                                                                                                  |
+| Do not port                                             | Tauri plugins/capabilities, `convertFileSrc`, `isTauri`, webview zoom APIs, `@get-air/video-tauri`, `video_http.rs`, uncommitted WebKit hacks, dead `DictionaryLookup.svelte`, Linux-only `build-linux.cjs`, exposed `.env.local` key (rotate it)                                                                                                       |
 
 Delete from Rust: `lib.rs` mpv FFI, `controls.rs`, `bridge.rs` (replace with TS
 types using the same `{ok, data, error}` envelope), all `*_model.rs` Qt adapters,
@@ -61,11 +61,11 @@ move to TS — preferably reusing the old Svelte implementation.
 
 ### Port to TS (recommended, ~560–600 lines out of Rust)
 
-| Rust file | What moves | TS source | Contract change |
-| --- | --- | --- | --- |
-| `core/src/subtitles.rs` (lines 1–60) | `parse()`, `seconds()`, `cue()` — SRT/VTT → sorted cues | `features/video/subtitles.ts` + demo's `subtitles.mjs` | Rust returns raw WebVTT; renderer parses. Keep `command_output()` (lines 62–71) in Rust |
-| `core/src/youtube/parsing.rs` (327 lines) | All 14 functions: oembed, ISO-8601 duration, `video_id()`, `valid_id()`, search, channel input, API errors | `features/dashboard/youtube.ts` | `youtube.rs` returns raw JSON bodies; TS parses them |
-| `core/src/reader.rs` (~180 of 325 lines) | `grammar_explanation`, `word_breakdown`, `lookup_terms`, `dictionary_form`, POS labels, `passage()`, `attached_number_start`, `is_hangul` | `features/reader/tokens.ts` + `breakdown.ts` | Rust `analyze()` returns just `{word, context, morphemes}`; TS derives the rest. Keep `analyze()` and `word_ranges()` in Rust — they call Kiwi |
+| Rust file                                 | What moves                                                                                                                                | TS source                                              | Contract change                                                                                                                                |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `core/src/subtitles.rs` (lines 1–60)      | `parse()`, `seconds()`, `cue()` — SRT/VTT → sorted cues                                                                                   | `features/video/subtitles.ts` + demo's `subtitles.mjs` | Rust returns raw WebVTT; renderer parses. Keep `command_output()` (lines 62–71) in Rust                                                        |
+| `core/src/youtube/parsing.rs` (327 lines) | All 14 functions: oembed, ISO-8601 duration, `video_id()`, `valid_id()`, search, channel input, API errors                                | `features/dashboard/youtube.ts`                        | `youtube.rs` returns raw JSON bodies; TS parses them                                                                                           |
+| `core/src/reader.rs` (~180 of 325 lines)  | `grammar_explanation`, `word_breakdown`, `lookup_terms`, `dictionary_form`, POS labels, `passage()`, `attached_number_start`, `is_hangul` | `features/reader/tokens.ts` + `breakdown.ts`           | Rust `analyze()` returns just `{word, context, morphemes}`; TS derives the rest. Keep `analyze()` and `word_ranges()` in Rust — they call Kiwi |
 
 Do these in step 3, where the `Platform` contract is defined. When a function
 moves, delete the Rust version and port its tests to Vitest (there are existing
@@ -95,13 +95,13 @@ in Node would be worse than keeping it).
 
 - [x] **0. `chore/electron-prep`** — Back up the current tree, create
       `electron/migration`, add this checklist and the decision record.
-      *Done when:* branch exists and the Qt baseline `./scripts/dev test` passes.
+      _Done when:_ branch exists and the Qt baseline `./scripts/dev test` passes.
       Backup: `~/Documents/sori-qt` at `e0896f7`; baseline 4/4 CTest suites passed.
 
 - [x] **1. `feat/electron-scaffold`** — `apps/desktop` with Vite + Svelte 5 +
       strict TS, Electron 45.3.2, electron-builder config, preload/main security
       baseline from the demo, Vitest + Playwright, CI job parallel to the Qt one.
-      *Done when:* `npm run dev` opens a blank window and a packaged smoke app
+      _Done when:_ `npm run dev` opens a blank window and a packaged smoke app
       launches on Linux, Windows, and macOS.
       Verified locally on Linux: dev and packaged `--smoke` both exit 0,
       typecheck/unit/E2E pass. Windows/macOS run in
@@ -112,7 +112,7 @@ in Node would be worse than keeping it).
       `invoke(command, payload) -> Response<T>` and an event emitter. Keep the
       vendored patched `kiwi-rs` and Cargo patch unchanged; use existing
       `resources/kiwi` for development.
-      *Done when:* `cargo test` passes, a JS snippet calls
+      _Done when:_ `cargo test` passes, a JS snippet calls
       `invoke('analyzeText', …)` and gets real tokens, and prebuilds succeed on
       all three platforms.
       Verified locally: 63 Rust tests passed (4 native/live tests ignored);
@@ -128,7 +128,7 @@ in Node would be worse than keeping it).
       helpers from the old app (`tokens.ts`, `breakdown.ts`, `subtitles.ts`,
       `youtube.ts` parsing, `embed-settings.ts`) and delete any Rust equivalent
       that moves, so there is one source of truth.
-      *Done when:* helpers have Vitest coverage and a dev-only bridge page
+      _Done when:_ helpers have Vitest coverage and a dev-only bridge page
       exercises commands and events.
       Verified: 19 Vitest tests, `svelte-check` clean, 62 Rust tests, and an
       Electron bridge-page smoke (`#bridge`) showing `pong`, real Kiwi tokens,
@@ -142,7 +142,7 @@ in Node would be worse than keeping it).
       `invoke`; add explicit migrations so an old `library.sqlite3` gains
       `pdf_path`, `duration`, `thumbnail`, and the new tables; point Electron
       `userData` at the old `com.sori.app` location.
-      *Done when:* a **copied** real library opens, migrates, and passes CRUD
+      _Done when:_ a **copied** real library opens, migrates, and passes CRUD
       tests on temporary DBs.
       Verified: 63 Rust tests, `scripts/smoke-persistence.mjs` (document,
       progress and vocabulary CRUD on a temp DB), and
@@ -154,7 +154,7 @@ in Node would be worse than keeping it).
 
 - [x] **5. `feat/electron-analysis`** — Wire Kiwi → tokens → TS grouping/POS
       labels/grammar into one reusable analysis component/panel.
-      *Done when:* output matches the Qt app on the `nlp.rs` test corpus,
+      _Done when:_ output matches the Qt app on the `nlp.rs` test corpus,
       including UTF-16 offsets and the emoji case.
       Verified: `smoke-native.mjs` now checks the `nlp.rs` vectors (`마음/만큼/은`,
       `NNG/JKB/JX`), emoji offset 3, and the 16 KiB limit. Ported Qt's
@@ -166,7 +166,7 @@ in Node would be worse than keeping it).
 - [x] **6. `feat/electron-shell`** — Sidebar, routing, and theme tokens from old
       `layout.css` plus current `Theme.qml`; light/dark themes, zoom, narrow
       widths.
-      *Done when:* every page navigates in both themes and the Playwright visual
+      _Done when:_ every page navigates in both themes and the Playwright visual
       smoke passes.
       Verified: 3 Playwright tests (navigation, both themes, narrow-width
       collapse), clean typecheck/build, dev and packaged smoke exit 0. Adopted
@@ -178,7 +178,7 @@ in Node would be worse than keeping it).
 
 - [x] **7. `feat/electron-library`** — TXT import (UTF-8, ≤2 MiB), paste-as-file,
       list/open/remove, background metadata jobs.
-      *Done when:* matches `LibraryPage.qml`.
+      _Done when:_ matches `LibraryPage.qml`.
       Verified: 4 Playwright tests, clean typecheck/build, and an Electron
       smoke that inserts a Korean document through the bridge then sees it in
       the Library page. Reused the old shadcn Button/Input primitives; the page
@@ -189,7 +189,7 @@ in Node would be worse than keeping it).
 
 - [x] **8. `feat/electron-reader`** — TXT reader, clickable words, analysis
       panel, debounced progress save/restore.
-      *Done when:* matches `ReaderPage.qml` and `tst_readerlayout.qml`.
+      _Done when:_ matches `ReaderPage.qml` and `tst_readerlayout.qml`.
       Verified: 5 Playwright tests, clean typecheck/build, and an Electron smoke
       that opens a document, clicks a Korean word, saves it to vocabulary, and
       restores a 0.6 scroll position from the DB. Passages use the Qt-derived
@@ -199,7 +199,7 @@ in Node would be worse than keeping it).
 - [x] **9. `feat/electron-vocabulary`** — Save word with context, edit
       meanings/notes/tags, list/search/filter, remove; retain snapshots after
       source removal.
-      *Done when:* matches `VocabularyPage.qml`; saved meanings work offline.
+      _Done when:_ matches `VocabularyPage.qml`; saved meanings work offline.
       Verified: 6 Playwright tests, clean typecheck/build, and an Electron smoke
       that saves a word through the bridge, edits its meaning in the UI, then
       removes it (final vocabulary count 0). The page mirrors Qt's search
@@ -207,47 +207,53 @@ in Node would be worse than keeping it).
       Snapshot retention after source deletion is inherited from the Rust
       `vocabulary` service.
 
-- [ ] **10. `feat/electron-pdf`** — pdf.js with Book/Scroll views, text-layer
+- [x] **10. `feat/electron-pdf`** — pdf.js with Book/Scroll views, text-layer
       word clicks, scanned-PDF rendering, progress via `pdf_path`.
-      *Done when:* matches `PdfBookReader.qml` against
+      _Done when:_ matches `PdfBookReader.qml` against
       `tests/fixtures/pdf-rendering.pdf`.
+      Verified: Electron smoke against that fixture renders a canvas and 25
+      text-layer spans, clicking a span opens Kiwi analysis, and Scroll mode
+      re-renders. A privileged `sori-pdf://` protocol serves PDF bytes with
+      Range support from `userData/pdfs`; CSP allows it explicitly. Also adopted
+      the old app's Prettier config and scripts (`npm run format`,
+      `format:check`); there was no ESLint in that codebase.
 
 - [ ] **11. `feat/electron-playback`** — Move the `sori-media://` Range protocol
       into Electron main; ffprobe metadata; bundle ffmpeg/ffprobe as
       `extraResources`; play/seek/fullscreen/keyboard; playback checkpoints.
-      *Done when:* the real MKV codec matrix passes on all three OSes without
+      _Done when:_ the real MKV codec matrix passes on all three OSes without
       mpv.
 
 - [ ] **12. `feat/electron-subtitles`** — Embedded tracks → WebVTT, SRT/VTT
       sidecars, dual tracks, clickable subtitle words → analysis, transcript
       follow/click-to-seek.
-      *Done when:* `tst_subtitletranscript` and `tst_transcriptheader` flows are
+      _Done when:_ `tst_subtitletranscript` and `tst_transcriptheader` flows are
       ported and passing.
 
 - [ ] **13. `feat/electron-dictionaries`** — Wiktionary + KRDict services,
       offline saved meanings, embedded Naver/Papago/KRDict/custom tabs with drag
       reorder and 30-second retention.
-      *Done when:* `tst_dictionarytabs`, `tst_dictionaryorder`, and
+      _Done when:_ `tst_dictionarytabs`, `tst_dictionaryorder`, and
       `tst_dictionaryretention` flows pass.
 
 - [ ] **14. `feat/electron-youtube`** — iframe/IFrame API playback, Data API
       search with key, history/subscriptions, optional caption helper.
-      *Done when:* `tst_youtubeadapter` and `tst_discoverypagination` flows pass.
+      _Done when:_ `tst_youtubeadapter` and `tst_discoverypagination` flows pass.
 
 - [ ] **15. `feat/electron-settings`** — Theme, zoom, Inter/Noto Sans KR fonts,
       dictionary provider/key, embed-tab order, `app_settings` table.
-      *Done when:* matches `SettingsSheet.qml`.
+      _Done when:_ matches `SettingsSheet.qml`.
 
 - [ ] **16. `feat/electron-packaging`** — electron-builder AppImage / per-user
       NSIS / DMG, icons, ASAR, `extraResources` for Kiwi + ffmpeg, checksums,
       signing/notarization, CI artifacts, release notes template.
-      *Done when:* clean-system install and launch verified on all three OSes.
+      _Done when:_ clean-system install and launch verified on all three OSes.
 
 - [ ] **17. `release/electron-cutover`** — Full parity audit against
       `PRODUCT.md` and `USAGE.md`, migrate a real library once more, rewrite all
       docs, delete `qml/`, `src/`, and CMake files, then merge
       `electron/migration` → `main`.
-      *Done when:* the first Electron release is tagged.
+      _Done when:_ the first Electron release is tagged.
 
 Steps 7–15 are independent feature slices and can be reordered by priority. If
 a web client ever starts, it begins after step 3, where the `Platform` seam
