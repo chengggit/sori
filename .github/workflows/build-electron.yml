@@ -1,8 +1,7 @@
 name: Electron builds
+# Automatic CI is temporarily paused during the frontend rework.
+# Restore push and pull_request triggers when the rework is ready.
 on:
-  push:
-    branches: [main, 'electron/**', 'feat/electron-**']
-  pull_request:
   workflow_dispatch:
 permissions:
   contents: read

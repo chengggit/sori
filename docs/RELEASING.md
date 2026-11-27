@@ -4,9 +4,10 @@ This guide is for maintainers preparing and publishing Sori releases.
 
 ## CI artifacts
 
-[Electron builds](../.github/workflows/build-electron.yml) runs on pushes to
-`main`, `electron/**` and `feat/electron-**` branches, version tags, pull
-requests, and manual dispatch.
+[Electron builds](../.github/workflows/build-electron.yml) is temporarily
+manual-only during the frontend rework. Pushes and pull requests do not trigger
+builds. Use `workflow_dispatch` to run it manually; restore automatic triggers
+before the final integration into `main`.
 
 Each platform job installs Node/Rust, prepares Kiwi resources, runs the Rust,
 Vitest, Playwright and smoke checks, then builds a package and checksums:
