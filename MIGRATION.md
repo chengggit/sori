@@ -218,11 +218,18 @@ in Node would be worse than keeping it).
       the old app's Prettier config and scripts (`npm run format`,
       `format:check`); there was no ESLint in that codebase.
 
-- [ ] **11. `feat/electron-playback`** — Move the `sori-media://` Range protocol
+- [x] **11. `feat/electron-playback`** — Move the `sori-media://` Range protocol
       into Electron main; ffprobe metadata; bundle ffmpeg/ffprobe as
       `extraResources`; play/seek/fullscreen/keyboard; playback checkpoints.
       _Done when:_ the real MKV codec matrix passes on all three OSes without
       mpv.
+      Verified: 7 Playwright tests, clean typecheck/build, and an Electron smoke
+      that generates an MKV, imports it, streams it through `sori-media://`,
+      plays it, seeks, and confirms the checkpoint was saved. Library now has
+      video import and opening navigates to `#/watch?id=…`. The native IPC
+      adapter now wraps raw main-process replies in the shared envelope.
+      Not done here: ffmpeg/ffprobe bundling into installers (step 16) and the
+      user's real MKV codec matrix on Windows/macOS (CI only).
 
 - [ ] **12. `feat/electron-subtitles`** — Embedded tracks → WebVTT, SRT/VTT
       sidecars, dual tracks, clickable subtitle words → analysis, transcript

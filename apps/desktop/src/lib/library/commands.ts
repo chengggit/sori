@@ -62,8 +62,12 @@ export function importVideo(path: string): Promise<Response<{ id: number }>> {
   return platform.invoke<{ id: number }>("video:import", { path });
 }
 
-export function readVideo(id: number) {
-  return platform.invoke<unknown>("video:read", { id });
+export function readVideo(
+  id: number,
+): Promise<Response<{ path: string; seconds: number; sidecar: string | null }>> {
+  return platform.invoke<{ path: string; seconds: number; sidecar: string | null }>("video:read", {
+    id,
+  });
 }
 
 export function removeVideo(id: number) {

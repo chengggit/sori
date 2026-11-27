@@ -12,6 +12,18 @@ function bridge(): DesktopBridge | undefined {
   return (window as Window & { sori?: DesktopBridge }).sori;
 }
 
+async function native<T>(call: () => Promise<T>): Promise<Response<T>> {
+  try {
+    return { ok: true, data: await call(), error: "" };
+  } catch (cause) {
+    return {
+      ok: false,
+      data: null,
+      error: cause instanceof Error ? cause.message : String(cause),
+    };
+  }
+}
+
 const desktopPlatform: Platform = {
   async invoke<T>(command: Command, payload: Record<string, unknown> = {}) {
     const host = bridge();
@@ -22,7 +34,17 @@ const desktopPlatform: Platform = {
       case "dev:emit":
         return host.invoke<Response<T>>("dev:emit", payload);
       case "dialog:openDocument":
-        return host.invoke<Response<T>>("dialog:openDocument");
+        return native(() => host.invoke<T>("dialog:openDocument"));
+      case "dialog:openVideo":
+        return native(() => host.invoke<T>("dialog:openVideo"));
+      case "video:expose":
+        return native(() => host.invoke<T>("video:expose", payload.path));
+      case "video:probe":
+        return native(() => host.invoke<T>("video:probe", payload.id));
+      case "video:track":
+        return native(() => host.invoke<T>("video:track", payload.id, payload.index));
+      case "video:attach":
+        return native(() => host.invoke<T>("video:attach", payload.id));
       case "analyzeText":
         return host.invoke<Response<T>>("core:invoke", command, payload);
       default:
