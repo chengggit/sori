@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { FileText, Pencil, Plus, Search, Trash2, X } from "@lucide/svelte";
+  import { FileText, Film, Pencil, Plus, Search, Trash2, X } from "@lucide/svelte";
   import { onMount } from "svelte";
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
@@ -10,7 +10,9 @@
     readDocument,
     removeDocument,
     updateDocument,
+    importVideo,
   } from "$lib/library/commands";
+  import { openVideoPicker } from "$lib/video/commands";
   import { platform } from "./platform";
 
   type LibraryItem = { id: number; title: string; pdf: boolean };
@@ -118,6 +120,27 @@
     deleting = null;
   }
 
+  function openVideo(id: number) {
+    location.hash = `#/watch?id=${id}`;
+  }
+
+  async function chooseVideo() {
+    if (busy) return;
+    busy = true;
+    error = "";
+    try {
+      const picked = await openVideoPicker();
+      if (!report(picked)) return;
+      if (!picked.data) return;
+      if (report(await importVideo(picked.data))) {
+        await load();
+        query = "";
+      }
+    } finally {
+      busy = false;
+    }
+  }
+
   async function confirmDelete() {
     if (!deleting || busy) return;
     busy = true;
@@ -147,6 +170,9 @@
     <div class="flex-1"></div>
     <Button variant="outline" onclick={openImport} data-testid="import-text">
       <Plus /> Import text
+    </Button>
+    <Button variant="outline" onclick={chooseVideo} data-testid="import-video">
+      <Film /> Import video
     </Button>
   </div>
 
@@ -229,7 +255,17 @@
       <h2 class="mb-2 text-sm font-semibold text-muted-foreground">Videos</h2>
       <ul class="grid gap-2 sm:grid-cols-2" data-testid="video-list">
         {#each visibleVideos as video (video.id)}
-          <li class="truncate rounded-lg border border-border bg-card p-3">{video.title}</li>
+          <li>
+            <button
+              type="button"
+              class="w-full truncate rounded-lg border border-border bg-card p-3 text-left"
+              data-testid={`open-video-${video.id}`}
+              onclick={() => openVideo(video.id)}
+            >
+              <Film size={16} class="mr-2 inline text-dashboard-accent" />
+              {video.title}
+            </button>
+          </li>
         {/each}
       </ul>
     </section>

@@ -49,7 +49,9 @@ words are clickable, feed the analysis panel, and scroll position is saved.
 Mutations emit a `library-changed` event so the library refreshes automatically.
 `#/vocabulary` lists saved words with Qt-style search, type filtering, sorting,
 details, editing and removal. Saved meanings remain available offline.
-Video import arrives with the Watch step; PDF reading with step 10.
+Video import and `#/watch?id=…` playback (Chromium `<video>` streaming via
+`sori-media://`) are in place; subtitles arrive in step 12. PDF reading is at
+step 10. ffmpeg/ffprobe must be on PATH until the packaging step bundles them.
 
 Open `http://127.0.0.1:5173/#bridge` during development for a bridge page that
 exercises `app:ping`, `analyzeText`, and a main-process event. `#analysis` shows

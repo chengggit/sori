@@ -1,9 +1,12 @@
 const { app, BrowserWindow, dialog, ipcMain, protocol, session } = require('electron');
+const { execFile, execFileSync } = require('node:child_process');
+const { randomUUID } = require('node:crypto');
 const { createReadStream } = require('node:fs');
-const { stat } = require('node:fs/promises');
-const { join } = require('node:path');
-const { homedir } = require('node:os');
+const { realpath, stat, readFile } = require('node:fs/promises');
+const { basename, extname, join } = require('node:path');
+const { homedir, tmpdir } = require('node:os');
 const { Readable } = require('node:stream');
+const { promisify } = require('node:util');
 const { pathToFileURL } = require('node:url');
 
 // Avoid a userData directory derived from the scoped workspace name.
@@ -25,6 +28,10 @@ protocol.registerSchemesAsPrivileged([
     scheme: 'sori-pdf',
     privileges: { standard: true, secure: true, stream: true, supportFetchAPI: true, corsEnabled: true },
   },
+  {
+    scheme: 'sori-media',
+    privileges: { standard: true, secure: true, stream: true, supportFetchAPI: true, corsEnabled: true },
+  },
 ]);
 
 const isDev = !app.isPackaged;
@@ -34,6 +41,21 @@ let smokeDone = false;
 const devUrl = 'http://127.0.0.1:5173/';
 const indexFile = join(__dirname, 'dist', 'index.html');
 const pageUrl = isDev ? devUrl : pathToFileURL(indexFile).href;
+
+const run = promisify(execFile);
+const videoExtensions = ['mkv', 'mp4', 'm4v', 'mov', 'webm', 'avi', 'ts'];
+const videoMime = {
+  mkv: 'video/x-matroska',
+  mp4: 'video/mp4',
+  m4v: 'video/mp4',
+  mov: 'video/quicktime',
+  webm: 'video/webm',
+  avi: 'video/x-msvideo',
+  ts: 'video/mp2t',
+};
+const textCodecs = new Set(['subrip', 'ass', 'ssa', 'mov_text', 'webvtt', 'text']);
+const subtitleLimit = 8 * 1024 * 1024;
+const mediaFiles = new Map();
 
 function loadNative() {
   const addonPath = isDev
@@ -100,12 +122,64 @@ async function servePdf(request) {
   return new Response(body, { status: range ? 206 : 200, headers });
 }
 
+function serveMedia(request) {
+  const match = /^sori-media:\/\/watch\/([^/]+)\/video(?:\.(\w+))?$/.exec(request.url);
+  const selected = match ? mediaFiles.get(match[1]) : undefined;
+  if (!selected || request.url !== selected.url) return new Response(null, { status: 404 });
+  if (!['GET', 'HEAD'].includes(request.method)) return new Response(null, { status: 405 });
+
+  let start = 0;
+  let end = selected.size - 1;
+  const headers = { 'Accept-Ranges': 'bytes', 'Content-Type': selected.type };
+  const range = request.headers.get('range');
+  const unsatisfiable = () =>
+    new Response(null, {
+      status: 416,
+      headers: { ...headers, 'Content-Range': `bytes */${selected.size}` },
+    });
+  if (range) {
+    const parts = /^bytes=(\d*)-(\d*)$/.exec(range);
+    if (!parts || (!parts[1] && !parts[2])) return unsatisfiable();
+    if (parts[1]) {
+      start = Number(parts[1]);
+      if (parts[2]) end = Math.min(end, Number(parts[2]));
+    } else {
+      start = Math.max(0, selected.size - Number(parts[2]));
+    }
+    if (!Number.isSafeInteger(start) || start > end) return unsatisfiable();
+    headers['Content-Range'] = `bytes ${start}-${end}/${selected.size}`;
+  }
+  headers['Content-Length'] = String(end - start + 1);
+  const body =
+    request.method === 'HEAD' ? null : Readable.toWeb(createReadStream(selected.local, { start, end }));
+  return new Response(body, { status: range ? 206 : 200, headers });
+}
+
+async function exposeVideo(path) {
+  const local = await realpath(path);
+  const info = await stat(local);
+  if (!info.isFile() || !info.size) throw new Error('Choose a non-empty local video file.');
+  const extension = extname(path).slice(1).toLowerCase();
+  if (!videoExtensions.includes(extension)) throw new Error('Choose a supported video file.');
+  const id = randomUUID();
+  const url = `sori-media://watch/${id}/video${extension ? `.${extension}` : ''}`;
+  const record = { id, local, size: info.size, url, type: videoMime[extension] || 'application/octet-stream' };
+  mediaFiles.set(id, record);
+  return record;
+}
+
+function currentMedia(id) {
+  const record = mediaFiles.get(id);
+  if (!record) throw new Error('The open video is no longer available.');
+  return record;
+}
+
 function applyCsp() {
   // Dev needs the Vite HMR socket; packaged builds allow no network origins.
   // Dictionary and YouTube allowlists will be added when those features land.
   const csp = isDev
-    ? "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src 'self' sori-pdf: ws://127.0.0.1:5173"
-    : "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; connect-src sori-pdf:";
+    ? "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; media-src 'self' sori-media:; connect-src 'self' sori-pdf: sori-media: ws://127.0.0.1:5173"
+    : "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; media-src 'self' sori-media:; connect-src sori-pdf: sori-media:";
 
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     callback({
@@ -173,6 +247,62 @@ function createWindow() {
         if (title !== 'Sori' || !mounted) {
           clearTimeout(watchdog);
           finishSmoke(1);
+          return;
+        }
+        if (smokeHash === 'watch') {
+          const videoPath = join(process.env.SORI_DATA_DIR || tmpdir(), 'sori-smoke.mkv');
+          execFileSync(
+            'ffmpeg',
+            [
+              '-v',
+              'error',
+              '-f',
+              'lavfi',
+              '-i',
+              'color=c=blue:s=320x240:d=4',
+              '-pix_fmt',
+              'yuv420p',
+              '-y',
+              videoPath,
+            ],
+            { timeout: 30000 },
+          );
+          const id = await window.webContents.executeJavaScript(`(async () => {
+            const imported = await window.sori.invoke('core:invoke', 'video:import', { path: ${JSON.stringify(videoPath)} });
+            if (!imported.ok) return -1;
+            const state = await window.sori.invoke('core:invoke', 'library:state', {});
+            return state.data.videos[0].id;
+          })()`);
+          await window.webContents.executeJavaScript(`location.hash = '#/watch?id=${id}'`);
+          let ready = false;
+          for (let attempt = 0; attempt < 20; attempt += 1) {
+            await new Promise((resolve) => setTimeout(resolve, 300));
+            ready = await window.webContents.executeJavaScript(`(() => {
+              const element = document.querySelector('video');
+              return Boolean(element && element.src.startsWith('sori-media:') && element.readyState >= 1);
+            })()`);
+            if (ready) break;
+          }
+          await window.webContents.executeJavaScript(
+            'document.querySelector("[aria-label=Play]")?.click()',
+          );
+          await new Promise((resolve) => setTimeout(resolve, 1200));
+          const currentTime = await window.webContents.executeJavaScript(
+            'document.querySelector("video").currentTime',
+          );
+          await window.webContents.executeJavaScript(`(() => {
+            const element = document.querySelector('video');
+            element.pause();
+            element.currentTime = 2;
+          })()`);
+          await new Promise((resolve) => setTimeout(resolve, 600));
+          const saved = await window.webContents.executeJavaScript(`(async () => {
+            const result = await window.sori.invoke('core:invoke', 'video:read', { id: ${id} });
+            return result.data.seconds;
+          })()`);
+          clearTimeout(watchdog);
+          finishSmoke(ready && currentTime > 0 && saved > 0 ? 0 : 1,
+            `Watch page: ${JSON.stringify({ id, ready, currentTime, saved })}`);
           return;
         }
         if (smokeHash === 'pdf') {
@@ -273,11 +403,15 @@ function createWindow() {
               .find((node) => node.textContent.includes('Remove'));
             remove?.click();
           })()`);
-          await new Promise((resolve) => setTimeout(resolve, 1000));
-          const remaining = await window.webContents.executeJavaScript(`(async () => {
-            const state = await window.sori.invoke('core:invoke', 'library:state', {});
-            return state.data.vocabulary.length;
-          })()`);
+          let remaining = 1;
+          for (let attempt = 0; attempt < 10; attempt += 1) {
+            await new Promise((resolve) => setTimeout(resolve, 300));
+            remaining = await window.webContents.executeJavaScript(`(async () => {
+              const state = await window.sori.invoke('core:invoke', 'library:state', {});
+              return state.data.vocabulary.length;
+            })()`);
+            if (remaining === 0) break;
+          }
           clearTimeout(watchdog);
           finishSmoke(meaning === 'hello' && remaining === 0 ? 0 : 1,
             `Vocabulary page: ${JSON.stringify({ meaning, dialogVisible, remaining })}`);
@@ -384,7 +518,8 @@ function createWindow() {
       smokeHash !== 'library' &&
       smokeHash !== 'reader' &&
       smokeHash !== 'vocabulary' &&
-      smokeHash !== 'pdf'
+      smokeHash !== 'pdf' &&
+      smokeHash !== 'watch'
         ? `#${smokeHash}`
         : '';
     window.loadURL(smoke ? `${devUrl}${smokeRoute}` : devUrl);
@@ -396,6 +531,7 @@ function createWindow() {
 
 app.whenReady().then(() => {
   protocol.handle('sori-pdf', servePdf);
+  protocol.handle('sori-media', serveMedia);
   applyCsp();
   handle('app:ping', () => ({ ok: true, data: 'pong', error: '' }));
   handle('dialog:openDocument', async (event) => {
@@ -416,6 +552,138 @@ app.whenReady().then(() => {
       throw new Error('Choose a .txt or .pdf file.');
     }
     return path;
+  });
+  handle('dialog:openVideo', async (event) => {
+    const result = await dialog.showOpenDialog(BrowserWindow.fromWebContents(event.sender), {
+      title: 'Import a video',
+      properties: ['openFile'],
+      filters: [
+        { name: 'Video files', extensions: videoExtensions },
+        { name: 'All files', extensions: ['*'] },
+      ],
+    });
+    return result.canceled ? null : result.filePaths[0];
+  });
+  handle('video:expose', async (_event, path) => {
+    const record = await exposeVideo(path);
+    return { id: record.id, url: record.url, name: basename(record.local) };
+  });
+  handle('video:probe', async (_event, id) => {
+    const selected = currentMedia(id);
+    try {
+      const { stdout } = await run(
+        'ffprobe',
+        [
+          '-v',
+          'error',
+          '-protocol_whitelist',
+          'file',
+          '-format_whitelist',
+          'mov,matroska,webm,avi,mpegts',
+          '-show_entries',
+          'format=format_name:stream=index,codec_type,codec_name:stream_tags=language,title',
+          '-of',
+          'json',
+          '-i',
+          selected.local,
+        ],
+        { maxBuffer: 1024 * 1024, timeout: 30000 },
+      );
+      const { format, streams = [] } = JSON.parse(stdout);
+      return {
+        container: format?.format_name ?? '',
+        video: streams.find((stream) => stream.codec_type === 'video')?.codec_name ?? '',
+        audio: streams
+          .filter((stream) => stream.codec_type === 'audio')
+          .map((stream) => stream.codec_name),
+        tracks: streams
+          .filter((stream) => stream.codec_type === 'subtitle' && textCodecs.has(stream.codec_name))
+          .map((stream) => ({
+            index: stream.index,
+            language: stream.tags?.language ?? '',
+            label: [stream.tags?.title, stream.tags?.language, stream.codec_name]
+              .filter(Boolean)
+              .join(' · '),
+          })),
+      };
+    } catch (error) {
+      return {
+        error:
+          error.code === 'ENOENT'
+            ? 'Install FFprobe to inspect embedded tracks.'
+            : 'FFprobe could not read this file’s track information.',
+      };
+    }
+  });
+  handle('video:track', async (_event, id, index) => {
+    const selected = currentMedia(id);
+    const probe = await run('ffprobe', [
+      '-v',
+      'error',
+      '-protocol_whitelist',
+      'file',
+      '-show_entries',
+      'stream=index,codec_type,codec_name',
+      '-of',
+      'json',
+      '-i',
+      selected.local,
+    ], { maxBuffer: 1024 * 1024, timeout: 30000 })
+      .then(({ stdout }) => JSON.parse(stdout))
+      .catch(() => ({ streams: [] }));
+    const track = (probe.streams ?? []).find(
+      (stream) => stream.index === index && stream.codec_type === 'subtitle',
+    );
+    if (!track) throw new Error('Choose a text subtitle track.');
+    try {
+      const { stdout } = await run(
+        'ffmpeg',
+        [
+          '-v',
+          'error',
+          '-nostdin',
+          '-protocol_whitelist',
+          'file',
+          '-format_whitelist',
+          'mov,matroska,webm,avi,mpegts',
+          '-i',
+          selected.local,
+          '-map',
+          `0:${index}`,
+          '-c:s',
+          'webvtt',
+          '-f',
+          'webvtt',
+          'pipe:1',
+        ],
+        { maxBuffer: subtitleLimit, timeout: 45000 },
+      );
+      return stdout;
+    } catch (error) {
+      throw new Error(
+        error.code === 'ENOENT'
+          ? 'Install FFmpeg to extract embedded subtitles.'
+          : 'FFmpeg could not extract this text track.',
+      );
+    }
+  });
+  handle('video:attach', async (event, id) => {
+    currentMedia(id);
+    const result = await dialog.showOpenDialog(BrowserWindow.fromWebContents(event.sender), {
+      properties: ['openFile'],
+      filters: [{ name: 'Text subtitles', extensions: ['srt', 'vtt'] }],
+    });
+    if (result.canceled) return null;
+    currentMedia(id);
+    const path = result.filePaths[0];
+    const info = await stat(path);
+    if (!info.isFile() || info.size > subtitleLimit) {
+      throw new Error('Choose a subtitle file under 8 MiB.');
+    }
+    return {
+      name: basename(path),
+      text: new TextDecoder('utf-8', { fatal: true }).decode(await readFile(path)),
+    };
   });
   handle('dev:emit', (event, payload) => {
     event.sender.send('core:event', {

@@ -6,6 +6,7 @@
   import LibraryPage from "./LibraryPage.svelte";
   import ReaderPage from "./ReaderPage.svelte";
   import VocabularyPage from "./VocabularyPage.svelte";
+  import WatchPage from "./WatchPage.svelte";
   import { loadAppearance, loadPageScale, type Appearance } from "$lib/appearance";
 
   let route = $state(location.hash);
@@ -17,6 +18,7 @@
   const path = $derived(route.replace(/^#\/?/, "").split("?")[0]);
   const page = $derived(path.split("/")[0] || "home");
   const readerId = $derived(Number(new URLSearchParams(route.split("?")[1] ?? "").get("id")) || 0);
+  const watchId = $derived(readerId);
 
   $effect(() => {
     document.documentElement.classList.toggle("dark", dark);
@@ -60,7 +62,7 @@
     onPage={goTo}
     onAppearance={(value) => (appearance = value)}
     onScale={(value) => (pageScale = value)}
-    titleOverride={page === "reader" ? "Reader" : undefined}
+    titleOverride={page === "reader" ? "Reader" : page === "watch" ? "Watch" : undefined}
   >
     {#if page === "library"}
       <LibraryPage />
@@ -68,6 +70,8 @@
       <ReaderPage documentId={readerId} onBack={() => goTo("library")} />
     {:else if page === "vocabulary"}
       <VocabularyPage />
+    {:else if page === "watch"}
+      <WatchPage videoId={watchId} onBack={() => goTo("library")} />
     {/if}
   </AppShell>
 {/if}
