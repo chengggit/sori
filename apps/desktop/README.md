@@ -10,13 +10,23 @@ Run from the repository root:
 
 ```sh
 npm install
-npm run desktop:dev          # Vite dev server + Electron window
+npm run desktop:dev          # builds the debug addon, then Vite + Electron
 npm run desktop:typecheck
+npm run desktop:test:core    # cargo test for crates/sori-core
+npm run desktop:test:native  # analyze Korean through the built addon
 npm run desktop:test:unit
 npm run desktop:test:e2e     # needs Playwright Chromium installed
 npm run desktop:build        # renderer bundle in apps/desktop/dist
-npm run desktop:package      # platform package in apps/desktop/release
+npm run desktop:package      # release addon + platform package
 ```
+
+`desktop:native` and `desktop:native:release` build the napi-rs addon into
+`apps/desktop/native/sori-node.node` (gitignored). `desktop:dev` and
+`desktop:package` build it automatically.
+
+The Rust core is a copy of the legacy `core/` crate with Qt/mpv adapters
+removed. Only `app:ping` and `analyzeText` are wired to the dispatcher so far;
+remaining commands arrive in later steps.
 
 ## Security baseline
 

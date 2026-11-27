@@ -8,7 +8,11 @@ files:
   - main.cjs
   - preload.cjs
   - package.json
+  - native/**
 asar: true
+# Native addons cannot be loaded from inside app.asar.
+asarUnpack:
+  - native/**
 npmRebuild: false
 artifactName: Sori-${version}-${arch}.${ext}
 linux:

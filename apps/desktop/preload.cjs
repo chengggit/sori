@@ -2,7 +2,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 
 // Only these channels may cross the preload boundary. Keep in sync with
 // DesktopBridge in src/bridge.ts until the bridge is generated from one source.
-const commands = Object.freeze(['app:ping']);
+const commands = Object.freeze(['app:ping', 'core:invoke']);
 const events = Object.freeze([]);
 
 function assertChannel(channel, allowed) {

@@ -31,7 +31,11 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
       - run: npm ci
+      - run: npm run desktop:test:core
+      - run: npm run desktop:native
+      - run: npm run desktop:test:native
       - run: npm run desktop:typecheck
       - run: npm run desktop:test:unit
       - run: npm run desktop:build
