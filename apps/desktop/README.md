@@ -28,6 +28,11 @@ The Rust core is a copy of the legacy `core/` crate with Qt/mpv adapters
 removed. Only `app:ping` and `analyzeText` are wired to the dispatcher so far;
 remaining commands arrive in later steps.
 
+Open `http://127.0.0.1:5173/#bridge` during development for a bridge page that
+exercises `app:ping`, `analyzeText`, and a main-process event. UI logic calls
+`platform` (`src/platform.ts`) instead of Electron directly, so a browser
+implementation can be added later without touching components.
+
 ## Security baseline
 
 - `contextIsolation: true`, `sandbox: true`, `nodeIntegration: false`.

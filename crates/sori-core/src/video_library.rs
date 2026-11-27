@@ -174,7 +174,7 @@ pub fn save_sidecar(connection: &Connection, id: i64, path: &Path) -> Result<Str
         return Err("The subtitle file exceeds 8 MiB.".into());
     }
     let text = String::from_utf8(bytes).map_err(|_| "Choose a UTF-8 subtitle file.")?;
-    if crate::subtitles::parse(text.trim_start_matches('\u{feff}')).is_empty() {
+    if !crate::subtitles::has_cues(&text) {
         return Err("Choose an SRT or VTT file with at least one cue.".into());
     }
     let changed = connection
