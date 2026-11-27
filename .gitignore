@@ -1,7 +1,5 @@
-/build/
-/target/
-/core/target/
 /resources/kiwi/
+/.cache/
 .DS_Store
 .env
 .env.*
