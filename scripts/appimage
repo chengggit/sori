@@ -75,7 +75,7 @@ python3 scripts/appimage-manifest.py "$appdir" "$build_dir"
 python3 scripts/appimage-smoke.py "$appdir"
 appstreamcli validate --no-net "$appdir/usr/share/metainfo/com.sori.app.appdata.xml"
 
-version="$(git describe --tags --always --dirty)"
+version="$(python3 -c "import tomllib; print(tomllib.load(open('core/Cargo.toml','rb'))['package']['version'])")"
 output="$build_dir/Sori-$version-x86_64.AppImage"
 rm -f -- "$output"
 ARCH=x86_64 "$tools_dir/appimagetool-x86_64.AppImage" --comp zstd --no-appstream \

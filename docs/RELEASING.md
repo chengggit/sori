@@ -68,7 +68,8 @@ in `build/appimage-tools/`. Review upstream changes before updating failed pins.
 
 An isolated smoke check verifies dependency resolution, helpers, Kiwi resources,
 and startup using temporary application data. Outputs are
-`build/Sori-<git-version>-x86_64.AppImage` and its checksum.
+`build/Sori-<version>-x86_64.AppImage` and its checksum. All platform package
+filenames use the version from `core/Cargo.toml`, without the Git tag's `v` prefix.
 
 Users make the downloaded file executable and launch it. If FUSE is unavailable,
 set `APPIMAGE_EXTRACT_AND_RUN=1`. Dependencies use private runtime paths;
