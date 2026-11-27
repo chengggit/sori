@@ -15,10 +15,14 @@ tags, pull requests, and manual dispatch, using Qt 6.10.2.
 - **Pull requests and main:** build and test on all three platforms, without Rust optimization,
   caption-helper bundling, or installers. Caption logic is still tested in Python.
   Main also warms caches for future PRs.
+- **Documentation-only changes:** quick status checks pass without platform
+  setup, builds, or tests. This covers root Markdown files, `docs/`, release
+  notes, and the QML test README. Required check names remain unchanged.
 - **Version tags and manual runs:** optimized builds, bundled captions,
   installers, and package smoke checks.
 
 Manual runs can package one platform or all three.
+Tags and manual runs always build, including when only documentation changed.
 
 Compiled Rust dependencies, Qt, pip downloads, and Kiwi resources are cached.
 The first run or a toolchain change still needs a cold build.
@@ -29,9 +33,16 @@ The first run or a toolchain change still needs a cold build.
 | Windows Server 2022 x86_64, MSVC | Per-user Inno Setup `.exe` installer                |
 | macOS 15 arm64                   | `.dmg` with `Sori.app` and an Applications shortcut |
 
-Packages include SHA-256 checksums. CI uploads build candidates; it does not
-publish GitHub releases automatically. Test core workflows on clean target
-systems before advertising a platform as supported.
+Packages include SHA-256 checksums. Manual runs upload workflow artifacts.
+Version-tag pushes create a draft GitHub release after all three platform jobs
+succeed, attaching the packages and checksums. Publishing is manual.
+
+Before tagging, commit the version's release notes in [.github/releases/](../.github/releases/README.md):
+tag `v1.0.0` uses `.github/releases/v1.0.0.md` as the release description. Missing or empty
+notes fail the tag build. Reruns refresh existing drafts, including their notes
+and assets; they refuse to modify published releases.
+
+Test core workflows on clean target systems before advertising a platform as supported.
 
 The Windows installer uses `%LOCALAPPDATA%\Programs\Sori` without administrator
 access. It offers shortcuts and an uninstaller that preserves separate user
