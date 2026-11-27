@@ -61,6 +61,23 @@ export EXTRA_PLATFORM_PLUGINS="$(IFS=';'; echo "${extra_platforms[*]}")"
     --desktop-file packaging/linux/com.sori.app.desktop --icon-file packaging/linux/sori.png \
     --plugin qt
 
+# The platform plugin alone cannot create an OpenGL context on Wayland.
+# Deploy its dynamically loaded client integrations and their dependencies too.
+wayland_source="$($QMAKE -query QT_INSTALL_PLUGINS)/wayland-graphics-integration-client"
+if [[ ! -f "$wayland_source/libqt-plugin-wayland-egl.so" ]]; then
+    echo "Missing Qt Wayland EGL client integration in $wayland_source" >&2
+    exit 1
+fi
+wayland_target="$appdir/usr/plugins/wayland-graphics-integration-client"
+mkdir -p "$wayland_target"
+wayland_dependencies=()
+for plugin in "$wayland_source"/*.so; do
+    target="$wayland_target/$(basename "$plugin")"
+    cp "$plugin" "$target"
+    wayland_dependencies+=(--deploy-deps-only "$target")
+done
+"$tools_dir/linuxdeploy-x86_64.AppImage" --appdir "$appdir" "${wayland_dependencies[@]}"
+
 # linuxdeploy creates an AppRun symlink to sori; replace the link, not its target.
 rm -f -- "$appdir/AppRun"
 cp packaging/linux/AppRun "$appdir/AppRun"

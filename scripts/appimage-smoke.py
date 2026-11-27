@@ -8,6 +8,10 @@ import sys
 import tempfile
 
 appdir = Path(sys.argv[1]).resolve()
+wayland = '--wayland' in sys.argv[2:]
+integration = appdir / 'usr/plugins/wayland-graphics-integration-client/libqt-plugin-wayland-egl.so'
+if not integration.is_file():
+    raise SystemExit(f'Missing bundled Wayland EGL client integration: {integration}')
 with tempfile.TemporaryDirectory(prefix="sori-appimage-check-") as directory:
     root = Path(directory)
     empty = root / "empty.env"
@@ -17,6 +21,10 @@ with tempfile.TemporaryDirectory(prefix="sori-appimage-check-") as directory:
         QT_QPA_PLATFORM="offscreen", QT_QUICK_BACKEND="software",
         SORI_ENV_FILE=str(empty), LD_LIBRARY_PATH=str(appdir / "usr/lib"),
     )
+    if wayland:
+        env['QT_QPA_PLATFORM'] = 'wayland'
+        env['QT_WAYLAND_CLIENT_BUFFER_INTEGRATION'] = 'wayland-egl'
+        env.pop('QT_QUICK_BACKEND', None)
     env.pop("SORI_YOUTUBE_API_KEY", None)
     for key in ("XDG_DATA_HOME", "XDG_CONFIG_HOME", "XDG_CACHE_HOME"):
         env[key] = str(root / key.lower())
@@ -30,6 +38,9 @@ with tempfile.TemporaryDirectory(prefix="sori-appimage-check-") as directory:
     if not json.loads(result).get("ready"):
         raise SystemExit("Bundled transcript helper is not ready")
     linked = subprocess.check_output(["ldd", str(appdir / "usr/bin/sori")], env=env, text=True)
+    plugin_linked = subprocess.check_output(['ldd', str(integration)], env=env, text=True)
+    if 'not found' in plugin_linked:
+        raise SystemExit(plugin_linked)
     if "not found" in linked:
         raise SystemExit(linked)
     for line in linked.splitlines():
@@ -50,4 +61,4 @@ with tempfile.TemporaryDirectory(prefix="sori-appimage-check-") as directory:
         output, _ = process.communicate(timeout=10)
         if "QQmlApplicationEngine failed" in output:
             raise SystemExit(output)
-    print("AppDir checks passed: private Qt/mpv, media tools, helper, Kiwi resources, isolated startup.")
+    print(f"AppDir checks passed: private Qt/mpv, Wayland EGL plugin, media tools, helper, Kiwi resources, isolated {'Wayland/OpenGL' if wayland else 'offscreen'} startup.")
