@@ -5,6 +5,7 @@
   import BridgePage from './BridgePage.svelte';
   import LibraryPage from './LibraryPage.svelte';
   import ReaderPage from './ReaderPage.svelte';
+  import VocabularyPage from './VocabularyPage.svelte';
   import { loadAppearance, loadPageScale, type Appearance } from '$lib/appearance';
 
   let route = $state(location.hash);
@@ -65,6 +66,8 @@
       <LibraryPage />
     {:else if page === 'reader'}
       <ReaderPage documentId={readerId} onBack={() => goTo('library')} />
+    {:else if page === 'vocabulary'}
+      <VocabularyPage />
     {/if}
   </AppShell>
 {/if}

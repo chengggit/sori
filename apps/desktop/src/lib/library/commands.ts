@@ -23,6 +23,13 @@ export type VocabularyDraft = {
   tags?: string[];
 };
 
+export type VocabularyEdit = {
+  normalizedForm: string;
+  meaning: string;
+  note: string;
+  tags: string[];
+};
+
 export function loadLibraryState() {
   return platform.invoke<LibraryState>('library:state');
 }
@@ -75,7 +82,7 @@ export function findWord(kind: 'local' | 'document', id: number, word: string, c
   return platform.invoke<unknown>('vocabulary:find', { kind, id, word, context });
 }
 
-export function editWord(id: number, input: VocabularyDraft) {
+export function editWord(id: number, input: VocabularyEdit) {
   return platform.invoke<null>('vocabulary:edit', { id, input });
 }
 

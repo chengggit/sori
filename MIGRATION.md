@@ -196,10 +196,16 @@ in Node would be worse than keeping it).
       `wordRanges` offsets; PDF documents show an explicit deferred note until
       step 10. Library "open" now navigates to `#/reader?id=…`.
 
-- [ ] **9. `feat/electron-vocabulary`** — Save word with context, edit
+- [x] **9. `feat/electron-vocabulary`** — Save word with context, edit
       meanings/notes/tags, list/search/filter, remove; retain snapshots after
       source removal.
       *Done when:* matches `VocabularyPage.qml`; saved meanings work offline.
+      Verified: 6 Playwright tests, clean typecheck/build, and an Electron smoke
+      that saves a word through the bridge, edits its meaning in the UI, then
+      removes it (final vocabulary count 0). The page mirrors Qt's search
+      fields, type filter, sort options, count label and source-context details.
+      Snapshot retention after source deletion is inherited from the Rust
+      `vocabulary` service.
 
 - [ ] **10. `feat/electron-pdf`** — pdf.js with Book/Scroll views, text-layer
       word clicks, scanned-PDF rendering, progress via `pdf_path`.

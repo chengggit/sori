@@ -45,6 +45,8 @@ primitive. UI state (theme, zoom, sidebar) is localStorage-backed.
 delete, and open documents. Opening navigates to `#/reader?id=…`, where Korean
 words are clickable, feed the analysis panel, and scroll position is saved.
 Mutations emit a `library-changed` event so the library refreshes automatically.
+`#/vocabulary` lists saved words with Qt-style search, type filtering, sorting,
+details, editing and removal. Saved meanings remain available offline.
 Video import arrives with the Watch step; PDF reading with step 10.
 
 Open `http://127.0.0.1:5173/#bridge` during development for a bridge page that
