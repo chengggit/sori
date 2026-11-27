@@ -12,9 +12,9 @@ see [CONTRIBUTING.md](../CONTRIBUTING.md).
 [Desktop builds](../.github/workflows/build.yml) runs on pushes to `main`, version
 tags, pull requests, and manual dispatch, using Qt 6.10.2.
 
-- **Pull requests:** build and test on all three platforms, without Rust optimization,
+- **Pull requests and main:** build and test on all three platforms, without Rust optimization,
   caption-helper bundling, or installers. Caption logic is still tested in Python.
-- **Main:** the same checks (to warm caches for future PRs), plus full packages.
+  Main also warms caches for future PRs.
 - **Version tags and manual runs:** optimized builds, bundled captions,
   installers, and package smoke checks.
 

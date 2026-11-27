@@ -24,7 +24,7 @@ jobs:
       matrix:
         # Main primes the same check cache that future PRs restore. Release
         # packages have their own optimized cache and run only when requested.
-        mode: ${{ fromJSON(github.event_name == 'push' && github.ref == 'refs/heads/main' && '["check", "package"]' || github.event_name == 'pull_request' && '["check"]' || '["package"]') }}
+        mode: ${{ fromJSON((github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')) && '["package"]' || '["check"]') }}
         os: ${{ fromJSON((!inputs.platform || inputs.platform == 'all') && '["ubuntu-24.04", "windows-2022", "macos-15"]' || format('["{0}"]', inputs.platform)) }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
