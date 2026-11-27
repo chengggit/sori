@@ -289,11 +289,23 @@ in Node would be worse than keeping it).
       and notarization remain unconfigured, matching the Qt release posture.
       The optional Python caption helper is still not bundled.
 
-- [ ] **17. `release/electron-cutover`** — Full parity audit against
+- [x] **17. `release/electron-cutover`** — Full parity audit against
       `PRODUCT.md` and `USAGE.md`, migrate a real library once more, rewrite all
       docs, delete `qml/`, `src/`, and CMake files, then merge
       `electron/migration` → `main`.
       _Done when:_ the first Electron release is tagged.
+      Parity audit: library import/paste/list/open/remove (documents **and**
+      videos), TXT/PDF reading with clickable words and progress, local video
+      playback with dual subtitles/transcript, Kiwi analysis, vocabulary,
+      Wiktionary/KRDict, embedded tabs and YouTube are all implemented. A copy
+      of the real Qt library (2 documents, 3 saved words) opened through the
+      bridge with counts unchanged. All docs were rewritten for Electron; the
+      legacy `qml/`, `src/`, `core/`, CMake and AppImage/Qt CI files were removed.
+      Full check suite, all eleven smoke routes and the packaged app pass.
+      Remaining known gaps: PDF Book view uses page buttons rather than
+      click-half turning; the optional Python caption helper is not bundled;
+      live online responses and Windows/macOS clean installs are CI-only.
+      Tagging and publishing the first Electron release remain manual steps.
 
 Steps 7–15 are independent feature slices and can be reordered by priority. If
 a web client ever starts, it begins after step 3, where the `Platform` seam

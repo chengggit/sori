@@ -6,8 +6,7 @@ Write each version's notes in its own Markdown file, matching the tag exactly:
 Commit the notes before creating and pushing the tag. Write the Markdown as you
 want it to appear in the GitHub release description.
 
-After all platform packages pass, CI creates a draft release with these notes
-and the three packages. Checksums are verified in CI and kept in workflow
-artifacts. Review the draft and publish it when ready.
-Rerunning the workflow refreshes an existing draft's notes and assets; published
-releases are left untouched.
+After all platform jobs pass, CI uploads the three packages and
+`SHA256SUMS.txt` as workflow artifacts. Create the GitHub release manually with
+those files and this Markdown as its description. Verify checksums before
+publishing. See `ELECTRON-TEMPLATE.md` for a starting point.

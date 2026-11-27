@@ -1,5 +1,0 @@
-module sori_core
-singleton YouTube 1.0 YouTube.qml
-singleton Analysis 1.0 Analysis.qml
-singleton Library 1.0 Library.qml
-singleton Player 1.0 Player.qml
