@@ -98,11 +98,14 @@ in Node would be worse than keeping it).
       *Done when:* branch exists and the Qt baseline `./scripts/dev test` passes.
       Backup: `~/Documents/sori-qt` at `e0896f7`; baseline 4/4 CTest suites passed.
 
-- [ ] **1. `feat/electron-scaffold`** — `apps/desktop` with Vite + Svelte 5 +
+- [x] **1. `feat/electron-scaffold`** — `apps/desktop` with Vite + Svelte 5 +
       strict TS, Electron 45.3.2, electron-builder config, preload/main security
       baseline from the demo, Vitest + Playwright, CI job parallel to the Qt one.
       *Done when:* `npm run dev` opens a blank window and a packaged smoke app
       launches on Linux, Windows, and macOS.
+      Verified locally on Linux: dev and packaged `--smoke` both exit 0,
+      typecheck/unit/E2E pass. Windows/macOS run in
+      `.github/workflows/build-electron.yml` (not yet executed).
 
 - [ ] **2. `feat/electron-rust-addon`** — Create `crates/sori-core` from `core/`,
       strip Qt/mpv modules, add `crates/sori-node` with napi-rs

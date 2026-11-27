@@ -1,0 +1,33 @@
+appId: com.sori.app
+productName: Sori
+executableName: Sori
+directories:
+  output: release
+files:
+  - dist/**
+  - main.cjs
+  - preload.cjs
+  - package.json
+asar: true
+npmRebuild: false
+artifactName: Sori-${version}-${arch}.${ext}
+linux:
+  target: AppImage
+  category: Education
+  syncDesktopName: true
+win:
+  target:
+    target: nsis
+    arch:
+      - x64
+nsis:
+  perMachine: false
+  deleteAppDataOnUninstall: false
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+mac:
+  target:
+    target: dmg
+    arch:
+      - arm64
+  category: public.app-category.education
