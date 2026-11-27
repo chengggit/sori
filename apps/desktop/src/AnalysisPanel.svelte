@@ -4,6 +4,9 @@
   import { wordBreakdown, wholeWordTerms } from "./lib/reader/breakdown";
   import { partOfSpeechLabel } from "./lib/reader/tokens";
   import type { VocabularyDraft } from "./lib/library/commands";
+  import DictionaryPanel from "./DictionaryPanel.svelte";
+
+  let lookupTerm = $state<string | null>(null);
 
   let {
     analysis,
@@ -43,8 +46,23 @@
     {/each}
   </ol>
 
-  <p class="terms">Look up: {terms.join(" · ")}</p>
+  <p class="terms">
+    Look up:
+    {#each terms as term (term)}
+      <button
+        type="button"
+        class="underline decoration-dotted underline-offset-4"
+        data-testid={`lookup-${term}`}
+        onclick={() => (lookupTerm = term)}
+      >
+        {term}
+      </button>
+    {/each}
+  </p>
   {#if onSave}
     <button type="button" onclick={save}>Save word</button>
+  {/if}
+  {#if lookupTerm}
+    <DictionaryPanel term={lookupTerm} />
   {/if}
 </section>

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, dialog, ipcMain, protocol, session } = require('electron');
+const { app, BrowserWindow, dialog, ipcMain, protocol, session, shell } = require('electron');
 const { execFile, execFileSync } = require('node:child_process');
 const { randomUUID } = require('node:crypto');
 const { createReadStream, writeFileSync } = require('node:fs');
@@ -178,8 +178,8 @@ function applyCsp() {
   // Dev needs the Vite HMR socket; packaged builds allow no network origins.
   // Dictionary and YouTube allowlists will be added when those features land.
   const csp = isDev
-    ? "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; media-src 'self' sori-media:; connect-src 'self' sori-pdf: sori-media: ws://127.0.0.1:5173"
-    : "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; media-src 'self' sori-media:; connect-src sori-pdf: sori-media:";
+    ? "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; media-src 'self' sori-media:; frame-src https://korean.dict.naver.com https://papago.naver.com https://krdict.korean.go.kr; connect-src 'self' sori-pdf: sori-media: ws://127.0.0.1:5173"
+    : "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; media-src 'self' sori-media:; frame-src https://korean.dict.naver.com https://papago.naver.com https://krdict.korean.go.kr; connect-src sori-pdf: sori-media:";
 
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     callback({
@@ -247,6 +247,51 @@ function createWindow() {
         if (title !== 'Sori' || !mounted) {
           clearTimeout(watchdog);
           finishSmoke(1);
+          return;
+        }
+        if (smokeHash === 'dictionary') {
+          const settings = await window.webContents.executeJavaScript(`(async () => {
+            const bad = await window.sori.invoke('core:invoke', 'dictionary:saveKey', { key: 'bad' });
+            const good = await window.sori.invoke('core:invoke', 'dictionary:saveKey', {
+              key: '0123456789abcdef0123456789abcdef',
+            });
+            const current = await window.sori.invoke('core:invoke', 'dictionary:settings', {});
+            await window.sori.invoke('core:invoke', 'dictionary:removeKey', {});
+            return { badOk: bad.ok, goodOk: good.ok, provider: current.data.provider, hasKey: current.data.hasKey };
+          })()`);
+          await window.webContents.executeJavaScript(`(async () => {
+            await window.sori.invoke('core:invoke', 'document:add', { title: '사전 스모크', content: '학교에 갔어요.' });
+          })()`);
+          await window.webContents.executeJavaScript(`location.hash = '#/reader?id=1'`);
+          for (let attempt = 0; attempt < 20; attempt += 1) {
+            await new Promise((resolve) => setTimeout(resolve, 300));
+            const ready = await window.webContents.executeJavaScript(
+              'Boolean(document.querySelector("[data-testid^=token-]"))',
+            );
+            if (ready) break;
+          }
+          await window.webContents.executeJavaScript(
+            'document.querySelector("[data-testid^=token-]")?.click()',
+          );
+          await new Promise((resolve) => setTimeout(resolve, 300));
+          await window.webContents.executeJavaScript(
+            'document.querySelector("[data-testid^=lookup-]")?.click()',
+          );
+          await new Promise((resolve) => setTimeout(resolve, 800));
+          const panel = await window.webContents.executeJavaScript(
+            'Boolean(document.querySelector("[data-testid=dictionary-panel]"))',
+          );
+          const tabs = await window.webContents.executeJavaScript(
+            'document.querySelectorAll("[data-testid^=embed-tab-]").length',
+          );
+          clearTimeout(watchdog);
+          finishSmoke(
+            !settings.badOk && settings.goodOk && settings.provider === "wiktionary" &&
+              settings.hasKey && panel && tabs === 2
+              ? 0
+              : 1,
+            `Dictionary: ${JSON.stringify({ settings, panel, tabs })}`,
+          );
           return;
         }
         if (smokeHash === 'subtitles') {
@@ -403,15 +448,20 @@ function createWindow() {
           const problem = await window.webContents.executeJavaScript(
             'document.querySelector("[data-testid=pdf-error]")?.textContent ?? ""',
           );
-          const spans = await window.webContents.executeJavaScript(
-            'document.querySelectorAll("[data-testid=pdf-container] .textLayer span").length',
-          );
+          let spans = 0;
+          for (let attempt = 0; attempt < 20; attempt += 1) {
+            await new Promise((resolve) => setTimeout(resolve, 300));
+            spans = await window.webContents.executeJavaScript(
+              'document.querySelectorAll("[data-testid=pdf-container] .textLayer span").length',
+            );
+            if (spans > 0) break;
+          }
           let analysis = '';
           if (spans > 0) {
             await window.webContents.executeJavaScript(
               'document.querySelector("[data-testid=pdf-container] .textLayer span").click()',
             );
-            for (let attempt = 0; attempt < 10; attempt += 1) {
+            for (let attempt = 0; attempt < 20; attempt += 1) {
               await new Promise((resolve) => setTimeout(resolve, 300));
               analysis = await window.webContents.executeJavaScript(
                 'document.querySelector("[data-testid=reader-analysis]")?.textContent ?? ""',
@@ -502,7 +552,7 @@ function createWindow() {
             return state.data.documents[0].id;
           })()`);
           await window.webContents.executeJavaScript(`location.hash = '#/reader?id=${id}'`);
-          for (let attempt = 0; attempt < 10; attempt += 1) {
+          for (let attempt = 0; attempt < 20; attempt += 1) {
             await new Promise((resolve) => setTimeout(resolve, 300));
             const ready = await window.webContents.executeJavaScript(
               'Boolean(document.querySelector("[data-testid^=token-]"))',
@@ -512,20 +562,28 @@ function createWindow() {
           await window.webContents.executeJavaScript(
             'document.querySelector("[data-testid^=token-]")?.click()',
           );
-          await new Promise((resolve) => setTimeout(resolve, 500));
-          const panel = await window.webContents.executeJavaScript(
-            'document.querySelector("[data-testid=reader-analysis]")?.textContent ?? ""',
-          );
+          let panel = '';
+          for (let attempt = 0; attempt < 20; attempt += 1) {
+            await new Promise((resolve) => setTimeout(resolve, 300));
+            panel = await window.webContents.executeJavaScript(
+              'document.querySelector("[data-testid=reader-analysis]")?.textContent ?? ""',
+            );
+            if (panel.includes('학교')) break;
+          }
           await window.webContents.executeJavaScript(`(() => {
             const save = [...document.querySelectorAll('[data-testid=analysis-panel] button')]
               .find((node) => node.textContent.includes('Save word'));
             save?.click();
           })()`);
-          await new Promise((resolve) => setTimeout(resolve, 500));
-          const vocabulary = await window.webContents.executeJavaScript(`(async () => {
-            const state = await window.sori.invoke('core:invoke', 'library:state', {});
-            return state.data.vocabulary.length;
-          })()`);
+          let vocabulary = 0;
+          for (let attempt = 0; attempt < 10; attempt += 1) {
+            await new Promise((resolve) => setTimeout(resolve, 300));
+            vocabulary = await window.webContents.executeJavaScript(`(async () => {
+              const state = await window.sori.invoke('core:invoke', 'library:state', {});
+              return state.data.vocabulary.length;
+            })()`);
+            if (vocabulary >= 1) break;
+          }
           await window.webContents.executeJavaScript(`(() => {
             const element = document.querySelector('[data-testid=reader-text]');
             element.scrollTop = (element.scrollHeight - element.clientHeight) * 0.6;
@@ -559,22 +617,30 @@ function createWindow() {
           return;
         }
         if (smokeHash === 'analysis') {
-          await new Promise((resolve) => setTimeout(resolve, 3000));
-          const result = await window.webContents.executeJavaScript(`(() => {
-            const panel = document.querySelector('[data-testid=analysis-panel]');
-            const error = document.querySelector('[data-testid=analysis-error]');
-            return { panel: Boolean(panel), terms: panel ? panel.textContent : '', error: error ? error.textContent : '' };
-          })()`);
+          let result = { panel: false, terms: '', error: '' };
+          for (let attempt = 0; attempt < 20; attempt += 1) {
+            await new Promise((resolve) => setTimeout(resolve, 300));
+            result = await window.webContents.executeJavaScript(`(() => {
+              const panel = document.querySelector('[data-testid=analysis-panel]');
+              const error = document.querySelector('[data-testid=analysis-error]');
+              return { panel: Boolean(panel), terms: panel ? panel.textContent : '', error: error ? error.textContent : '' };
+            })()`);
+            if (result.panel && result.terms.includes('학교')) break;
+          }
           clearTimeout(watchdog);
           finishSmoke(result.panel && !result.error && result.terms.includes('학교') ? 0 : 1,
             `Analysis page: ${JSON.stringify(result)}`);
           return;
         }
         if (smokeHash === 'bridge') {
-          await new Promise((resolve) => setTimeout(resolve, 3000));
-          const values = await window.webContents.executeJavaScript(
-            '[...document.querySelectorAll("[data-testid^=bridge-]")].map((node) => node.textContent)',
-          );
+          let values = [];
+          for (let attempt = 0; attempt < 20; attempt += 1) {
+            await new Promise((resolve) => setTimeout(resolve, 300));
+            values = await window.webContents.executeJavaScript(
+              '[...document.querySelectorAll("[data-testid^=bridge-]")].map((node) => node.textContent)',
+            );
+            if (values.length === 3 && values.every((value) => value && value !== 'waiting…')) break;
+          }
           const populated = values.length === 3 && values.every((value) => value && value !== 'waiting…');
           const analyzed = !isDev || String(values[1]).includes('NNG');
           clearTimeout(watchdog);
@@ -598,7 +664,8 @@ function createWindow() {
       smokeHash !== 'vocabulary' &&
       smokeHash !== 'pdf' &&
       smokeHash !== 'watch' &&
-      smokeHash !== 'subtitles'
+      smokeHash !== 'subtitles' &&
+      smokeHash !== 'dictionary'
         ? `#${smokeHash}`
         : '';
     window.loadURL(smoke ? `${devUrl}${smokeRoute}` : devUrl);
@@ -763,6 +830,13 @@ app.whenReady().then(() => {
       name: basename(path),
       text: new TextDecoder('utf-8', { fatal: true }).decode(await readFile(path)),
     };
+  });
+  handle('shell:openExternal', async (_event, url) => {
+    if (typeof url !== 'string' || !url.startsWith('https://')) {
+      throw new Error('Only HTTPS links can be opened in the browser.');
+    }
+    await shell.openExternal(url);
+    return null;
   });
   handle('dev:emit', (event, payload) => {
     event.sender.send('core:event', {

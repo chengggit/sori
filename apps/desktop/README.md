@@ -53,7 +53,8 @@ Video import and `#/watch?id=…` playback (Chromium `<video>` streaming via
 `sori-media://`) are in place, with dual embedded/sidecar subtitle tracks,
 clickable caption words, and a follow/click-to-seek transcript. PDF reading is
 at step 10. ffmpeg/ffprobe must be on PATH until the packaging step bundles
-them.
+them. Clicking a word's lookup term opens Wiktionary/KRDict definitions and
+draggable embedded Naver/Papago/custom tabs (frames retained for 30 s).
 
 Open `http://127.0.0.1:5173/#bridge` during development for a bridge page that
 exercises `app:ping`, `analyzeText`, and a main-process event. `#analysis` shows

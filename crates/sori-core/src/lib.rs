@@ -203,6 +203,42 @@ pub fn invoke(command: &str, payload: &Value) -> Value {
             let id = number(payload, "id")?;
             library()?.remove_word(id)
         })()),
+        "dictionary:lookup" => bridge::reply((|| {
+            let term = text(payload, "term")?;
+            let provider = payload
+                .get("provider")
+                .and_then(Value::as_str)
+                .unwrap_or("wiktionary");
+            match provider {
+                "wiktionary" => {
+                    let dictionary = dictionary::Dictionary::new()
+                        .map_err(|error| format!("Could not start dictionary lookup: {error}"))?;
+                    dictionary.lookup(&term)
+                }
+                "krdict" => {
+                    let (key, _) = krdict::read_settings(&library()?.connection()?)?;
+                    let key = key.ok_or_else(|| "Save a KRDict API key first.".to_string())?;
+                    krdict::lookup(&term, &key)
+                }
+                _ => Err("Choose Wiktionary or KRDict.".into()),
+            }
+        })()),
+        "dictionary:settings" => bridge::reply((|| {
+            let (key, provider) = krdict::read_settings(&library()?.connection()?)?;
+            Ok(json!({ "provider": provider, "hasKey": key.is_some() }))
+        })()),
+        "dictionary:saveKey" => bridge::reply((|| {
+            let key = text(payload, "key")?;
+            krdict::save_key(&library()?.connection()?, &key).map(|_| ())
+        })()),
+        "dictionary:select" => bridge::reply((|| {
+            let provider = text(payload, "provider")?;
+            krdict::select(&library()?.connection()?, &provider)
+        })()),
+        "dictionary:removeKey" => bridge::reply((|| {
+            let mut connection = library()?.connection()?;
+            krdict::remove_key(&mut connection)
+        })()),
         other => bridge::reply::<Value>(Err(format!("Unknown command: {other}"))),
     }
 }
