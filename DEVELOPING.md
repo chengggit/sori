@@ -21,7 +21,7 @@ PR guidance is in [CONTRIBUTING.md](CONTRIBUTING.md).
 - Qt 6.10+: Quick/QML, OpenGL, Test, SVG, PDF, WebEngine Quick, private headers, and qmake from the same SDK
 - libmpv development files and pkg-config (`MPV_ROOT` on Windows)
 - FFmpeg and FFprobe on PATH
-- Python 3 with venv/pip support
+- Python 3.11+ with venv/pip support
 - Git and Bash
 
 For a Linux AppImage, also install `curl`, `readelf`, and `appstreamcli`.
