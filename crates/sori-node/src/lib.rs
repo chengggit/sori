@@ -11,6 +11,12 @@ pub fn init(resources_dir: String) -> Result<()> {
     sori_core::init(PathBuf::from(resources_dir)).map_err(Error::from_reason)
 }
 
+/// Open and migrate the local library database at startup.
+#[napi]
+pub fn init_library(directory: String) -> Result<()> {
+    sori_core::init_library(PathBuf::from(directory)).map_err(Error::from_reason)
+}
+
 /// Execute one core command. JSON strings keep the bridge boundary explicit;
 /// the desktop main process parses the reply into a plain object.
 #[napi]

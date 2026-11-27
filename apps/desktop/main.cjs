@@ -1,9 +1,21 @@
 const { app, BrowserWindow, ipcMain, session } = require('electron');
 const { join } = require('node:path');
+const { homedir } = require('node:os');
 const { pathToFileURL } = require('node:url');
 
 // Avoid a userData directory derived from the scoped workspace name.
 app.setName('Sori');
+
+// Qt used QStandardPaths::GenericDataLocation + "/com.sori.app" for the library.
+// Match it so existing users keep their data without an export/import step.
+function legacyDataDirectory() {
+  if (process.env.SORI_DATA_DIR) return process.env.SORI_DATA_DIR;
+  if (process.platform === 'linux') {
+    return join(process.env.XDG_DATA_HOME || join(homedir(), '.local', 'share'), 'com.sori.app');
+  }
+  return join(app.getPath('appData'), 'com.sori.app');
+}
+app.setPath('userData', legacyDataDirectory());
 
 const isDev = !app.isPackaged;
 const smoke = process.argv.includes('--smoke');
@@ -22,6 +34,7 @@ function loadNative() {
       ? join(__dirname, '..', '..', 'resources', 'kiwi')
       : join(process.resourcesPath, 'kiwi');
     addon.init(resources);
+    addon.initLibrary(app.getPath('userData'));
     return addon;
   } catch (error) {
     console.error('Native core is unavailable:', error.message);

@@ -24,11 +24,7 @@ const desktopPlatform: Platform = {
       case 'analyzeText':
         return host.invoke<Response<T>>('core:invoke', command, payload);
       default:
-        return {
-          ok: false,
-          data: null,
-          error: `Command ${command} is not available yet.`,
-        };
+        return host.invoke<Response<T>>('core:invoke', command, payload);
     }
   },
   onEvent(event, listener) {

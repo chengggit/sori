@@ -28,7 +28,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
           cache-dependency-path: package-lock.json
       - uses: dtolnay/rust-toolchain@stable
@@ -36,6 +36,8 @@ jobs:
       - run: npm run desktop:test:core
       - run: npm run desktop:native
       - run: npm run desktop:test:native
+      - run: npm run desktop:test:persistence
+      - run: npm run desktop:test:migration
       - run: npm run desktop:typecheck
       - run: npm run desktop:test:unit
       - run: npm run desktop:build
