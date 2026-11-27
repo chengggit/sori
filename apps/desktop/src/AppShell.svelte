@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Bookmark, Compass, History, House, Library, PanelLeft } from '@lucide/svelte';
+  import type { Snippet } from 'svelte';
   import { appearanceOptions, clampPageScale, type Appearance } from '$lib/appearance';
   import { cn } from '$lib/utils';
 
@@ -11,6 +12,7 @@
     onPage,
     onAppearance,
     onScale,
+    children,
   }: {
     page: string;
     appearance: Appearance;
@@ -19,6 +21,7 @@
     onPage: (page: string) => void;
     onAppearance: (value: Appearance) => void;
     onScale: (value: number) => void;
+    children?: Snippet;
   } = $props();
 
   const links = [
@@ -112,9 +115,13 @@
   </aside>
 
   <main data-testid="page-content" class="flex-1 overflow-auto p-7">
-    <h1 data-testid="page-title" class="m-0 mb-2 text-3xl">{title}</h1>
-    <p class="text-muted-foreground">Page shell — feature work continues in later migration steps.</p>
-    <p><a href="#bridge">Dev bridge</a> · <a href="#analysis">Analysis</a></p>
+    <h1 data-testid="page-title" class="m-0 mb-4 text-3xl">{title}</h1>
+    {#if children}
+      {@render children()}
+    {:else}
+      <p class="text-muted-foreground">Page shell — feature work continues in later migration steps.</p>
+      <p><a href="#bridge">Dev bridge</a> · <a href="#analysis">Analysis</a></p>
+    {/if}
   </main>
 </div>
 

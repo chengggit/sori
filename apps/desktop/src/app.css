@@ -9,7 +9,14 @@
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
   --color-border: var(--border);
   --color-sidebar: var(--sidebar);
   --color-sidebar-border: var(--sidebar-border);
@@ -18,6 +25,7 @@
   --color-dashboard-accent: var(--dashboard-accent);
   --color-accent-soft: var(--accent-soft);
   --color-destructive: var(--destructive);
+  --radius-md: calc(var(--radius) * 0.8);
   --font-sans: var(--font-ui);
 }
 

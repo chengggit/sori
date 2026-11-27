@@ -3,6 +3,7 @@
   import AnalysisPage from './AnalysisPage.svelte';
   import AppShell from './AppShell.svelte';
   import BridgePage from './BridgePage.svelte';
+  import LibraryPage from './LibraryPage.svelte';
   import { loadAppearance, loadPageScale, type Appearance } from '$lib/appearance';
 
   let route = $state(location.hash);
@@ -55,5 +56,9 @@
     onPage={goTo}
     onAppearance={(value) => (appearance = value)}
     onScale={(value) => (pageScale = value)}
-  />
+  >
+    {#if page === 'library'}
+      <LibraryPage />
+    {/if}
+  </AppShell>
 {/if}
