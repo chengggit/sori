@@ -123,13 +123,20 @@ in Node would be worse than keeping it).
       covers them. Events are stubbed until background jobs land; Kiwi resources
       are not yet bundled into packages (step 16).
 
-- [ ] **3. `feat/electron-platform-bridge`** — Define the `Platform` interface
+- [x] **3. `feat/electron-platform-bridge`** — Define the `Platform` interface
       and desktop adapter (`sori.invoke`, `sori.onEvent`). Port the pure TS
       helpers from the old app (`tokens.ts`, `breakdown.ts`, `subtitles.ts`,
       `youtube.ts` parsing, `embed-settings.ts`) and delete any Rust equivalent
       that moves, so there is one source of truth.
       *Done when:* helpers have Vitest coverage and a dev-only bridge page
       exercises commands and events.
+      Verified: 19 Vitest tests, `svelte-check` clean, 62 Rust tests, and an
+      Electron bridge-page smoke (`#bridge`) showing `pong`, real Kiwi tokens,
+      and a main-process event. Deleted Rust `reader.rs` and the full subtitle
+      parser (kept only `has_cues` + `command_output`). `youtube/parsing.rs`
+      remains because Rust background services still depend on it; its TS port
+      is UI-facing and the duplication is recorded in the post-cutover backlog.
+      Dictionary and IFrame playback helpers arrive with their feature steps.
 
 - [ ] **4. `feat/electron-persistence`** — Expose DB-backed commands through
       `invoke`; add explicit migrations so an old `library.sqlite3` gains
@@ -214,6 +221,8 @@ Not part of the migration. Revisit only after the Electron release is tagged and
 stable. These modules are stateless network services with no DB dependency, but
 their parsing is field-tested and would need rewriting plus fixtures in TS.
 
+- [ ] Retire the Rust copy of `youtube/parsing.rs` once background jobs are
+      ported; step 3 added a UI-facing TS version, so both currently exist.
 - [ ] Port `core/src/dictionary.rs` (377 lines) — Wiktionary fetch + wikitext /
       Hanja parsing. Old TS `dictionary.ts` has only types/cache, so the parser
       must be rewritten and verified against real responses.

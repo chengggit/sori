@@ -1,4 +1,4 @@
-export type Command = 'app:ping' | 'core:invoke';
+export type Command = 'app:ping' | 'core:invoke' | 'dev:emit' | 'analyzeText';
 
 export interface DesktopBridge {
   invoke<T>(channel: Command, ...args: unknown[]): Promise<T>;

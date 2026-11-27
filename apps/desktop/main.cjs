@@ -7,6 +7,7 @@ app.setName('Sori');
 
 const isDev = !app.isPackaged;
 const smoke = process.argv.includes('--smoke');
+const smokeHash = process.env.SORI_SMOKE_HASH;
 const devUrl = 'http://127.0.0.1:5173/';
 const indexFile = join(__dirname, 'dist', 'index.html');
 const pageUrl = isDev ? devUrl : pathToFileURL(indexFile).href;
@@ -98,8 +99,24 @@ function createWindow() {
         const mounted = await window.webContents.executeJavaScript(
           'Boolean(document.querySelector("#app > *"))',
         );
+        if (title !== 'Sori' || !mounted) {
+          clearTimeout(watchdog);
+          finishSmoke(1);
+          return;
+        }
+        if (smokeHash === 'bridge') {
+          await new Promise((resolve) => setTimeout(resolve, 3000));
+          const values = await window.webContents.executeJavaScript(
+            '[...document.querySelectorAll("[data-testid^=bridge-]")].map((node) => node.textContent)',
+          );
+          const populated = values.length === 3 && values.every((value) => value && value !== 'waiting…');
+          const analyzed = !isDev || String(values[1]).includes('NNG');
+          clearTimeout(watchdog);
+          finishSmoke(populated && analyzed ? 0 : 1, `Bridge page: ${JSON.stringify(values)}`);
+          return;
+        }
         clearTimeout(watchdog);
-        finishSmoke(title === 'Sori' && mounted ? 0 : 1);
+        finishSmoke(0);
       } catch (error) {
         clearTimeout(watchdog);
         finishSmoke(1, `Smoke check could not inspect the page: ${error.message}`);
@@ -108,9 +125,9 @@ function createWindow() {
   }
 
   if (isDev) {
-    window.loadURL(devUrl);
+    window.loadURL(smoke && smokeHash ? `${devUrl}#${smokeHash}` : devUrl);
   } else {
-    window.loadFile(indexFile);
+    window.loadFile(indexFile, smoke && smokeHash ? { hash: smokeHash } : {});
   }
   return window;
 }
@@ -118,6 +135,10 @@ function createWindow() {
 app.whenReady().then(() => {
   applyCsp();
   handle('app:ping', () => ({ ok: true, data: 'pong', error: '' }));
+  handle('dev:emit', (event, payload) => {
+    event.sender.send('core:event', { name: 'dev', payload: payload ?? null, at: Date.now() });
+    return { ok: true, data: null, error: '' };
+  });
   handle('core:invoke', async (_event, command, payload) => {
     if (!native) return { ok: false, data: null, error: 'Native core is unavailable.' };
     try {

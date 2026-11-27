@@ -19,7 +19,6 @@ mod library_service;
 mod nlp;
 mod process;
 mod progress;
-mod reader;
 mod subtitles;
 mod video_library;
 mod video_transcript;
