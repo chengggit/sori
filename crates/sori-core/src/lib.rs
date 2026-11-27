@@ -26,11 +26,17 @@ mod vocabulary;
 mod youtube;
 mod youtube_transcript;
 
-use std::{path::PathBuf, sync::{Mutex, OnceLock}};
+use std::{
+    path::PathBuf,
+    sync::{Mutex, MutexGuard, OnceLock},
+};
 
-use serde_json::Value;
+use serde_json::{json, Value};
+
+use crate::library_service::LibraryService;
 
 static ANALYZER: OnceLock<Mutex<nlp::KoreanAnalyzer>> = OnceLock::new();
+static LIBRARY: OnceLock<Mutex<LibraryService>> = OnceLock::new();
 
 /// Initialize native resources once. Safe to call again after success.
 pub fn init(resources: PathBuf) -> Result<(), String> {
@@ -43,10 +49,59 @@ pub fn init(resources: PathBuf) -> Result<(), String> {
         .map_err(|_| "Korean analyzer was already initialized.".to_string())
 }
 
+/// Open (and migrate) the library database in `directory`. Safe to call again.
+pub fn init_library(directory: PathBuf) -> Result<(), String> {
+    if LIBRARY.get().is_some() {
+        return Ok(());
+    }
+    let mut service = LibraryService::default();
+    service.initialize(directory.to_string_lossy().into_owned())?;
+    LIBRARY
+        .set(Mutex::new(service))
+        .map_err(|_| "Library was already initialized.".to_string())
+}
+
 fn analyzer() -> Result<&'static Mutex<nlp::KoreanAnalyzer>, String> {
     ANALYZER
         .get()
         .ok_or_else(|| "Korean analysis is not initialized.".to_string())
+}
+
+fn library() -> Result<MutexGuard<'static, LibraryService>, String> {
+    LIBRARY
+        .get()
+        .ok_or_else(|| "Library is not initialized.".to_string())?
+        .lock()
+        .map_err(|_| "Library lock is poisoned.".to_string())
+}
+
+fn text(payload: &Value, name: &str) -> Result<String, String> {
+    payload
+        .get(name)
+        .and_then(Value::as_str)
+        .map(str::to_owned)
+        .ok_or_else(|| format!("Provide {name}."))
+}
+
+fn number(payload: &Value, name: &str) -> Result<i64, String> {
+    payload
+        .get(name)
+        .and_then(Value::as_i64)
+        .ok_or_else(|| format!("Provide {name} as an integer."))
+}
+
+fn fraction(payload: &Value, name: &str) -> Result<f64, String> {
+    payload
+        .get(name)
+        .and_then(Value::as_f64)
+        .ok_or_else(|| format!("Provide {name} as a number."))
+}
+
+fn input(payload: &Value) -> Result<Value, String> {
+    payload
+        .get("input")
+        .cloned()
+        .ok_or_else(|| "Provide input.".to_string())
 }
 
 /// Single entry point for the Node addon. Uses the same `{ok, data, error}`
@@ -55,17 +110,94 @@ pub fn invoke(command: &str, payload: &Value) -> Value {
     match command {
         "app:ping" => bridge::reply(Ok("pong")),
         "analyzeText" => {
-            let Some(text) = payload.get("text").and_then(Value::as_str) else {
+            let Ok(text) = text(payload, "text") else {
                 return bridge::reply::<Value>(Err("Provide text to analyze.".into()));
             };
             let result = analyzer().and_then(|analyzer| {
                 analyzer
                     .lock()
                     .map_err(|_| "Korean analyzer lock is poisoned.".to_string())
-                    .and_then(|analyzer| analyzer.analyze(text.to_string()))
+                    .and_then(|analyzer| analyzer.analyze(text))
             });
             bridge::reply(result)
         }
+        "library:state" => bridge::reply(library().map(|library| {
+            json!({
+                "documents": &library.documents,
+                "videos": &library.videos,
+                "vocabulary": &library.vocabulary,
+                "youtubeHistory": &library.youtube_history,
+                "error": &library.error,
+            })
+        })),
+        "document:add" => bridge::reply((|| {
+            let title = text(payload, "title")?;
+            let content = text(payload, "content")?;
+            library()?.add_document(title, content)
+        })()),
+        "document:import" => bridge::reply((|| {
+            let path = text(payload, "path")?;
+            library()?.import_document(path)
+        })()),
+        "document:update" => bridge::reply((|| {
+            let id = number(payload, "id")?;
+            let title = text(payload, "title")?;
+            let content = text(payload, "content")?;
+            library()?.update_document(id, title, content)
+        })()),
+        "document:remove" => bridge::reply((|| {
+            let id = number(payload, "id")?;
+            library()?.remove_document(id)
+        })()),
+        "document:read" => bridge::reply((|| {
+            let id = number(payload, "id")?;
+            library()?.read_document(id)
+        })()),
+        "progress:saveDocument" => bridge::reply((|| {
+            let id = number(payload, "id")?;
+            let position = fraction(payload, "position")?;
+            library()?.save_reading_progress(id, position)
+        })()),
+        "video:import" => bridge::reply((|| {
+            let path = text(payload, "path")?;
+            library()?.import_video(path)
+        })()),
+        "video:read" => bridge::reply((|| {
+            let id = number(payload, "id")?;
+            library()?.read_video(id)
+        })()),
+        "video:remove" => bridge::reply((|| {
+            let id = number(payload, "id")?;
+            library()?.remove_video(id)
+        })()),
+        "video:saveProgress" => bridge::reply((|| {
+            let id = number(payload, "id")?;
+            let seconds = fraction(payload, "seconds")?;
+            let duration = fraction(payload, "duration")?;
+            library()?.save_video_progress(id, seconds, duration)
+        })()),
+        "vocabulary:save" => bridge::reply((|| {
+            let kind = text(payload, "kind")?;
+            let id = number(payload, "id")?;
+            let input = input(payload)?;
+            library()?.save_word(kind, id, input)
+        })()),
+        "vocabulary:find" => bridge::reply((|| {
+            let kind = text(payload, "kind")?;
+            let id = number(payload, "id")?;
+            let word = text(payload, "word")?;
+            let context = text(payload, "context")?;
+            library()?.find_word(kind, id, word, context)
+        })()),
+        "vocabulary:edit" => bridge::reply((|| {
+            let id = number(payload, "id")?;
+            let input = input(payload)?;
+            library()?.edit_word(id, input)
+        })()),
+        "vocabulary:remove" => bridge::reply((|| {
+            let id = number(payload, "id")?;
+            library()?.remove_word(id)
+        })()),
         other => bridge::reply::<Value>(Err(format!("Unknown command: {other}"))),
     }
 }
@@ -97,5 +229,11 @@ mod tests {
             json!({ "ok": false, "data": null, "error": "Provide text to analyze." })
         );
         assert_eq!(invoke("analyzeText", &json!({"text": "한국어"}))["ok"], false);
+    }
+
+    #[test]
+    fn library_commands_require_initialization() {
+        assert_eq!(invoke("library:state", &json!({}))["ok"], false);
+        assert_eq!(invoke("document:read", &json!({"id": 1}))["ok"], false);
     }
 }

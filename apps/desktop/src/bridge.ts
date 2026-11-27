@@ -1,4 +1,23 @@
-export type Command = 'app:ping' | 'core:invoke' | 'dev:emit' | 'analyzeText';
+export type Command =
+  | 'app:ping'
+  | 'core:invoke'
+  | 'dev:emit'
+  | 'analyzeText'
+  | 'library:state'
+  | 'document:add'
+  | 'document:import'
+  | 'document:update'
+  | 'document:remove'
+  | 'document:read'
+  | 'progress:saveDocument'
+  | 'video:import'
+  | 'video:read'
+  | 'video:remove'
+  | 'video:saveProgress'
+  | 'vocabulary:save'
+  | 'vocabulary:find'
+  | 'vocabulary:edit'
+  | 'vocabulary:remove';
 
 export interface DesktopBridge {
   invoke<T>(channel: Command, ...args: unknown[]): Promise<T>;

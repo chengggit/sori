@@ -13,6 +13,8 @@
     "desktop:typecheck": "npm run typecheck -w @sori/desktop",
     "desktop:test:core": "cargo test --manifest-path crates/Cargo.toml",
     "desktop:test:native": "node scripts/smoke-native.mjs",
+    "desktop:test:persistence": "node scripts/smoke-persistence.mjs",
+    "desktop:test:migration": "node scripts/smoke-migration.mjs",
     "desktop:test:unit": "npm run test:unit -w @sori/desktop",
     "desktop:test:e2e": "npm run test:e2e -w @sori/desktop",
     "desktop:package": "npm run desktop:native:release && npm run package -w @sori/desktop"

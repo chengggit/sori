@@ -138,12 +138,19 @@ in Node would be worse than keeping it).
       is UI-facing and the duplication is recorded in the post-cutover backlog.
       Dictionary and IFrame playback helpers arrive with their feature steps.
 
-- [ ] **4. `feat/electron-persistence`** — Expose DB-backed commands through
+- [x] **4. `feat/electron-persistence`** — Expose DB-backed commands through
       `invoke`; add explicit migrations so an old `library.sqlite3` gains
       `pdf_path`, `duration`, `thumbnail`, and the new tables; point Electron
       `userData` at the old `com.sori.app` location.
       *Done when:* a **copied** real library opens, migrates, and passes CRUD
       tests on temporary DBs.
+      Verified: 63 Rust tests, `scripts/smoke-persistence.mjs` (document,
+      progress and vocabulary CRUD on a temp DB), and
+      `scripts/smoke-migration.mjs` (a fixture matching the old Tauri schema
+      gains all missing columns/tables while keeping its rows). Electron
+      `userData` now matches Qt's `GenericDataLocation/com.sori.app` on all
+      three platforms; `SORI_DATA_DIR` overrides it for smoke tests so real
+      libraries are never touched. Dev/bridge/packaged smoke exit 0.
 
 - [ ] **5. `feat/electron-analysis`** — Wire Kiwi → tokens → TS grouping/POS
       labels/grammar into one reusable analysis component/panel.
