@@ -231,11 +231,17 @@ in Node would be worse than keeping it).
       Not done here: ffmpeg/ffprobe bundling into installers (step 16) and the
       user's real MKV codec matrix on Windows/macOS (CI only).
 
-- [ ] **12. `feat/electron-subtitles`** — Embedded tracks → WebVTT, SRT/VTT
+- [x] **12. `feat/electron-subtitles`** — Embedded tracks → WebVTT, SRT/VTT
       sidecars, dual tracks, clickable subtitle words → analysis, transcript
       follow/click-to-seek.
       _Done when:_ `tst_subtitletranscript` and `tst_transcriptheader` flows are
       ported and passing.
+      Verified: an MKV with a tagged Korean SubRip track was generated and
+      played; the track was auto-selected, its cue rendered, a clicked word
+      opened Kiwi analysis, and clicking a transcript cue sought to 3 s. Added
+      `video:saveSubtitles` to the Rust dispatcher. Sidecar attachments work
+      for the session but are not persisted yet; they need a file-path-based
+      command. Smoke checks now use isolated data directories per route.
 
 - [ ] **13. `feat/electron-dictionaries`** — Wiktionary + KRDict services,
       offline saved meanings, embedded Naver/Papago/KRDict/custom tabs with drag
