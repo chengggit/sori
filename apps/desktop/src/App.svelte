@@ -1,0 +1,86 @@
+<script lang="ts">
+  import { onMount } from "svelte";
+  import AnalysisPage from "./AnalysisPage.svelte";
+  import AppShell from "./AppShell.svelte";
+  import BridgePage from "./BridgePage.svelte";
+  import LibraryPage from "./LibraryPage.svelte";
+  import ReaderPage from "./ReaderPage.svelte";
+  import SettingsPage from "./SettingsPage.svelte";
+  import VocabularyPage from "./VocabularyPage.svelte";
+  import WatchPage from "./WatchPage.svelte";
+  import YouTubePage from "./YouTubePage.svelte";
+  import { persistUi, ui } from "$lib/ui-state.svelte";
+
+  let route = $state(location.hash);
+  let systemDark = $state(window.matchMedia("(prefers-color-scheme: dark)").matches);
+
+  const dark = $derived(ui.appearance === "dark" || (ui.appearance === "system" && systemDark));
+  const path = $derived(route.replace(/^#\/?/, "").split("?")[0]);
+  const page = $derived(path.split("/")[0] || "home");
+  const readerId = $derived(Number(new URLSearchParams(route.split("?")[1] ?? "").get("id")) || 0);
+  const watchId = $derived(readerId);
+
+  $effect(() => {
+    document.documentElement.classList.toggle("dark", dark);
+    document.documentElement.style.zoom = String(ui.pageScale);
+    persistUi();
+  });
+
+  function goTo(next: string) {
+    location.hash = `#/${next}`;
+    route = location.hash;
+  }
+
+  onMount(() => {
+    const onHashChange = () => {
+      route = location.hash;
+    };
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const onThemeChange = (event: MediaQueryListEvent) => {
+      systemDark = event.matches;
+    };
+    window.addEventListener("hashchange", onHashChange);
+    media.addEventListener("change", onThemeChange);
+    return () => {
+      window.removeEventListener("hashchange", onHashChange);
+      media.removeEventListener("change", onThemeChange);
+    };
+  });
+</script>
+
+{#if route === "#bridge"}
+  <BridgePage />
+{:else if route === "#analysis"}
+  <AnalysisPage />
+{:else}
+  <AppShell
+    {page}
+    appearance={ui.appearance}
+    {dark}
+    pageScale={ui.pageScale}
+    onPage={goTo}
+    onAppearance={(value) => (ui.appearance = value)}
+    onScale={(value) => (ui.pageScale = value)}
+    titleOverride={page === "reader"
+      ? "Reader"
+      : page === "watch"
+        ? "Watch"
+        : page === "settings"
+          ? "Settings"
+          : undefined}
+  >
+    {#if page === "library"}
+      <LibraryPage />
+    {:else if page === "reader"}
+      <ReaderPage documentId={readerId} onBack={() => goTo("library")} />
+    {:else if page === "vocabulary"}
+      <VocabularyPage />
+    {:else if page === "watch"}
+      <WatchPage videoId={watchId} onBack={() => goTo("library")} />
+    {:else if page === "explore"}
+      <YouTubePage />
+    {:else if page === "settings"}
+      <SettingsPage />
+    {/if}
+  </AppShell>
+{/if}

@@ -1,0 +1,64 @@
+name: Electron builds
+on:
+  push:
+    branches: [main, 'electron/**', 'feat/electron-**']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: electron-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            name: Ubuntu 24.04 LTS x86_64
+          - os: windows-2022
+            name: Windows x86_64
+          - os: macos-15
+            name: macOS arm64
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: package-lock.json
+      - uses: dtolnay/rust-toolchain@stable
+      - run: npm ci
+      - name: Prepare Kiwi resources
+        run: cmake -P scripts/setup-kiwi.cmake
+      - run: npm run desktop:test:core
+      - run: npm run desktop:native
+      - run: npm run desktop:test:native
+      - run: npm run desktop:test:persistence
+      - run: npm run desktop:test:migration
+      - run: npm run desktop:typecheck
+      - run: npm run desktop:test:unit
+      - run: npm run desktop:build
+      - name: Install Playwright Chromium
+        run: npx playwright install chromium
+      - name: Install Playwright system dependencies
+        if: runner.os == 'Linux'
+        run: npx playwright install-deps chromium
+      - run: npm run desktop:test:e2e
+      - name: Package
+        run: npm run desktop:package
+      - name: Checksums
+        run: npm run desktop:checksums
+      - uses: actions/upload-artifact@v4
+        with:
+          name: electron-${{ matrix.os }}
+          path: |
+            apps/desktop/release/*.AppImage
+            apps/desktop/release/*.exe
+            apps/desktop/release/*.dmg
+            apps/desktop/release/SHA256SUMS.txt
+          if-no-files-found: warn

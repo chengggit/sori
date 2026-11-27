@@ -8,3 +8,10 @@
 !.env.example
 /.venv-youtube/
 **/__pycache__/
+node_modules/
+/apps/desktop/dist/
+/apps/desktop/release/
+/apps/desktop/native/
+/crates/target/
+/apps/desktop/playwright-report/
+/apps/desktop/test-results/

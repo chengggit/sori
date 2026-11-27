@@ -1,0 +1,25 @@
+{
+  "name": "sori-workspace",
+  "private": true,
+  "workspaces": [
+    "apps/desktop"
+  ],
+  "scripts": {
+    "desktop:native": "node scripts/build-native.mjs",
+    "desktop:native:release": "node scripts/build-native.mjs --release",
+    "desktop:dev": "npm run desktop:native && npm run dev -w @sori/desktop",
+    "desktop:dev:vite": "npm run dev:vite -w @sori/desktop",
+    "desktop:build": "npm run build -w @sori/desktop",
+    "desktop:typecheck": "npm run typecheck -w @sori/desktop",
+    "desktop:test:core": "cargo test --manifest-path crates/Cargo.toml",
+    "desktop:test:native": "node scripts/smoke-native.mjs",
+    "desktop:test:persistence": "node scripts/smoke-persistence.mjs",
+    "desktop:test:migration": "node scripts/smoke-migration.mjs",
+    "desktop:test:unit": "npm run test:unit -w @sori/desktop",
+    "desktop:test:e2e": "npm run test:e2e -w @sori/desktop",
+    "desktop:package": "npm run desktop:native:release && npm run package -w @sori/desktop",
+    "desktop:checksums": "node scripts/checksums.mjs",
+    "format": "prettier --write \"apps/desktop/src/**/*.{ts,svelte,css}\" \"apps/desktop/*.{json,js,ts,md}\" \"scripts/**/*.mjs\" \"*.md\"",
+    "format:check": "prettier --check \"apps/desktop/src/**/*.{ts,svelte,css}\" \"apps/desktop/*.{json,js,ts,md}\" \"scripts/**/*.mjs\" \"*.md\""
+  }
+}
