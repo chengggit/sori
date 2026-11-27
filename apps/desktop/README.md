@@ -60,6 +60,10 @@ and caption fetching; its network calls run in Rust, not the renderer.
 `#/settings` manages theme, zoom, reading typography, dictionary/YouTube keys and
 embedded-tab order.
 
+Packages bundle the Kiwi models and FFmpeg/FFprobe, so those features no longer
+depend on PATH after installation. `npm run desktop:checksums` writes
+`release/SHA256SUMS.txt` for the platform artifacts.
+
 Open `http://127.0.0.1:5173/#bridge` during development for a bridge page that
 exercises `app:ping`, `analyzeText`, and a main-process event. `#analysis` shows
 the reusable `AnalysisPanel.svelte` with real Kiwi output. UI logic calls
