@@ -1,9 +1,0 @@
-[Desktop Entry]
-Type=Application
-Name=Sori
-Comment=Learn Korean through your own media
-Exec=sori
-Icon=sori
-Terminal=false
-Categories=Education;
-StartupWMClass=Sori

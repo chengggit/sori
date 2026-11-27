@@ -2,8 +2,8 @@
 
 Sori is a calm, content-focused workspace for Korean immersion. Reading and
 watching should feel comfortable for long sessions, with learning tools close
-at hand. This guide defines shared principles; QML holds specific layouts and
-measurements.
+at hand. This guide defines shared principles; component code holds specific
+layouts and measurements.
 
 ## Content first
 
@@ -14,21 +14,24 @@ measurements.
 
 ## Consistency
 
-- Reuse `qml/components/` and semantic tokens from `qml/style/Theme.qml`.
-- Keep spacing, typography, colors, and control behavior consistent across flows.
-- Use Inter for UI and Noto Sans KR for Korean reading text.
+- Reuse `apps/desktop/src/lib/components/` and the OKLCH tokens in `theme.css`.
+- Tailwind 4, Lucide icons, and shadcn-svelte conventions come from the original
+  Svelte app; keep the same spacing, typography, colors and control behavior.
+- Use Inter for UI and Noto Sans KR for Korean reading text by default.
 - Design light and dark themes together, with comfortable line height and contrast.
 
 ## Adaptability
 
-- Support window resizing and application zoom without overlap or clipped controls.
+- Support window resizing, application zoom, and independent reader typography
+  without overlap or clipped controls.
 - Reflow related controls together when space is tight.
 - Let users adjust supporting panels while keeping the main content usable.
 - Keep media zoom independent of the surrounding interface.
 
 ## Preserve context
 
-- Retain selection, scroll position, progress, and user-adjusted layout where appropriate.
+- Retain selection, scroll position, progress, and user-adjusted layout where
+  appropriate.
 - Opening learning tools should preserve the user's playback state.
 - Appending results must not move existing content or reset the user's position.
 - Respect manual navigation; automatic scrolling should not fight the user.

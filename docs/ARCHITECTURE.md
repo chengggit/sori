@@ -3,124 +3,85 @@
 ## Data flow and ownership
 
 ```text
-QML → Qt Bridge → Rust models → domain services → SQLite / local files / Kiwi
-C++ Qt Quick framebuffer adapter ↔ Rust-controlled libmpv
-Optional online features → Rust HTTP clients / isolated Python transcript helper
+Svelte renderer → Platform → preload bridge → Electron main → napi-rs → Rust services → SQLite / Kiwi / local files / HTTP
 ```
 
 Layer responsibilities are listed in `AGENTS.md`. Additional constraints:
 
-- Run long filesystem, network, analysis, and media jobs outside the Qt UI thread.
-- Tag completions with request IDs or generations; discard superseded results.
+- Every fallible operation uses the `{ ok, data, error }` envelope from
+  `bridge.rs`. Mutations and absent lookups may return null data.
+- UI calls `apps/desktop/src/platform.ts`; it never imports Electron or Node.
+  The web implementation can replace this seam without touching components.
+- Async commands are Promises at the bridge boundary; superseded results are
+  discarded by the caller where relevant.
+- Properties and player controls are lifecycle APIs, not operation results.
 - Imported files and local SQLite data remain authoritative.
-- `RenderHost` outlives the QML engine; mpv outlives its renderers.
-- Render on the owning thread with a current OpenGL context.
+- Renderer, protocol handlers, and media protocol outlive their views.
 
-## Services and bridge
+## Services and command dispatcher
+
+`crates/sori-core` holds the domain layer copied from the Qt-era `core/` crate
+with Qt/mpv adapters removed. `crates/sori-node` exposes `init`,
+`initLibrary` and `invoke(command, payload)` through napi-rs.
 
 | Module                                | Responsibility                                             |
 | ------------------------------------- | ---------------------------------------------------------- |
-| `library_model.rs`                    | Qt properties, signals, and job dispatch                   |
-| `library_service.rs`                  | Library state and domain operations; no QObject dependency |
-| `library_jobs.rs`                     | Background metadata/thumbnail I/O and retry tracking       |
-| `youtube_model.rs`                    | YouTube Qt adapter                                         |
-| `youtube.rs`                          | YouTube HTTP orchestration                                 |
-| `youtube/{settings,store,parsing}.rs` | Settings, SQLite persistence, and response parsing         |
-
-Fallible Library, Analysis, and YouTube operations use `Response<T>` from
-`bridge.rs`; services retain `Result<T, String>` internally:
-
-```json
-{ "ok": true, "data": null, "error": "" }
-```
-
-- Success: typed `data`, empty `error`. Mutations and absent lookups may return null.
-- Failure: `ok: false`, null `data`, and a visible error message.
-- QML and mocks consume the same envelope directly.
-- Async calls return a scalar request ID; completion signals carry the envelope.
-- Properties and player controls remain state/lifecycle APIs.
-- Background enrichment returns an acknowledgement, then reports through
-  `backgroundFinished`. Failures also update library error state.
-
-Playback saves update the affected cache entry. Collection notifications still
-serialize whole collections; introduce row-level models only if measurements justify it.
+| `db.rs`, `schema.sql`                 | SQLite initialization and explicit migrations              |
+| `library_service.rs`                  | Library state and domain operations; no UI dependency      |
+| `documents.rs`, `document_import.rs`  | TXT/PDF import validation and storage                      |
+| `vocabulary.rs`                       | Saved words, meanings, tags, and source snapshots           |
+| `nlp.rs`                              | Dedicated Kiwi thread with UTF-16 token offsets             |
+| `reader.rs` (TS port)                 | Bounded passage splitting and token grouping                |
+| `subtitles.rs` (TS port)              | SRT/VTT parsing; Rust keeps only bounded subprocess output  |
+| `video_library.rs`                    | Canonical video paths, ffprobe/FFmpeg helpers, checkpoints  |
+| `youtube.rs` + `youtube/*`            | HTTP orchestration, parsing, settings and local store       |
+| `dictionary.rs`, `krdict.rs`          | Wiktionary and KRDict lookup                                |
+| `youtube_transcript.rs`               | Optional caption helper orchestration and cache             |
 
 ## Persistence
 
-- Database: `library.sqlite3` under `com.sori.app` in the generic user data directory.
-- Each operation owns its connection, enables foreign keys, and uses a five-second busy timeout.
+- Database: `library.sqlite3` under `GenericDataLocation/com.sori.app`, matching
+  the Qt app. `SORI_DATA_DIR` overrides it for tests.
+- Each operation owns a connection, enables foreign keys, and uses a five-second
+  busy timeout.
 - `schema.sql` covers media, progress, vocabulary/meanings/tags, transcripts,
   YouTube subscriptions/history, and settings.
-- Saved words retain source title, context, and meaning snapshots after source removal.
-- Videos stay at their original paths; PDFs are copied into managed `pdfs/` storage.
-  Thumbnails are derived data.
-- Pre-release schema version is 1, with explicit compatibility handling. Add
-  versioned migrations before supporting arbitrary distributed upgrades.
-- Never silently reset a library. Coordinate database and file cleanup on import failure.
-- Tests must use temporary libraries, never the user's database.
+- Missing pre-release columns (`pdf_path`, `duration`, `thumbnail`) are added
+  explicitly; new tables are created with `IF NOT EXISTS`.
+- Saved words retain source title, context, and meaning snapshots after source
+  removal. Videos stay at their original paths; PDFs are copied into managed
+  `pdfs/` storage.
+- Tests use temporary libraries, never the user's database.
 
 ## Reading and analysis
 
-| Constraint     | Behavior                                                                |
-| -------------- | ----------------------------------------------------------------------- |
-| TXT import     | UTF-8, at most 2 MiB                                                    |
-| PDF import     | At most 50 MiB; page-only storage                                       |
-| PDF display    | QtPdf book/scroll views; clickable words require an embedded text layer |
-| Scanned PDFs   | Readable without clickable text; no OCR requirement                     |
-| Word caches    | Scoped to one document                                                  |
-| Analysis input | At most 16 KiB; reject null characters                                  |
-| Source offsets | UTF-16 units, matching QML/JavaScript                                   |
-
-`nlp.rs` lazily loads pinned local Kiwi resources once on a dedicated owning
-thread. Its bounded queue avoids sharing the native handle across threads.
-The pinned Rust binding has a [local safety patch](../core/vendor/kiwi-rs/SORI-PATCH.md)
-to avoid probing invalid native POS tag IDs, with instructions for removing it.
-`reader.rs` extracts bounded selection context.
-
-Reader and both Watch pages reuse analysis/vocabulary components. Dictionary
-behavior is defined in `PRODUCT.md`. Visited embeds survive sidebar closure for
-30 seconds; reopening cancels expiry. Destroying views may leave WebEngine's
-shared process/cache memory allocated.
+- TXT import: UTF-8, at most 2 MiB; paste-as-text is stored as a TXT document.
+- PDF import: at most 50 MiB; page-only storage in `pdfs/`.
+- PDF display uses pdf.js in Book and Scroll views. Clickable words require an
+  embedded text layer; scanned PDFs still render.
+- Analysis input is bounded to 16 KiB and rejects null characters.
+- Source offsets are UTF-16 code units, matching JavaScript `slice()`.
+- Kiwi is loaded lazily on a dedicated owning thread using pinned local models.
 
 ## Media and progress
 
-- Rust controls libmpv; C++ composites its framebuffer into Qt Quick.
-- Register videos by canonical path. FFprobe inspects tracks; FFmpeg extracts
-  text subtitles and thumbnails.
+- Chromium `<video>` plays local media through the privileged `sori-media://`
+  Range protocol; there is no mpv or native player addon.
+- FFprobe inspects tracks; FFmpeg extracts text subtitles. Both are bundled in
+  packages and fall back to PATH in development.
 - Subtitle generations reject results from previously opened media.
-- Support SRT/VTT attachments and optional untimed TXT transcripts.
-- Playback checkpoints update history. Debounce reader/transcript scroll saves
-  and flush on leaving; finish restoration before saving a new position.
-- Keep filesystem, persistence, and playback errors visible.
-
-YouTube uses the official embedded player via Qt WebEngine Quick. The optional
-Python caption helper returns bounded JSON and runs with a deadline. Release
-builds bundle its private runtime; local workflows do not require Python.
+- SRT/VTT attachments and untimed TXT transcripts are supported.
+- Playback and reading checkpoints are debounced and flushed on leave.
+- YouTube uses the embedded IFrame API; Data API calls and caption fetching run
+  in Rust. Online features are optional and never required for core workflows.
 
 ## Build, packaging, and validation
 
-- CMake builds C++, invokes locked Cargo dependencies, and embeds QML/resources.
-  `CMakePresets.json` defines dev/release builds. Build-time targets prepare Kiwi
-  and an optional private caption environment under the build directory; configuration
-  does not download resources. Existing resources and offline setup are supported.
-- Use one matching Qt SDK for all Qt modules and the Rust bridge.
-- CI targets Ubuntu 24.04 LTS, Windows x86_64, and macOS arm64.
-- The explicit CMake `package` target builds and dispatches platform packaging;
-  normal builds do not package. Staging and outputs use the selected build directory.
-- Artifacts: Linux AppImage, per-user Windows Inno Setup installer, and macOS
-  DMG with an Applications shortcut. Windows signing and Apple Developer ID
-  signing/notarization are separate release steps.
-- AppImages bundle private dependencies, but the build host's ABI still limits
-  compatibility. Validate on clean target systems before public release.
-
-See [DEVELOPING.md](../DEVELOPING.md) for commands,
-[RELEASING.md](RELEASING.md) for packaging, and
-[the QML test guide](../tests/qml/README.md) for component tests.
-
-- Keep Rust domain/service tests independent of Qt UI instantiation.
-- The native `bridge` suite checks real model envelopes and async completions
-  against a temporary library.
-- QML regressions exercise real components with mocked services.
-- Mark live-service and native-resource tests explicitly.
-- Check changed UI flows in both themes and at narrow widths.
-- Run strict Clippy for Rust changes.
+- npm workspaces build the renderer; Cargo builds the Rust core and napi addon.
+- `scripts/setup-kiwi.cmake` prepares pinned Kiwi resources; configuration does
+  not download resources.
+- electron-builder produces AppImage, per-user NSIS installer, and DMG with the
+  app icon, ASAR, unpacked native addon, Kiwi resources and FFmpeg binaries.
+- CI targets Ubuntu 24.04 LTS, Windows x86_64, and macOS arm64, uploads packages
+  and SHA-256 checksums, and runs Rust/Vitest/Playwright/smoke checks.
+- Signing/notarization are separate release steps and are not configured.

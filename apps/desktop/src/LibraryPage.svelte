@@ -9,6 +9,7 @@
     loadLibraryState,
     readDocument,
     removeDocument,
+    removeVideo as removeVideoEntry,
     updateDocument,
     importVideo,
   } from "$lib/library/commands";
@@ -27,6 +28,7 @@
   let draftTitle = $state("");
   let draftText = $state("");
   let deleting = $state<LibraryItem | null>(null);
+  let deletingVideo = $state<{ id: number; title: string } | null>(null);
 
   const visibleDocuments = $derived(
     documents.filter((item) =>
@@ -122,6 +124,20 @@
 
   function openVideo(id: number) {
     location.hash = `#/watch?id=${id}`;
+  }
+
+  async function confirmDeleteVideo() {
+    if (!deletingVideo || busy) return;
+    busy = true;
+    error = "";
+    try {
+      if (report(await removeVideoEntry(deletingVideo.id))) {
+        await load();
+        deletingVideo = null;
+      }
+    } finally {
+      busy = false;
+    }
   }
 
   async function chooseVideo() {
@@ -255,16 +271,24 @@
       <h2 class="mb-2 text-sm font-semibold text-muted-foreground">Videos</h2>
       <ul class="grid gap-2 sm:grid-cols-2" data-testid="video-list">
         {#each visibleVideos as video (video.id)}
-          <li>
+          <li class="flex items-center gap-1 rounded-lg border border-border bg-card p-2">
             <button
               type="button"
-              class="w-full truncate rounded-lg border border-border bg-card p-3 text-left"
+              class="flex-1 truncate text-left"
               data-testid={`open-video-${video.id}`}
               onclick={() => openVideo(video.id)}
             >
               <Film size={16} class="mr-2 inline text-dashboard-accent" />
               {video.title}
             </button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={`Remove video ${video.title}`}
+              onclick={() => (deletingVideo = { id: video.id, title: video.title })}
+            >
+              <Trash2 />
+            </Button>
           </li>
         {/each}
       </ul>
@@ -281,6 +305,22 @@
       <div class="flex gap-2">
         <Button variant="outline" onclick={() => (deleting = null)}>Cancel</Button>
         <Button variant="destructive" onclick={confirmDelete} disabled={busy}>Delete</Button>
+      </div>
+    </div>
+  {/if}
+
+  {#if deletingVideo}
+    <div
+      class="rounded-lg border border-destructive bg-card p-4"
+      role="alertdialog"
+      data-testid="delete-video-confirm"
+    >
+      <p class="mb-3 text-sm">
+        Remove “{deletingVideo.title}” from your library? The video file stays on disk.
+      </p>
+      <div class="flex gap-2">
+        <Button variant="outline" onclick={() => (deletingVideo = null)}>Cancel</Button>
+        <Button variant="destructive" onclick={confirmDeleteVideo} disabled={busy}>Remove</Button>
       </div>
     </div>
   {/if}
