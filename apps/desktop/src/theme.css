@@ -1,0 +1,70 @@
+/* Palette mirrors qml/style/Theme.qml, the sRGB form of the original Svelte
+   OKLCH tokens in src/routes/layout.css. */
+@font-face {
+  font-family: Inter;
+  src: url('./assets/fonts/Inter-Variable.ttf') format('truetype-variations');
+  font-weight: 100 900;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Noto Sans KR';
+  src: url('./assets/fonts/NotoSansKR-Regular.otf') format('opentype');
+  font-display: swap;
+}
+
+:root {
+  color-scheme: light;
+  --background: #f2f4f2;
+  --sidebar: #fafbfa;
+  --neutral-hover: #f3f3f3;
+  --card: #fbfcfb;
+  --foreground: #0a0a0a;
+  --muted-foreground: #595d59;
+  --border: #e1e4e0;
+  --sidebar-border: #e1e4e0;
+  --sidebar-selection: #e1e7d7;
+  --primary: #242c1a;
+  --primary-foreground: #fafafa;
+  --accent: #55733f;
+  --on-accent: #ffffff;
+  --accent-hover: #4d693a;
+  --accent-soft: #dde4d3;
+  --hero: #e4ecdc;
+  --chip: #e0e6d6;
+  --dashboard-accent: #436717;
+  --dashboard-progress: #70934a;
+  --destructive: #b84a42;
+  --radius-sm: 8px;
+  --radius: 12px;
+  --radius-large: 20px;
+  --header-height: 56px;
+  --page-max-width: 1528px;
+  --page-padding: 28px;
+  --font-ui: Inter, system-ui, sans-serif;
+  --font-korean: 'Noto Sans KR', Inter, sans-serif;
+}
+
+:root.dark {
+  color-scheme: dark;
+  --background: #0a0a0a;
+  --sidebar: #171717;
+  --neutral-hover: #262626;
+  --card: #171717;
+  --foreground: #fafafa;
+  --muted-foreground: #a1a1a1;
+  --border: #303030;
+  --sidebar-border: #2e2e2e;
+  --sidebar-selection: #34432b;
+  --primary: #e5e5e5;
+  --primary-foreground: #171717;
+  --accent: #aac991;
+  --on-accent: #182212;
+  --accent-hover: #bedaab;
+  --accent-soft: #34432b;
+  --hero: #1f2619;
+  --chip: #2a3224;
+  --dashboard-accent: #9ec378;
+  --dashboard-progress: #9ec378;
+  --destructive: #f4a096;
+}
