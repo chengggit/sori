@@ -11,6 +11,25 @@ const devUrl = 'http://127.0.0.1:5173/';
 const indexFile = join(__dirname, 'dist', 'index.html');
 const pageUrl = isDev ? devUrl : pathToFileURL(indexFile).href;
 
+function loadNative() {
+  const addonPath = isDev
+    ? join(__dirname, 'native', 'sori-node.node')
+    : join(process.resourcesPath, 'app.asar.unpacked', 'native', 'sori-node.node');
+  try {
+    const addon = require(addonPath);
+    const resources = isDev
+      ? join(__dirname, '..', '..', 'resources', 'kiwi')
+      : join(process.resourcesPath, 'kiwi');
+    addon.init(resources);
+    return addon;
+  } catch (error) {
+    console.error('Native core is unavailable:', error.message);
+    return null;
+  }
+}
+
+const native = loadNative();
+
 function applyCsp() {
   // Dev needs the Vite HMR socket; packaged builds allow no network origins.
   // Dictionary and YouTube allowlists will be added when those features land.
@@ -99,6 +118,18 @@ function createWindow() {
 app.whenReady().then(() => {
   applyCsp();
   handle('app:ping', () => ({ ok: true, data: 'pong', error: '' }));
+  handle('core:invoke', async (_event, command, payload) => {
+    if (!native) return { ok: false, data: null, error: 'Native core is unavailable.' };
+    try {
+      return JSON.parse(await native.invoke(command, JSON.stringify(payload ?? {})));
+    } catch (error) {
+      return {
+        ok: false,
+        data: null,
+        error: error instanceof Error ? error.message : String(error),
+      };
+    }
+  });
   createWindow();
 });
 

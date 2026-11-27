@@ -107,7 +107,7 @@ in Node would be worse than keeping it).
       typecheck/unit/E2E pass. Windows/macOS run in
       `.github/workflows/build-electron.yml` (not yet executed).
 
-- [ ] **2. `feat/electron-rust-addon`** — Create `crates/sori-core` from `core/`,
+- [x] **2. `feat/electron-rust-addon`** — Create `crates/sori-core` from `core/`,
       strip Qt/mpv modules, add `crates/sori-node` with napi-rs
       `invoke(command, payload) -> Response<T>` and an event emitter. Keep the
       vendored patched `kiwi-rs` and Cargo patch unchanged; use existing
@@ -115,6 +115,13 @@ in Node would be worse than keeping it).
       *Done when:* `cargo test` passes, a JS snippet calls
       `invoke('analyzeText', …)` and gets real tokens, and prebuilds succeed on
       all three platforms.
+      Verified locally: 63 Rust tests passed (4 native/live tests ignored);
+      `scripts/smoke-native.mjs` returned `학교/NNG 에/JKB 가/VV …`; dev and
+      packaged smoke exit 0; the addon is unpacked from ASAR correctly. The
+      patched `kiwi-rs` is confirmed via `cargo tree` and its `[patch]` now lives
+      in the workspace root. Windows/macOS prebuilds are not run locally — CI
+      covers them. Events are stubbed until background jobs land; Kiwi resources
+      are not yet bundled into packages (step 16).
 
 - [ ] **3. `feat/electron-platform-bridge`** — Define the `Platform` interface
       and desktop adapter (`sori.invoke`, `sori.onEvent`). Port the pure TS

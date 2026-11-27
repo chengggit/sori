@@ -1,0 +1,12 @@
+[workspace]
+members = ["sori-core", "sori-node"]
+resolver = "2"
+
+[patch.crates-io]
+# Workspace root is required for this patch to take effect. Keep the local
+# binding patch from core/vendor/kiwi-rs (see SORI-PATCH.md).
+kiwi-rs = { path = "sori-core/vendor/kiwi-rs" }
+
+[profile.release-with-debug]
+inherits = "release"
+debug = 2
