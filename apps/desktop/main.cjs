@@ -120,6 +120,61 @@ function createWindow() {
           finishSmoke(1);
           return;
         }
+        if (smokeHash === 'vocabulary') {
+          await window.webContents.executeJavaScript(`(async () => {
+            await window.sori.invoke('core:invoke', 'document:add', { title: '단어 스모크', content: '안녕하세요' });
+            const state = await window.sori.invoke('core:invoke', 'library:state', {});
+            const documentId = state.data.documents[0].id;
+            await window.sori.invoke('core:invoke', 'vocabulary:save', {
+              kind: 'document', id: documentId,
+              input: { word: '안녕', context: '안녕하세요', tags: [] }
+            });
+          })()`);
+          await window.webContents.executeJavaScript(`location.hash = '#/vocabulary'`);
+          for (let attempt = 0; attempt < 10; attempt += 1) {
+            await new Promise((resolve) => setTimeout(resolve, 300));
+            const ready = await window.webContents.executeJavaScript(
+              'Boolean(document.querySelector("[data-testid^=vocabulary-]"))',
+            );
+            if (ready) break;
+          }
+          await window.webContents.executeJavaScript(`(() => {
+            document.querySelector('[aria-label="Edit 안녕"]').click();
+          })()`);
+          await new Promise((resolve) => setTimeout(resolve, 300));
+          await window.webContents.executeJavaScript(`(() => {
+            const field = document.querySelector('[data-testid=vocabulary-editor] textarea[aria-label=Meaning]');
+            const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value').set;
+            setter.call(field, 'hello');
+            field.dispatchEvent(new Event('input', { bubbles: true }));
+          })()`);
+          await window.webContents.executeJavaScript(
+            'document.querySelector("[data-testid=save-vocabulary]").click()',
+          );
+          await new Promise((resolve) => setTimeout(resolve, 600));
+          const meaning = await window.webContents.executeJavaScript(`(async () => {
+            const state = await window.sori.invoke('core:invoke', 'library:state', {});
+            return state.data.vocabulary[0]?.definition?.text ?? '';
+          })()`);
+          await window.webContents.executeJavaScript(`(() => {
+            document.querySelector('[aria-label="Remove 안녕"]').click();
+          })()`);
+          await new Promise((resolve) => setTimeout(resolve, 300));
+          await window.webContents.executeJavaScript(`(() => {
+            const remove = [...document.querySelectorAll('[data-testid=vocabulary-delete] button')]
+              .find((node) => node.textContent.includes('Remove'));
+            remove?.click();
+          })()`);
+          await new Promise((resolve) => setTimeout(resolve, 600));
+          const remaining = await window.webContents.executeJavaScript(`(async () => {
+            const state = await window.sori.invoke('core:invoke', 'library:state', {});
+            return state.data.vocabulary.length;
+          })()`);
+          clearTimeout(watchdog);
+          finishSmoke(meaning === 'hello' && remaining === 0 ? 0 : 1,
+            `Vocabulary page: ${JSON.stringify({ meaning, remaining })}`);
+          return;
+        }
         if (smokeHash === 'reader') {
           const id = await window.webContents.executeJavaScript(`(async () => {
             await window.sori.invoke('core:invoke', 'document:add', { title: '리더 스모크', content: '학교에 갔어요. '.repeat(60) });
@@ -217,7 +272,12 @@ function createWindow() {
 
   if (isDev) {
     const smokeRoute =
-      smokeHash && smokeHash !== 'library' && smokeHash !== 'reader' ? `#${smokeHash}` : '';
+      smokeHash &&
+      smokeHash !== 'library' &&
+      smokeHash !== 'reader' &&
+      smokeHash !== 'vocabulary'
+        ? `#${smokeHash}`
+        : '';
     window.loadURL(smoke ? `${devUrl}${smokeRoute}` : devUrl);
   } else {
     window.loadFile(indexFile, smoke && smokeHash ? { hash: smokeHash } : {});
