@@ -28,8 +28,8 @@ The first run or a toolchain change still needs a cold build.
 | macOS 15 arm64                   | `.dmg` with `Sori.app` and an Applications shortcut |
 
 Packages include SHA-256 checksums. CI uploads build candidates; it does not
-publish GitHub releases automatically. Windows/macOS still need successful
-hosted runs and clean-system testing before being advertised as supported.
+publish GitHub releases automatically. Test core workflows on clean target
+systems before advertising a platform as supported.
 
 The Windows installer uses `%LOCALAPPDATA%\Programs\Sori` without administrator
 access. It offers shortcuts and an uninstaller that preserves separate user

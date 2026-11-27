@@ -73,8 +73,8 @@ serialize whole collections; introduce row-level models only if measurements jus
 
 `nlp.rs` lazily loads pinned local Kiwi resources once on a dedicated owning
 thread. Its bounded queue avoids sharing the native handle across threads.
-The pinned Rust binding has a local safety patch in `core/vendor/kiwi-rs` to
-avoid probing invalid native POS tag IDs; see its `SORI-PATCH.md` for removal.
+The pinned Rust binding has a [local safety patch](../core/vendor/kiwi-rs/SORI-PATCH.md)
+to avoid probing invalid native POS tag IDs, with instructions for removing it.
 `reader.rs` extracts bounded selection context.
 
 Reader and both Watch pages reuse analysis/vocabulary components. Dictionary
