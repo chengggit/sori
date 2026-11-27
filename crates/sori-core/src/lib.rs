@@ -56,6 +56,9 @@ pub fn init_library(directory: PathBuf) -> Result<(), String> {
     }
     let mut service = LibraryService::default();
     service.initialize(directory.to_string_lossy().into_owned())?;
+    // The saved key is kept in memory because the YouTube client is a global.
+    let saved_key = youtube::read_saved_api_key(&service.connection()?)?;
+    youtube::set_saved_api_key(saved_key);
     LIBRARY
         .set(Mutex::new(service))
         .map_err(|_| "Library was already initialized.".to_string())
@@ -238,6 +241,93 @@ pub fn invoke(command: &str, payload: &Value) -> Value {
         "dictionary:removeKey" => bridge::reply((|| {
             let mut connection = library()?.connection()?;
             krdict::remove_key(&mut connection)
+        })()),
+        "youtube:metadata" => bridge::reply((|| {
+            let id = text(payload, "id")?;
+            youtube::fetch_metadata(&id)
+        })()),
+        "youtube:duration" => bridge::reply((|| {
+            let id = text(payload, "id")?;
+            youtube::fetch_duration(&id)
+        })()),
+        "youtube:search" => bridge::reply((|| {
+            let query = text(payload, "query")?;
+            let page = payload
+                .get("page")
+                .and_then(Value::as_str)
+                .unwrap_or_default()
+                .to_string();
+            youtube::search(&query, &page)
+        })()),
+        "youtube:resolve" => bridge::reply((|| {
+            let input = text(payload, "input")?;
+            youtube::resolve_channel(&input)
+        })()),
+        "youtube:feed" => bridge::reply((|| {
+            let database = library()?
+                .database
+                .clone()
+                .ok_or_else(|| "Could not open the library database.".to_string())?;
+            let tokens = payload.get("tokens").cloned().unwrap_or_else(|| json!({}));
+            youtube::subscription_feed(&database, &tokens)
+        })()),
+        "youtube:addSubscription" => bridge::reply((|| {
+            let input = text(payload, "input")?;
+            let channel = youtube::resolve_channel(&input)?;
+            youtube::add_subscription(
+                &library()?.connection()?,
+                &channel.channel_id,
+                &channel.title,
+                &channel.uploads_playlist_id,
+            )
+        })()),
+        "youtube:removeSubscription" => bridge::reply((|| {
+            let id = text(payload, "id")?;
+            youtube::remove_subscription(&library()?.connection()?, &id)
+        })()),
+        "youtube:subscriptions" => bridge::reply((|| {
+            youtube::subscriptions(&library()?.connection()?)
+        })()),
+        "youtube:saveProgress" => bridge::reply((|| {
+            let id = text(payload, "id")?;
+            let title = text(payload, "title")?;
+            let channel = text(payload, "channel")?;
+            let seconds = fraction(payload, "seconds")?;
+            let duration = fraction(payload, "duration")?;
+            library()?.save_youtube_progress(id, title, channel, seconds, duration)
+        })()),
+        "youtube:fetchTranscript" => bridge::reply((|| {
+            let id = text(payload, "id")?;
+            let language = payload
+                .get("language")
+                .and_then(Value::as_str)
+                .unwrap_or("ko")
+                .to_string();
+            youtube_transcript::fetch(&id, &language)
+        })()),
+        "youtube:transcript" => bridge::reply((|| {
+            let id = text(payload, "id")?;
+            youtube_transcript::read(&library()?.connection()?, &id)
+        })()),
+        "youtube:cacheTranscript" => bridge::reply((|| {
+            let id = text(payload, "id")?;
+            let data = input(payload)?;
+            youtube_transcript::cache(&library()?.connection()?, &id, data)
+        })()),
+        "youtube:settings" => bridge::reply(Ok(json!({
+            "hasKey": youtube::has_api_key(),
+            "saved": youtube::has_saved_api_key(),
+        }))),
+        "youtube:saveKey" => bridge::reply((|| {
+            let key = text(payload, "key")?;
+            let saved = youtube::store_api_key(&library()?.connection()?, &key)?;
+            youtube::set_saved_api_key(Some(saved));
+            Ok(())
+        })()),
+        "youtube:removeKey" => bridge::reply((|| {
+            youtube::remove_saved_api_key(&library()?.connection()?)?;
+            youtube::set_saved_api_key(None);
+            Ok(())
         })()),
         other => bridge::reply::<Value>(Err(format!("Unknown command: {other}"))),
     }

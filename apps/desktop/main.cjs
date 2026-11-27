@@ -178,8 +178,8 @@ function applyCsp() {
   // Dev needs the Vite HMR socket; packaged builds allow no network origins.
   // Dictionary and YouTube allowlists will be added when those features land.
   const csp = isDev
-    ? "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; media-src 'self' sori-media:; frame-src https://korean.dict.naver.com https://papago.naver.com https://krdict.korean.go.kr; connect-src 'self' sori-pdf: sori-media: ws://127.0.0.1:5173"
-    : "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:; media-src 'self' sori-media:; frame-src https://korean.dict.naver.com https://papago.naver.com https://krdict.korean.go.kr; connect-src sori-pdf: sori-media:";
+    ? "default-src 'self'; script-src 'self' https://www.youtube.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://i.ytimg.com; font-src 'self' data:; media-src 'self' sori-media:; frame-src https://www.youtube.com https://korean.dict.naver.com https://papago.naver.com https://krdict.korean.go.kr; connect-src 'self' sori-pdf: sori-media: ws://127.0.0.1:5173"
+    : "default-src 'self'; script-src 'self' https://www.youtube.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://i.ytimg.com; font-src 'self' data:; media-src 'self' sori-media:; frame-src https://www.youtube.com https://korean.dict.naver.com https://papago.naver.com https://krdict.korean.go.kr; connect-src sori-pdf: sori-media:";
 
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     callback({
@@ -247,6 +247,52 @@ function createWindow() {
         if (title !== 'Sori' || !mounted) {
           clearTimeout(watchdog);
           finishSmoke(1);
+          return;
+        }
+        if (smokeHash === 'youtube') {
+          const settings = await window.webContents.executeJavaScript(`(async () => {
+            const before = await window.sori.invoke('core:invoke', 'youtube:settings', {});
+            const saved = await window.sori.invoke('core:invoke', 'youtube:saveKey', { key: 'AIzaTestKey123456' });
+            const after = await window.sori.invoke('core:invoke', 'youtube:settings', {});
+            await window.sori.invoke('core:invoke', 'youtube:removeKey', {});
+            const cleared = await window.sori.invoke('core:invoke', 'youtube:settings', {});
+            return {
+              before: before.data.saved,
+              saved: saved.ok,
+              after: after.data.saved,
+              cleared: cleared.data.saved,
+            };
+          })()`);
+          await window.webContents.executeJavaScript(`location.hash = '#/explore'`);
+          for (let attempt = 0; attempt < 20; attempt += 1) {
+            await new Promise((resolve) => setTimeout(resolve, 300));
+            const ready = await window.webContents.executeJavaScript(
+              'Boolean(document.querySelector("[aria-label=\\"YouTube link\\"]"))',
+            );
+            if (ready) break;
+          }
+          await window.webContents.executeJavaScript(`(() => {
+            const field = document.querySelector('[aria-label="YouTube link"]');
+            const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+            setter.call(field, 'https://youtu.be/dQw4w9WgXcQ');
+            field.dispatchEvent(new Event('input', { bubbles: true }));
+          })()`);
+          await window.webContents.executeJavaScript(`(() => {
+            const play = [...document.querySelectorAll('button')].find((node) => node.textContent.trim() === 'Play');
+            play?.click();
+          })()`);
+          await new Promise((resolve) => setTimeout(resolve, 800));
+          const src = await window.webContents.executeJavaScript(
+            'document.querySelector("[data-testid=youtube-player] iframe")?.src ?? ""',
+          );
+          clearTimeout(watchdog);
+          finishSmoke(
+            !settings.before && settings.saved && settings.after && !settings.cleared &&
+              src.includes('dQw4w9WgXcQ')
+              ? 0
+              : 1,
+            `YouTube: ${JSON.stringify({ settings, src })}`,
+          );
           return;
         }
         if (smokeHash === 'dictionary') {
@@ -665,7 +711,8 @@ function createWindow() {
       smokeHash !== 'pdf' &&
       smokeHash !== 'watch' &&
       smokeHash !== 'subtitles' &&
-      smokeHash !== 'dictionary'
+      smokeHash !== 'dictionary' &&
+      smokeHash !== 'youtube'
         ? `#${smokeHash}`
         : '';
     window.loadURL(smoke ? `${devUrl}${smokeRoute}` : devUrl);
