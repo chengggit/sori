@@ -100,12 +100,14 @@ set(CORE_TARGET "${CMAKE_CURRENT_BINARY_DIR}/cargo")
 set(CORE_PROFILE "$<IF:$<CONFIG:Debug>,dev,$<IF:$<CONFIG:RelWithDebInfo>,release-with-debug,release>>")
 set(CORE_PROFILE_DIR "$<IF:$<CONFIG:Debug>,debug,$<IF:$<CONFIG:RelWithDebInfo>,release-with-debug,release>>")
 set(CORE_LIB "${CORE_TARGET}/${CORE_PROFILE_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}sori_core${CMAKE_STATIC_LIBRARY_SUFFIX}")
-file(GLOB_RECURSE CORE_SOURCES CONFIGURE_DEPENDS "${CORE_DIR}/src/*.rs" "${CORE_DIR}/src/*.sql")
+file(GLOB_RECURSE CORE_SOURCES CONFIGURE_DEPENDS "${CORE_DIR}/src/*.rs" "${CORE_DIR}/src/*.sql"
+    "${CORE_DIR}/vendor/kiwi-rs/src/*.rs")
 add_custom_command(OUTPUT "${CORE_LIB}"
     COMMAND "${CMAKE_COMMAND}" -E env "QMAKE=${SORI_QMAKE}"
         "${CARGO_EXECUTABLE}" build --profile "${CORE_PROFILE}" --locked
         --manifest-path "${CORE_DIR}/Cargo.toml" --target-dir "${CORE_TARGET}"
     DEPENDS "${SORI_QMAKE}" ${CORE_SOURCES} "${CORE_DIR}/Cargo.toml" "${CORE_DIR}/Cargo.lock"
+        "${CORE_DIR}/vendor/kiwi-rs/Cargo.toml"
         "${CMAKE_CURRENT_SOURCE_DIR}/scripts/youtube_transcript.py"
     USES_TERMINAL
     VERBATIM

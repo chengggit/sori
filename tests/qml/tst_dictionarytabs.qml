@@ -69,10 +69,11 @@ TestCase {
     function test_wide_sidebar_keeps_tabs_in_place() {
         const panel = makePanel()
         panel.preferredWidth = 700
-        wait(50)
+        tryCompare(panel, "width", 700)
         const tabs = tabsIn(panel)
         const strip = tabs.contentItem
-        verify(strip.contentWidth <= strip.width + 1)
+        tryVerify(() => strip.contentWidth <= strip.width + 1, 2000,
+            "The resized tab strip should fit all tabs")
 
         wheelOver(strip, -120)
         compare(strip.contentX, 0)

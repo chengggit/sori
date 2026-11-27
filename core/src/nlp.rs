@@ -177,6 +177,8 @@ mod tests {
         let example = analyzer.analyze("마음만큼은".into()).unwrap();
         let forms: Vec<_> = example.iter().map(|token| token.form.as_str()).collect();
         assert_eq!(forms, ["마음", "만큼", "은"]);
+        let tags: Vec<_> = example.iter().map(|token| token.tag.as_str()).collect();
+        assert_eq!(tags, ["NNG", "JKB", "JX"]);
         for text in [
             "학교에 갔어요.",
             "😀 학교에 갔어요.\n한국어를 공부해요.",

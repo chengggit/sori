@@ -83,6 +83,7 @@ Rectangle {
 
     NumberAnimation {
         id: scrollAnimation
+        objectName: "transcriptScrollAnimation"
         target: lines
         property: "contentY"
         duration: 650

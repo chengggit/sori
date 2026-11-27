@@ -48,19 +48,20 @@ TestCase {
     function test_follow() {
         const list = findChild(transcript, "subtitleTranscript")
         verify(list !== null)
+        const animation = findChild(transcript, "transcriptScrollAnimation")
+        verify(animation !== null)
         fakeSubtitles.activeRow = 3
-        wait(750)
-        verify(Math.abs(list.contentY - list.itemAtIndex(3).y) < 2, "The current line should settle at the top")
+        tryVerify(() => list.itemAtIndex(3) !== null
+            && Math.abs(list.contentY - list.itemAtIndex(3).y) < 2, 2000,
+            "The current line should settle at the top")
 
         // A playback seek outside the instantiated delegate range must animate.
         const before = list.contentY
         fakeSubtitles.activeRow = 80
-        wait(100)
-        const halfway = list.contentY
-        verify(halfway > before + 5)
-        wait(650)
-        verify(list.contentY > halfway + 100)
-        tryVerify(() => list.itemAtIndex(80) !== null && Math.abs(list.contentY - list.itemAtIndex(80).y) < 2, 1500)
+        verify(animation.running, "A distant seek should animate")
+        compare(list.contentY, before, "A distant seek must not jump immediately")
+        tryVerify(() => list.contentY > before + 5, 2000)
+        tryVerify(() => list.itemAtIndex(80) !== null && Math.abs(list.contentY - list.itemAtIndex(80).y) < 2, 3000)
         verify(transcript.following)
 
         mouseWheel(list, 200, 100, 0, -120)
