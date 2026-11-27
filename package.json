@@ -1,0 +1,16 @@
+{
+  "name": "sori-workspace",
+  "private": true,
+  "workspaces": [
+    "apps/desktop"
+  ],
+  "scripts": {
+    "desktop:dev": "npm run dev -w @sori/desktop",
+    "desktop:dev:vite": "npm run dev:vite -w @sori/desktop",
+    "desktop:build": "npm run build -w @sori/desktop",
+    "desktop:typecheck": "npm run typecheck -w @sori/desktop",
+    "desktop:test:unit": "npm run test:unit -w @sori/desktop",
+    "desktop:test:e2e": "npm run test:e2e -w @sori/desktop",
+    "desktop:package": "npm run package -w @sori/desktop"
+  }
+}
