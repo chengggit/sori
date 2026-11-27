@@ -1,8 +1,9 @@
 <script lang="ts">
-  import { Bookmark, Compass, History, House, Library, PanelLeft, Settings } from "@lucide/svelte";
   import type { Snippet } from "svelte";
+  import AppSidebar from "./AppSidebar.svelte";
+  import * as Sidebar from "$lib/components/ui/sidebar";
+  import * as Sheet from "$lib/components/ui/sheet";
   import { appearanceOptions, clampPageScale, type Appearance } from "$lib/appearance";
-  import { cn } from "$lib/utils";
 
   let {
     page,
@@ -26,115 +27,97 @@
     children?: Snippet;
   } = $props();
 
-  const links = [
-    { page: "home", label: "Home", icon: House },
-    { page: "explore", label: "Explore", icon: Compass },
-    { page: "library", label: "My Library", icon: Library },
-    { page: "vocabulary", label: "Vocabulary", icon: Bookmark },
-    { page: "history", label: "History", icon: History },
-    { page: "settings", label: "Settings", icon: Settings },
-  ];
+  let open = $state(localStorage.getItem("sori-sidebar-collapsed") !== "true");
+  let appearanceOpen = $state(false);
+  const titles: Record<string, string> = {
+    home: "Home",
+    explore: "Explore",
+    library: "My Library",
+    history: "History",
+    vocabulary: "Vocabulary",
+    settings: "Settings",
+  };
+  const title = $derived(titleOverride ?? titles[page] ?? "Home");
+  $effect(() => localStorage.setItem("sori-sidebar-collapsed", String(!open)));
 
-  let collapsed = $state(localStorage.getItem("sori-sidebar-collapsed") === "true");
-  $effect(() => localStorage.setItem("sori-sidebar-collapsed", String(collapsed)));
-
-  const title = $derived(titleOverride ?? links.find((link) => link.page === page)?.label ?? "Home");
+  function onZoomKey(event: KeyboardEvent) {
+    if (!(event.ctrlKey || event.metaKey) || !event.shiftKey || event.altKey || event.isComposing)
+      return;
+    const direction = ["Equal", "NumpadAdd"].includes(event.code)
+      ? 1
+      : ["Minus", "NumpadSubtract"].includes(event.code)
+        ? -1
+        : 0;
+    if (!direction && !["Digit0", "Numpad0"].includes(event.code)) return;
+    event.preventDefault();
+    onScale(direction ? clampPageScale(Math.round((pageScale + direction * 0.1) * 10) / 10) : 1);
+  }
 </script>
 
-<div class="flex h-screen overflow-hidden">
-  <aside
-    data-testid="sidebar"
-    aria-label="Navigation"
-    class={cn(
-      "flex shrink-0 flex-col gap-6 border-r border-sidebar-border bg-sidebar px-2.5 py-3.5 transition-[width] duration-200 ease-out",
-      collapsed ? "w-14" : "w-52",
-    )}
-  >
-    <div class="flex min-h-9 items-center justify-between pl-2.5 pr-0.5">
-      {#if !collapsed}<strong class="text-lg tracking-wide">sori</strong>{/if}
-      <button
-        type="button"
-        class="flex size-9 items-center justify-center rounded-lg hover:bg-neutral-hover"
-        aria-label="Toggle sidebar"
-        onclick={() => (collapsed = !collapsed)}
-      >
-        <PanelLeft size={16} />
-      </button>
-    </div>
+<svelte:window onkeydown={onZoomKey} />
 
-    <nav class="flex flex-col gap-0.5">
-      {#each links as link (link.page)}
-        {@const Icon = link.icon}
-        <button
-          type="button"
-          data-testid={`nav-${link.page}`}
-          title={link.label}
-          aria-current={page === link.page ? "page" : undefined}
-          class={cn(
-            "flex h-[34px] w-full items-center gap-3 rounded-[14px] px-3 text-left hover:bg-neutral-hover",
-            page === link.page && "bg-sidebar-selection text-dashboard-accent",
-          )}
-          onclick={() => onPage(link.page)}
-        >
-          <Icon size={16} class="shrink-0" />
-          {#if !collapsed}<span>{link.label}</span>{/if}
-        </button>
-      {/each}
-    </nav>
-
-    <div class="mt-auto flex flex-col gap-2 px-1">
-      <p class="m-0 text-[11px] text-muted-foreground">Appearance</p>
-      <div class="flex flex-wrap gap-1" role="group" aria-label="Theme">
-        {#each appearanceOptions as option (option.value)}
-          <button
-            type="button"
-            data-testid={`theme-${option.value}`}
-            class={cn(
-              "rounded-lg border border-border bg-card px-2 py-1 text-[11px] hover:bg-neutral-hover",
-              appearance === option.value && "bg-accent-soft",
-            )}
-            onclick={() => onAppearance(option.value)}
-          >
-            {option.label}
-          </button>
-        {/each}
+<Sidebar.Provider
+  bind:open
+  style="--sidebar-width: 13rem;"
+  class="h-(--app-height) min-h-0 overflow-hidden"
+>
+  <AppSidebar
+    {page}
+    openSettings={() => onPage("settings")}
+    openAppearance={() => (appearanceOpen = true)}
+  />
+  <main data-testid="page-content" class="min-w-0 flex-1 overflow-auto">
+    <header class="sticky top-0 z-10 border-b border-border bg-background">
+      <div class="mx-auto flex h-14 max-w-6xl items-center gap-2 px-4 sm:px-8">
+        <Sidebar.Trigger class="md:hidden" />
+        <h1 data-testid="page-title" class="text-lg font-semibold">{title}</h1>
       </div>
-      <label class="flex flex-col gap-1 text-[11px] text-muted-foreground">
-        <span>Zoom {Math.round(pageScale * 100)}%</span>
+    </header>
+    <div class="mx-auto max-w-6xl px-4 py-6 sm:px-8">
+      {@render children?.()}
+    </div>
+  </main>
+</Sidebar.Provider>
+
+<Sheet.Root bind:open={appearanceOpen}>
+  <Sheet.Content>
+    <Sheet.Header>
+      <Sheet.Title>Appearance</Sheet.Title>
+      <Sheet.Description>Choose a theme and adjust the size of the app.</Sheet.Description>
+    </Sheet.Header>
+    <div class="space-y-6 px-4 pb-4">
+      <fieldset class="space-y-3">
+        <legend class="font-medium">Theme</legend>
+        <div class="flex gap-2">
+          {#each appearanceOptions as option (option.value)}
+            <button
+              type="button"
+              data-testid={`theme-${option.value}`}
+              aria-pressed={appearance === option.value}
+              class="rounded-lg border border-border px-3 py-2 hover:bg-neutral-hover aria-pressed:bg-accent-soft"
+              onclick={() => onAppearance(option.value)}
+            >
+              {option.label}
+            </button>
+          {/each}
+        </div>
+        <p data-testid="theme-state" class="text-sm text-muted-foreground">{dark ? "Dark" : "Light"}</p>
+      </fieldset>
+      <label class="flex flex-col gap-3 text-sm">
+        <span>App zoom · {Math.round(pageScale * 100)}%</span>
         <input
           type="range"
           min="0.5"
           max="1.5"
           step="0.1"
           value={pageScale}
-          aria-label="Page zoom"
+          aria-label="App zoom"
           oninput={(event) => onScale(clampPageScale(Number(event.currentTarget.value)))}
         />
       </label>
-      <p class="m-0 text-[11px] text-muted-foreground" data-testid="theme-state">
-        {dark ? "Dark" : "Light"}
+      <p class="text-xs text-muted-foreground">
+        Ctrl/Cmd + Shift + Plus or Minus to zoom. Ctrl/Cmd + Shift + 0 to reset.
       </p>
     </div>
-  </aside>
-
-  <main data-testid="page-content" class="flex-1 overflow-auto p-7">
-    <h1 data-testid="page-title" class="m-0 mb-4 text-3xl">{title}</h1>
-    {#if children}
-      {@render children()}
-    {:else}
-      <p class="text-muted-foreground">Page shell — feature work continues in later migration steps.</p>
-      <p><a href="#bridge">Dev bridge</a> · <a href="#analysis">Analysis</a></p>
-    {/if}
-  </main>
-</div>
-
-<style>
-  @media (max-width: 720px) {
-    aside {
-      width: 3.5rem !important;
-    }
-    aside span {
-      display: none;
-    }
-  }
-</style>
+  </Sheet.Content>
+</Sheet.Root>

@@ -20,6 +20,18 @@ layouts and measurements.
 - Use Inter for UI and Noto Sans KR for Korean reading text by default.
 - Design light and dark themes together, with comfortable line height and contrast.
 
+## Shared shell
+
+The shell reuses the original Svelte sidebar, sheet and tooltip components.
+Desktop navigation supports a persisted icon-only mode and Ctrl/Cmd+B; narrow
+windows use a modal navigation drawer that closes after selecting a page.
+The header keeps the page title and mobile navigation toggle in view.
+
+Appearance opens a dialog for system/light/dark themes and application zoom.
+Ctrl/Cmd+Shift+Plus/Minus changes zoom; Ctrl/Cmd+Shift+0 resets it. Shell height
+accounts for application zoom so footer controls remain reachable. Settings
+continues to open the existing page until its own frontend rework slice.
+
 ## Adaptability
 
 - Support window resizing, application zoom, and independent reader typography

@@ -1,7 +1,7 @@
 import type { Command, DesktopBridge } from "./bridge";
 import type { Response } from "./envelope";
 
-/** The seam between UI/domain logic and the host. Web can implement this later. */
+/** Keeps Electron integration behind a typed renderer interface. */
 export interface Platform {
   invoke<T>(command: Command, payload?: Record<string, unknown>): Promise<Response<T>>;
   onEvent(event: string, listener: (payload: unknown) => void): () => void;

@@ -1,5 +1,4 @@
-/* OKLCH palette from the original Svelte src/routes/layout.css. Sizes below
-   keep the Qt theme's measurements. */
+/* OKLCH palette shared with the original Svelte frontend. */
 @font-face {
   font-family: Inter;
   src: url("./assets/fonts/Inter-Variable.ttf") format("truetype-variations");
@@ -14,6 +13,7 @@
 }
 
 :root {
+  --app-height: calc(100dvh / var(--app-scale, 1));
   color-scheme: light;
   --background: oklch(0.964 0.003 145);
   --sidebar: oklch(0.986 0.002 145);
