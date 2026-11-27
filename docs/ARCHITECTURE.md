@@ -73,6 +73,8 @@ serialize whole collections; introduce row-level models only if measurements jus
 
 `nlp.rs` lazily loads pinned local Kiwi resources once on a dedicated owning
 thread. Its bounded queue avoids sharing the native handle across threads.
+The pinned Rust binding has a [local safety patch](../core/vendor/kiwi-rs/SORI-PATCH.md)
+to avoid probing invalid native POS tag IDs, with instructions for removing it.
 `reader.rs` extracts bounded selection context.
 
 Reader and both Watch pages reuse analysis/vocabulary components. Dictionary
@@ -98,9 +100,13 @@ builds bundle its private runtime; local workflows do not require Python.
 ## Build, packaging, and validation
 
 - CMake builds C++, invokes locked Cargo dependencies, and embeds QML/resources.
-  `CMakePresets.json` defines dev/release builds.
+  `CMakePresets.json` defines dev/release builds. Build-time targets prepare Kiwi
+  and an optional private caption environment under the build directory; configuration
+  does not download resources. Existing resources and offline setup are supported.
 - Use one matching Qt SDK for all Qt modules and the Rust bridge.
 - CI targets Ubuntu 24.04 LTS, Windows x86_64, and macOS arm64.
+- The explicit CMake `package` target builds and dispatches platform packaging;
+  normal builds do not package. Staging and outputs use the selected build directory.
 - Artifacts: Linux AppImage, per-user Windows Inno Setup installer, and macOS
   DMG with an Applications shortcut. Windows signing and Apple Developer ID
   signing/notarization are separate release steps.

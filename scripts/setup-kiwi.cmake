@@ -71,6 +71,10 @@ if(EXISTS "${marker}")
     endif()
 endif()
 
+if(DEFINED SORI_ALLOW_DOWNLOADS AND NOT SORI_ALLOW_DOWNLOADS)
+    message(FATAL_ERROR "Kiwi resources are missing or outdated. Enable SORI_ALLOW_DOWNLOADS or supply prepared resources with SORI_KIWI_DIR and SORI_PREPARE_KIWI=OFF.")
+endif()
+
 set(staging "${KIWI_DESTINATION}/.setup")
 file(REMOVE_RECURSE "${staging}")
 file(MAKE_DIRECTORY "${staging}")

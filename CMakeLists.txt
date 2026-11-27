@@ -20,7 +20,18 @@ if(WIN32)
 else()
     find_package(PkgConfig REQUIRED)
     pkg_check_modules(MPV REQUIRED IMPORTED_TARGET mpv)
-    set(SORI_MPV_TARGET PkgConfig::MPV)
+    pkg_get_variable(MPV_HEADER_ROOT mpv includedir)
+    find_path(MPV_INCLUDE_DIR mpv/client.h HINTS "${MPV_HEADER_ROOT}" ${MPV_INCLUDE_DIRS} REQUIRED)
+    pkg_get_variable(MPV_LIBRARY_ROOT mpv libdir)
+    find_library(MPV_LIBRARY NAMES mpv HINTS "${MPV_LIBRARY_ROOT}" ${MPV_LIBRARY_DIRS} REQUIRED)
+    # Link the actual library explicitly: an incomplete .pc file must not turn
+    # mpv into a headers-only dependency on platforms with non-system prefixes.
+    add_library(SoriMpv UNKNOWN IMPORTED)
+    set_target_properties(SoriMpv PROPERTIES IMPORTED_LOCATION "${MPV_LIBRARY}"
+        INTERFACE_INCLUDE_DIRECTORIES "${MPV_INCLUDE_DIR}"
+        INTERFACE_LINK_LIBRARIES PkgConfig::MPV)
+    set(SORI_MPV_TARGET SoriMpv)
+    message(STATUS "Using libmpv: ${MPV_LIBRARY}")
 endif()
 get_target_property(SORI_QMAKE Qt6::qmake IMPORTED_LOCATION)
 
@@ -44,7 +55,28 @@ if(WIN32)
     target_sources(sori PRIVATE packaging/windows/sori.rc)
     target_include_directories(sori PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/packaging/windows")
 endif()
-target_compile_definitions(sori PRIVATE SORI_KIWI_DIR="${CMAKE_CURRENT_SOURCE_DIR}/resources/kiwi")
+option(SORI_ALLOW_DOWNLOADS "Allow project resource downloads during builds (Cargo has its own offline mode)" ON)
+option(SORI_PREPARE_KIWI "Prepare pinned Kiwi resources automatically" ON)
+set(SORI_KIWI_DIR "${CMAKE_BINARY_DIR}/deps/kiwi" CACHE PATH "Prepared Kiwi library and models")
+if(CMAKE_CROSSCOMPILING AND SORI_PREPARE_KIWI)
+    message(FATAL_ERROR "Cross builds must supply target Kiwi resources with SORI_PREPARE_KIWI=OFF and SORI_KIWI_DIR.")
+endif()
+if(WIN32)
+    set(_kiwi_library kiwi.dll)
+elseif(APPLE)
+    set(_kiwi_library libkiwi.dylib)
+else()
+    set(_kiwi_library libkiwi.so)
+endif()
+add_custom_target(kiwi-resources
+    COMMAND "${CMAKE_COMMAND}" "-DSORI_KIWI_DIR=${SORI_KIWI_DIR}"
+        "-DSORI_PREPARE_KIWI=${SORI_PREPARE_KIWI}" "-DSORI_ALLOW_DOWNLOADS=${SORI_ALLOW_DOWNLOADS}"
+        "-DKIWI_LIBRARY=${_kiwi_library}" -P "${CMAKE_SOURCE_DIR}/scripts/prepare-kiwi.cmake"
+    VERBATIM)
+add_dependencies(sori kiwi-resources)
+target_compile_definitions(sori PRIVATE SORI_KIWI_DIR="${SORI_KIWI_DIR}")
+install(DIRECTORY "${SORI_KIWI_DIR}/" DESTINATION bin/kiwi
+    PATTERN "setup.lock" EXCLUDE PATTERN ".setup" EXCLUDE)
 option(SORI_QML_PREVIEW "Enable QML live preview for local development" OFF)
 if(SORI_QML_PREVIEW)
     if(Qt6_VERSION VERSION_LESS 6.12)
@@ -68,24 +100,39 @@ set(CORE_TARGET "${CMAKE_CURRENT_BINARY_DIR}/cargo")
 set(CORE_PROFILE "$<IF:$<CONFIG:Debug>,dev,$<IF:$<CONFIG:RelWithDebInfo>,release-with-debug,release>>")
 set(CORE_PROFILE_DIR "$<IF:$<CONFIG:Debug>,debug,$<IF:$<CONFIG:RelWithDebInfo>,release-with-debug,release>>")
 set(CORE_LIB "${CORE_TARGET}/${CORE_PROFILE_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}sori_core${CMAKE_STATIC_LIBRARY_SUFFIX}")
-file(GLOB_RECURSE CORE_SOURCES CONFIGURE_DEPENDS "${CORE_DIR}/src/*.rs" "${CORE_DIR}/src/*.sql")
+file(GLOB_RECURSE CORE_SOURCES CONFIGURE_DEPENDS "${CORE_DIR}/src/*.rs" "${CORE_DIR}/src/*.sql"
+    "${CORE_DIR}/vendor/kiwi-rs/src/*.rs")
 add_custom_command(OUTPUT "${CORE_LIB}"
     COMMAND "${CMAKE_COMMAND}" -E env "QMAKE=${SORI_QMAKE}"
         "${CARGO_EXECUTABLE}" build --profile "${CORE_PROFILE}" --locked
         --manifest-path "${CORE_DIR}/Cargo.toml" --target-dir "${CORE_TARGET}"
     DEPENDS "${SORI_QMAKE}" ${CORE_SOURCES} "${CORE_DIR}/Cargo.toml" "${CORE_DIR}/Cargo.lock"
+        "${CORE_DIR}/vendor/kiwi-rs/Cargo.toml"
         "${CMAKE_CURRENT_SOURCE_DIR}/scripts/youtube_transcript.py"
+    USES_TERMINAL
     VERBATIM
 )
 add_custom_target(sori-core DEPENDS "${CORE_LIB}")
 add_dependencies(sori sori-core)
 
+include(scripts/bundle-youtube.cmake)
+
 enable_testing()
 add_test(NAME rust
     COMMAND "${CMAKE_COMMAND}" -E env "QMAKE=${SORI_QMAKE}"
-        "${CARGO_EXECUTABLE}" test --locked
+        "${CARGO_EXECUTABLE}" test --profile "${CORE_PROFILE}" --locked
         --manifest-path "${CORE_DIR}/Cargo.toml" --target-dir "${CORE_TARGET}"
 )
+option(SORI_TEST_NATIVE_KIWI "Enable tests requiring prepared native Kiwi fixtures" OFF)
+if(SORI_TEST_NATIVE_KIWI)
+    add_test(NAME kiwi
+        COMMAND "${CMAKE_COMMAND}" -E env "QMAKE=${SORI_QMAKE}"
+            "${CARGO_EXECUTABLE}" test --profile "${CORE_PROFILE}" --locked
+            --manifest-path "${CORE_DIR}/Cargo.toml" --target-dir "${CORE_TARGET}"
+            nlp::tests -- --include-ignored --nocapture)
+    set_tests_properties(kiwi PROPERTIES TIMEOUT 120)
+endif()
+
 add_executable(sori-bridge-test tests/native/bridge_smoke.cpp)
 add_dependencies(sori-bridge-test sori-core)
 target_link_libraries(sori-bridge-test PRIVATE "${CORE_LIB}" Qt6::Test Qt6::Quick ${SORI_MPV_TARGET})
@@ -103,14 +150,16 @@ add_test(NAME qml COMMAND "${CMAKE_COMMAND}" -E env
     -input "${CMAKE_SOURCE_DIR}/tests/qml")
 set_tests_properties(qml PROPERTIES TIMEOUT 90)
 
-# Python remains optional. Register helper tests when its development environment exists.
-if(WIN32)
+# Use the managed helper environment for tests, or an existing development environment.
+if(SORI_BUNDLE_TRANSCRIPT_HELPER)
+    set(_sori_test_python "${_sori_helper_python}")
+elseif(WIN32)
     set(_sori_test_python "${CMAKE_SOURCE_DIR}/.venv-youtube/Scripts/python.exe")
 else()
     set(_sori_test_python "${CMAKE_SOURCE_DIR}/.venv-youtube/bin/python")
 endif()
 set(SORI_TEST_PYTHON "${_sori_test_python}" CACHE FILEPATH "Python with youtube-transcript-api for helper tests")
-if(EXISTS "${SORI_TEST_PYTHON}")
+if(EXISTS "${SORI_TEST_PYTHON}" OR TARGET caption-python)
     add_test(NAME python COMMAND "${SORI_TEST_PYTHON}" -m unittest discover
         -s "${CMAKE_SOURCE_DIR}/tests/python")
 else()
@@ -118,6 +167,12 @@ else()
 endif()
 
 target_link_libraries(sori PRIVATE "${CORE_LIB}" Qt6::Quick Qt6::OpenGL Qt6::Test Qt6::PdfQuick ${SORI_MPV_TARGET})
+if(WIN32)
+    # Rust's staticlib uses Windows named-pipe APIs from ntdll. Cargo supplies
+    # this when linking Rust binaries; CMake must supply it for our executables.
+    target_link_libraries(sori PRIVATE ntdll)
+    target_link_libraries(sori-bridge-test PRIVATE ntdll)
+endif()
 if(TARGET Qt6::WebEngineQuick)
     target_link_libraries(sori PRIVATE Qt6::WebEngineQuick)
     target_compile_definitions(sori PRIVATE SORI_WEB_ENGINE)
@@ -206,5 +261,15 @@ qt_add_resources(sori "watch" PREFIX "/" FILES
     assets/Inter-Variable.ttf assets/NotoSansKR-Regular.otf
 )
 
-include(scripts/bundle-youtube.cmake)
 install(TARGETS sori RUNTIME DESTINATION bin BUNDLE DESTINATION .)
+
+# Explicit packaging never runs as part of a normal build.
+add_custom_target(package
+    COMMAND "${CMAKE_COMMAND}" "-DSOURCE_DIR=${CMAKE_SOURCE_DIR}"
+        "-DBUILD_DIR=${CMAKE_BINARY_DIR}" "-DCONFIG=$<CONFIG>"
+        "-DBUNDLE_HELPER=${SORI_BUNDLE_TRANSCRIPT_HELPER}"
+        "-DQMAKE=${SORI_QMAKE}" "-DMPV_ROOT=${MPV_ROOT}"
+        -P "${CMAKE_SOURCE_DIR}/scripts/package.cmake"
+    DEPENDS sori
+    USES_TERMINAL
+    VERBATIM)

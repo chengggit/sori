@@ -522,7 +522,11 @@ Item {
                 visible: reveal > 0
                 opacity: reveal
                 Behavior on reveal {
-                    NumberAnimation { duration: 220; easing.type: Easing.InOutCubic }
+                    NumberAnimation {
+                        objectName: "discoveryLoadingAnimation"
+                        duration: 220
+                        easing.type: Easing.InOutCubic
+                    }
                 }
 
                 Rectangle {

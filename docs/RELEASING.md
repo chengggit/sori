@@ -10,35 +10,47 @@ see [CONTRIBUTING.md](../CONTRIBUTING.md).
 ## CI artifacts
 
 [Desktop builds](../.github/workflows/build.yml) runs on pushes to `main`, version
-tags, pull requests, and manual dispatch. It builds and tests with Qt 6.10.2,
-Kiwi resources, and the private Python caption helper.
+tags, pull requests, and manual dispatch, using Qt 6.10.2.
+
+- **Pull requests and main:** build and test on all three platforms, without Rust optimization,
+  caption-helper bundling, or installers. Caption logic is still tested in Python.
+  Main also warms caches for future PRs.
+- **Version tags and manual runs:** optimized builds, bundled captions,
+  installers, and package smoke checks.
+
+Manual runs can package one platform or all three.
+
+Compiled Rust dependencies, Qt, pip downloads, and Kiwi resources are cached.
+The first run or a toolchain change still needs a cold build.
 
 | Target                           | Package                                             |
 | -------------------------------- | --------------------------------------------------- |
 | Ubuntu 24.04 LTS x86_64          | AppImage                                            |
 | Windows Server 2022 x86_64, MSVC | Per-user Inno Setup `.exe` installer                |
-| macOS 14 arm64                   | `.dmg` with `Sori.app` and an Applications shortcut |
+| macOS 15 arm64                   | `.dmg` with `Sori.app` and an Applications shortcut |
 
 Packages include SHA-256 checksums. CI uploads build candidates; it does not
-publish GitHub releases automatically. Windows/macOS still need successful
-hosted runs and clean-system testing before being advertised as supported.
+publish GitHub releases automatically. Test core workflows on clean target
+systems before advertising a platform as supported.
 
 The Windows installer uses `%LOCALAPPDATA%\Programs\Sori` without administrator
 access. It offers shortcuts and an uninstaller that preserves separate user
 data. CI checks a silent install, installed tools, and uninstall.
-The installer is unsigned. macOS CI verifies the DMG and ad-hoc app signature;
+The installer bundles the Vulkan loader required by its mpv DLL and the loader's
+license. It does not require a system-wide Vulkan SDK. The installer is unsigned.
+macOS CI verifies the DMG and ad-hoc app signature;
 Developer ID signing and notarization are not configured.
 
 ## Linux AppImage
 
-Prepare the development dependencies, `.venv-youtube`, and `appstreamcli`
+Prepare the development dependencies, Python with pip/venv, and `appstreamcli`
 (`appstream` on Fedora), then run:
 
 ```sh
-./scripts/dev appimage
+cmake --build build --target package
 ```
 
-This builds Release, recreates `build/appimage/Sori.AppDir/`, and bundles
+After configuring a Release build, this builds the app, recreates `build/appimage/Sori.AppDir/`, and bundles
 Qt/QML/WebEngine, mpv dependencies, FFmpeg/FFprobe, Kiwi, and the private caption
 helper. Packaging tools and the AppImage runtime are checksum-pinned and cached
 in `build/appimage-tools/`. Review upstream changes before updating failed pins.
@@ -61,8 +73,11 @@ WebEngine keeps its sandbox and user data stays in the normal Sori data director
 
 An AppImage still depends on the host ABI. Use the oldest supported build
 baseline and test target distributions. `usr/share/doc/sori/BUILDINFO.json`
-records the highest glibc requirement across bundled binaries. The initial
-Fedora 44 candidate requires glibc 2.43; it cannot be advertised for older systems.
+records the highest glibc requirement across bundled binaries.
 
 A plain `cmake --install` stages the app and caption helper, but does not perform
 the complete native dependency deployment used by these packaging scripts.
+
+The explicit `package` target also selects the DMG or Windows installer on those
+platforms. Outputs and staging stay in the selected build directory; normal
+builds do not package.

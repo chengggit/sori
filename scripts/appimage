@@ -3,6 +3,11 @@ set -euo pipefail
 
 project_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$project_dir"
+if [[ -z "${SORI_BUILD_DIR:-}" ]]; then
+    cmake --preset release
+    exec cmake --build --preset release --target package
+fi
+build_dir="$SORI_BUILD_DIR"
 if [[ "$(uname -s)" != Linux || "$(uname -m)" != x86_64 ]]; then
     echo "This packaging workflow currently supports Linux x86_64 only." >&2
     exit 1
@@ -11,8 +16,8 @@ for dependency in cmake curl sha256sum ffmpeg ffprobe python3 readelf git appstr
     command -v "$dependency" >/dev/null || { echo "Missing build tool: $dependency" >&2; exit 1; }
 done
 
-tools_dir="$project_dir/build/appimage-tools"
-appdir="$project_dir/build/appimage/Sori.AppDir"
+tools_dir="$build_dir/appimage-tools"
+appdir="$build_dir/appimage/Sori.AppDir"
 mkdir -p "$tools_dir"
 fetch_tool() {
     local repository="$1" name="$2" checksum="$3"
@@ -32,17 +37,13 @@ fetch_tool linuxdeploy/linuxdeploy-plugin-qt linuxdeploy-plugin-qt-x86_64.AppIma
 fetch_tool AppImage/appimagetool appimagetool-x86_64.AppImage e8c1169c4af66c3184d7ee110713d4be04befe671fa358e2c1591ee840553b03
 fetch_tool AppImage/type2-runtime runtime-x86_64 617aa77314d57c8b8e4fae9c3f0b35af7b30d5529cb69e98f64f92510ed98a46
 
-cmake -P scripts/setup-kiwi.cmake
-cmake --preset release
-cmake --build --preset release --parallel "${CMAKE_BUILD_PARALLEL_LEVEL:-2}"
 # Only this workflow's generated AppDir is replaced.
 rm -rf -- "$appdir"
-cmake --install build --prefix "$appdir/usr"
-cmake -E copy_directory resources/kiwi "$appdir/usr/bin/kiwi"
+cmake --install "$build_dir" --prefix "$appdir/usr"
 
 export APPIMAGE_EXTRACT_AND_RUN=1
 export NO_STRIP=1
-export QMAKE="${QMAKE:-$(sed -n 's/^SORI_QMAKE:FILEPATH=//p' build/CMakeCache.txt)}"
+export QMAKE="${QMAKE:-$(sed -n 's/^SORI_QMAKE:FILEPATH=//p' "$build_dir/CMakeCache.txt")}"
 if [[ -z "$QMAKE" ]]; then
     QMAKE="$(command -v qmake6 || command -v qmake)"
 fi
@@ -70,17 +71,17 @@ cp packaging/linux/com.sori.app.metainfo.xml "$appdir/usr/share/metainfo/com.sor
 cp packaging/linux/sori.png "$appdir/.DirIcon"
 cp LICENSE README.md "$appdir/usr/share/doc/sori/"
 cp assets/*LICENSE* assets/OFL-*.txt assets/kiwi/*LICENSE "$appdir/usr/share/doc/sori/licenses/"
-python3 scripts/appimage-manifest.py "$appdir"
+python3 scripts/appimage-manifest.py "$appdir" "$build_dir"
 python3 scripts/appimage-smoke.py "$appdir"
 appstreamcli validate --no-net "$appdir/usr/share/metainfo/com.sori.app.appdata.xml"
 
 version="$(git describe --tags --always --dirty)"
-output="$project_dir/build/Sori-$version-x86_64.AppImage"
+output="$build_dir/Sori-$version-x86_64.AppImage"
 rm -f -- "$output"
 ARCH=x86_64 "$tools_dir/appimagetool-x86_64.AppImage" --comp zstd --no-appstream \
     --runtime-file "$tools_dir/runtime-x86_64" \
     --mksquashfs-opt=-processors --mksquashfs-opt=2 "$appdir" "$output"
 QT_QPA_PLATFORM=offscreen "$output" --help >/dev/null
-cd "$project_dir/build"
+cd "$build_dir"
 sha256sum "$(basename "$output")" > "$(basename "$output").sha256"
 echo "Created $output"

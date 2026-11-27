@@ -419,22 +419,23 @@ mod tests {
         assert!(update_metadata(&connection, 1, 100.0, None).unwrap());
         assert_eq!(metadata(&connection, 1).unwrap().duration, 100.0);
         save_progress(&connection, 1, 29.0, 98.0).unwrap();
-        assert!(update_metadata(
-            &connection,
-            1,
-            100.0,
-            Some(Path::new("/tmp/cache #1/1.jpg"))
-        )
-        .unwrap());
+        #[cfg(windows)]
+        let (thumbnail, expected_url) = (
+            Path::new("C:/sori-test/cache #1/1.jpg"),
+            "file:///C:/sori-test/cache%20%231/1.jpg",
+        );
+        #[cfg(not(windows))]
+        let (thumbnail, expected_url) = (
+            Path::new("/tmp/cache #1/1.jpg"),
+            "file:///tmp/cache%20%231/1.jpg",
+        );
+        assert!(update_metadata(&connection, 1, 100.0, Some(thumbnail)).unwrap());
         save_progress(&connection, 1, 30.0, f64::NAN).unwrap();
 
         let videos = list(&connection).unwrap();
         assert_eq!(videos[0].duration, 98.0);
         assert_eq!(videos[0].seconds, 30.0);
-        assert_eq!(
-            videos[0].thumbnail_url.as_deref(),
-            Some("file:///tmp/cache%20%231/1.jpg")
-        );
+        assert_eq!(videos[0].thumbnail_url.as_deref(), Some(expected_url));
         assert!(videos[0].watched_at.is_some());
 
         remove(&connection, 1).unwrap();

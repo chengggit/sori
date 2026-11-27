@@ -6,11 +6,11 @@ Core features must work offline without AI, an account, or a remote server.
 
 ## Read before changing code
 
+- `DEVELOPING.md` — setup, build commands, and testing.
+- `CONTRIBUTING.md` — contribution workflow and conventions.
 - `docs/PRODUCT.md` — scope and user workflows.
 - `docs/ARCHITECTURE.md` — ownership, data flow, and technical constraints.
 - `docs/DESIGN.md` — UI principles and shared interaction practices.
-- `DEVELOPING.md` — setup, build commands, and testing.
-- `CONTRIBUTING.md` — contribution workflow and conventions.
 - `docs/USAGE.md` — user controls and optional online features.
 - `docs/RELEASING.md` — CI artifacts and release packaging.
 

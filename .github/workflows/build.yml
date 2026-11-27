@@ -5,29 +5,35 @@ on:
     tags: ['v*']
   pull_request:
   workflow_dispatch:
+    inputs:
+      platform:
+        description: Platform to package
+        type: choice
+        default: all
+        options: [all, ubuntu-24.04, windows-2022, macos-15]
 permissions:
   contents: read
 concurrency:
-  group: desktop-${{ github.workflow }}-${{ github.ref }}
+  group: desktop-${{ github.workflow }}-${{ github.ref }}-${{ inputs.platform || 'all' }}
   cancel-in-progress: true
 jobs:
   build:
-    name: ${{ matrix.name }}
+    name: ${{ matrix.os == 'ubuntu-24.04' && 'Ubuntu 24.04 LTS x86_64' || matrix.os == 'windows-2022' && 'Windows x86_64' || 'macOS arm64' }} (${{ matrix.mode }})
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - name: Ubuntu 24.04 LTS x86_64
-            os: ubuntu-24.04
-            qt-arch: linux_gcc_64
-          - name: Windows x86_64
-            os: windows-2022
-            qt-arch: win64_msvc2022_64
-          - name: macOS arm64
-            os: macos-14
-            qt-arch: clang_64
+        # Main primes the same check cache that future PRs restore. Release
+        # packages have their own optimized cache and run only when requested.
+        mode: ${{ fromJSON((github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')) && '["package"]' || '["check"]') }}
+        os: ${{ fromJSON((!inputs.platform || inputs.platform == 'all') && '["ubuntu-24.04", "windows-2022", "macos-15"]' || format('["{0}"]', inputs.platform)) }}
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 90
+    timeout-minutes: 60
+    env:
+      CI_BUILD_TYPE: Release
+      # Keep the release Qt/CRT ABI on Windows. Checks skip expensive Rust
+      # optimization; packaging uses the normal optimized profile.
+      CARGO_PROFILE_RELEASE_OPT_LEVEL: ${{ matrix.mode == 'check' && '0' || '3' }}
+      CI_BUNDLE_HELPER: ${{ matrix.mode == 'package' && 'ON' || 'OFF' }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -35,6 +41,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+          cache: pip
+          cache-dependency-path: 'scripts/requirements-youtube*.txt'
       - name: Linux dependencies
         if: runner.os == 'Linux'
         run: |
@@ -43,9 +51,10 @@ jobs:
       - name: macOS dependencies
         if: runner.os == 'macOS'
         run: |
-          brew install mpv ffmpeg pkg-config ninja
+          brew install mpv ffmpeg pkg-config ninja libarchive
+          echo "MACOSX_DEPLOYMENT_TARGET=15.0" >> "$GITHUB_ENV"
           echo "RUSTFLAGS=-Lnative=$(brew --prefix mpv)/lib" >> "$GITHUB_ENV"
-          echo "PKG_CONFIG_PATH=$(brew --prefix mpv)/lib/pkgconfig" >> "$GITHUB_ENV"
+          echo "PKG_CONFIG_PATH=$(brew --prefix mpv)/lib/pkgconfig:$(brew --prefix libarchive)/lib/pkgconfig" >> "$GITHUB_ENV"
       - uses: ilammy/msvc-dev-cmd@v1
         if: runner.os == 'Windows'
       - name: Windows mpv development files
@@ -68,55 +77,70 @@ jobs:
       - uses: jurplel/install-qt-action@v4
         with:
           version: '6.10.2'
-          arch: ${{ matrix.qt-arch }}
-          modules: 'qtwebengine qtwebchannel qtpositioning qtshadertools'
+          arch: ${{ runner.os == 'Linux' && 'linux_gcc_64' || runner.os == 'Windows' && 'win64_msvc2022_64' || 'clang_64' }}
+          modules: 'qtpdf qtwebengine qtwebchannel qtpositioning qtshadertools qtserialport'
           cache: true
       - name: Rust toolchain
         shell: bash
         run: |
           rustup toolchain install stable --profile minimal
           rustup default stable
-      - name: Python helper build environment
+          if [[ "$RUNNER_OS" == Windows ]]; then
+            qmake="$(cygpath -m "$QT_ROOT_DIR/bin/qmake.exe")"
+          else
+            qmake="$QT_ROOT_DIR/bin/qmake"
+          fi
+          echo "QMAKE=$qmake" >> "$GITHUB_ENV"
+          if [[ "$RUNNER_OS" == macOS ]]; then
+            echo "RUSTFLAGS=$RUSTFLAGS -C link-arg=-Wl,-rpath,$QT_ROOT_DIR/lib" >> "$GITHUB_ENV"
+          fi
+      - name: Cache compiled Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: 'core -> ../build/cargo'
+          key: '${{ runner.os }}-${{ runner.arch }}-qt6.10.2-${{ env.CI_BUILD_TYPE }}-opt${{ env.CARGO_PROFILE_RELEASE_OPT_LEVEL }}'
+          cache-on-failure: true
+          env-vars: 'QMAKE QT_ROOT_DIR MACOSX_DEPLOYMENT_TARGET'
+      - name: Cache Kiwi resources
+        uses: actions/cache@v4
+        with:
+          path: build/deps/kiwi
+          key: kiwi-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('scripts/setup-kiwi.cmake') }}
+      - name: Python test environment
+        if: matrix.mode == 'check'
         shell: bash
         run: |
           python -m venv .venv-youtube
           if [[ "$RUNNER_OS" == Windows ]]; then python_path=.venv-youtube/Scripts/python.exe; else python_path=.venv-youtube/bin/python; fi
-          "$python_path" -m pip install -r scripts/requirements-youtube-build.txt
-      - name: Native Kiwi resources
-        run: cmake -P scripts/setup-kiwi.cmake
+          "$python_path" -m pip install -r scripts/requirements-youtube.txt
       - name: Configure
         shell: bash
         run: |
           extra=()
           if [[ "$RUNNER_OS" == Windows ]]; then extra+=("-DMPV_ROOT=$MPV_ROOT"); fi
-          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DSORI_REQUIRE_WEBENGINE=ON -DSORI_BUNDLE_TRANSCRIPT_HELPER=ON "${extra[@]}"
+          cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE="$CI_BUILD_TYPE" -DSORI_REQUIRE_WEBENGINE=ON -DSORI_BUNDLE_TRANSCRIPT_HELPER="$CI_BUNDLE_HELPER" -DSORI_TEST_NATIVE_KIWI=ON "${extra[@]}"
       - name: Build
         run: cmake --build build --parallel 2
-      - name: Tests
-        run: ctest --test-dir build --output-on-failure
-      - name: Native Kiwi test
-        shell: bash
-        run: |
-          export QMAKE="$QT_ROOT_DIR/bin/qmake"
-          if [[ "$RUNNER_OS" == Windows ]]; then export QMAKE="$QT_ROOT_DIR/bin/qmake.exe"; fi
-          cargo test --release --locked --manifest-path core/Cargo.toml --target-dir build/cargo nlp::tests -- --include-ignored
-      - name: Linux AppImage
-        if: runner.os == 'Linux'
-        env:
-          QMAKE: ${{ env.QT_ROOT_DIR }}/bin/qmake
-        run: ./scripts/appimage
-      - name: Windows installer
+      - name: Windows test runtime
         if: runner.os == 'Windows'
         shell: pwsh
-        run: ./scripts/ci/package-windows.ps1
+        run: |
+          Copy-Item "$env:MPV_ROOT/bin/*.dll" build/ -Force
+          dumpbin /dependents build/sori-bridge-test.exe
+      - name: Prepare native test fixtures
+        run: cmake -E copy_directory build/deps/kiwi resources/kiwi
+      - name: Tests
+        run: ctest --test-dir build --verbose --timeout 600
+      - name: Package
+        if: matrix.mode == 'package'
+        run: cmake --build build --target package
       - name: Windows install and uninstall check
-        if: runner.os == 'Windows'
+        if: matrix.mode == 'package' && runner.os == 'Windows'
+        timeout-minutes: 5
         shell: pwsh
         run: ./scripts/ci/test-windows-installer.ps1
-      - name: macOS disk image
-        if: runner.os == 'macOS'
-        run: bash scripts/ci/package-macos.sh
       - uses: actions/upload-artifact@v4
+        if: matrix.mode == 'package'
         with:
           name: sori-${{ runner.os }}-${{ runner.arch }}
           if-no-files-found: error
@@ -131,11 +155,11 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: logs-${{ runner.os }}-${{ runner.arch }}
+          name: logs-${{ runner.os }}-${{ runner.arch }}-${{ matrix.mode }}
           path: build/Testing/Temporary/
       - uses: actions/upload-artifact@v4
         if: failure() && runner.os == 'Windows'
         with:
-          name: windows-installer-log
+          name: windows-installer-log-${{ matrix.mode }}
           if-no-files-found: ignore
           path: build/installer-check.log

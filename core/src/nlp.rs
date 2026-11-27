@@ -97,6 +97,8 @@ fn load(resources: &Path) -> Result<Kiwi, String> {
             "Kiwi resources are missing. Run cmake -P scripts/setup-kiwi.cmake and restart Sori.".into(),
         );
     }
+    #[cfg(test)]
+    eprintln!("Kiwi: initializing library {library:?} and model {models:?}");
     let builder = BuilderConfig::default()
         .with_model_path(models)
         .with_num_threads(1);
@@ -105,6 +107,8 @@ fn load(resources: &Path) -> Result<Kiwi, String> {
         .with_builder(builder);
     let kiwi = Kiwi::from_config(config)
         .map_err(|error| format!("Could not load bundled Kiwi resources: {error}"))?;
+    #[cfg(test)]
+    eprintln!("Kiwi: initialization completed");
     if !kiwi.supports_utf16_api() {
         return Err("The bundled Kiwi library does not support the required UTF-16 APIs.".into());
     }
@@ -113,9 +117,13 @@ fn load(resources: &Path) -> Result<Kiwi, String> {
 
 fn tokenize(kiwi: &Kiwi, text: &str) -> Result<Vec<KoreanToken>, String> {
     let utf16: Vec<u16> = text.encode_utf16().collect();
+    #[cfg(test)]
+    eprintln!("Kiwi: analyzing {} UTF-16 units", utf16.len());
     let tokens = kiwi
         .tokenize_utf16(&utf16)
         .map_err(|error| error.to_string())?;
+    #[cfg(test)]
+    eprintln!("Kiwi: native analysis returned {} tokens", tokens.len());
     tokens
         .into_iter()
         .map(|token| {
@@ -169,6 +177,8 @@ mod tests {
         let example = analyzer.analyze("마음만큼은".into()).unwrap();
         let forms: Vec<_> = example.iter().map(|token| token.form.as_str()).collect();
         assert_eq!(forms, ["마음", "만큼", "은"]);
+        let tags: Vec<_> = example.iter().map(|token| token.tag.as_str()).collect();
+        assert_eq!(tags, ["NNG", "JKB", "JX"]);
         for text in [
             "학교에 갔어요.",
             "😀 학교에 갔어요.\n한국어를 공부해요.",

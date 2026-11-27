@@ -9,84 +9,131 @@ import subprocess
 import sys
 import sysconfig
 
-appdir = Path(sys.argv[1]).resolve()
-project = Path(__file__).resolve().parent.parent
-qmake = os.environ.get("QMAKE", "qmake6")
-qt = subprocess.check_output([qmake, "-query", "QT_VERSION"], text=True).strip()
-libdir = Path(subprocess.check_output([qmake, "-query", "QT_INSTALL_LIBS"], text=True).strip())
-qtarch = Path(subprocess.check_output([qmake, "-query", "QT_INSTALL_ARCHDATA"], text=True).strip())
-libexec = Path(subprocess.check_output([qmake, "-query", "QT_INSTALL_LIBEXECS"], text=True).strip())
-libraries = []
-original_paths = []
-for path in (appdir / "usr").rglob("*"):
-    if not path.is_file() or path.is_symlink():
-        continue
-    with path.open("rb") as source:
-        if source.read(4) != b"\x7fELF":
+
+def library_index(roots):
+    """Index private and public shared libraries, visiting aliased roots once."""
+    result = {}
+    seen = set()
+    for root in roots:
+        root = root.resolve()
+        if root in seen or not root.is_dir():
             continue
-    relative = path.relative_to(appdir / "usr")
-    candidates = [Path("/usr") / relative, libdir / path.name]
-    multiarch = sysconfig.get_config_var("MULTIARCH")
-    if multiarch:
-        candidates += [Path("/usr/lib") / multiarch / path.name, Path("/lib") / multiarch / path.name]
-    if relative.parts[0] in ("qml", "plugins"):
-        candidates.insert(0, qtarch / relative)
-    if relative.parts[0] == "libexec":
-        candidates.insert(0, libexec / path.name)
-    if str(relative) == "bin/sori":
-        candidates.insert(0, project / "build/sori")
-    if str(relative).startswith("bin/helpers/"):
-        candidates.insert(0, project / "build" / Path(*relative.parts[1:]))
-    if str(relative) == "bin/kiwi/lib/libkiwi.so":
-        candidates.insert(0, project / "resources/kiwi/lib/libkiwi.so")
-    original = next((candidate for candidate in candidates if candidate.is_file()), None)
-    if original is None:
-        original = next((candidate for candidate in libdir.rglob(path.name) if candidate.is_file()), None)
-    if original is None:
-        raise SystemExit(f"Cannot locate original ELF for {relative}")
-    # The pinned deployment tool corrupts RELR relocations in some Fedora Qt
-    # plugins while rewriting ELF files. Keep original binaries byte-for-byte;
-    # AppRun supplies private loader paths to the app and all its subprocesses.
-    shutil.copy2(original, path)
-    original_paths.append(original)
-    libraries.append(path)
+        seen.add(root)
+        for path in root.rglob("*.so*"):
+            if path.is_file():
+                result.setdefault(path.name, []).append(path)
+    return result
 
-versions = subprocess.check_output(
-    ["readelf", "--version-info", str(appdir / "usr/bin/sori")], text=True
-)
-glibc = sorted(set(re.findall(r"GLIBC_(\d+\.\d+)", versions)), key=lambda v: tuple(map(int, v.split("."))))
-runtime_versions = subprocess.check_output(
-    ["readelf", "--version-info", *(str(path) for path in libraries)], text=True,
-    stderr=subprocess.DEVNULL,
-)
-runtime_glibc = sorted(set(re.findall(r"GLIBC_(\d+\.\d+)", runtime_versions)),
-                      key=lambda v: tuple(map(int, v.split("."))))
-metadata = {
-    "commit": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=project, text=True).strip(),
-    "qt": qt,
-    "executable_glibc_minimum": glibc[-1] if glibc else None,
-    "bundle_glibc_minimum": runtime_glibc[-1] if runtime_glibc else None,
-    "host_os": Path("/etc/os-release").read_text(),
-    "note": "Local build baseline only; cross-distribution compatibility requires separate testing.",
-    "elf_files": sorted(str(p.relative_to(appdir)) for p in libraries),
-}
 
-if shutil.which("rpm"):
-    originals = {str(path) for path in original_paths}
-    if originals:
-        result = subprocess.run(
-            ["rpm", "-qf", "--qf", "%{NAME}\t%{VERSION}-%{RELEASE}\t%{LICENSE}\t%{SOURCERPM}\n", *sorted(originals)],
-            text=True, capture_output=True, check=False,
-        )
-        packages = sorted(set(line for line in result.stdout.splitlines() if "\t" in line))
-        metadata["rpm_packages"] = packages
-        for package in sorted({line.split("\t")[0] for line in packages}):
-            files = subprocess.check_output(["rpm", "-ql", package], text=True).splitlines()
-            for name in files:
-                source = Path(name)
-                if name.startswith("/usr/share/licenses/") and source.is_file():
-                    target = appdir / source.relative_to("/")
-                    target.parent.mkdir(parents=True, exist_ok=True)
-                    shutil.copy2(source, target)
+def matching_elf(candidates, header):
+    """Avoid selecting a same-named library for a different architecture."""
+    for candidate in candidates:
+        if not candidate.is_file():
+            continue
+        with candidate.open("rb") as source:
+            original = source.read(20)
+        if (original.startswith(b"\x7fELF") and original[4:6] == header[4:6]
+                and original[18:20] == header[18:20]):
+            return candidate
+    return None
 
-(appdir / "usr/share/doc/sori/BUILDINFO.json").write_text(json.dumps(metadata, indent=2) + "\n")
+
+def main():
+    appdir = Path(sys.argv[1]).resolve()
+    project = Path(__file__).resolve().parent.parent
+    build_dir = Path(sys.argv[2]).resolve()
+    kiwi_cache = next(
+        line.split("=", 1)[1] for line in (build_dir / "CMakeCache.txt").read_text().splitlines()
+        if line.startswith("SORI_KIWI_DIR:PATH=")
+    )
+    qmake = os.environ.get("QMAKE", "qmake6")
+    qt = subprocess.check_output([qmake, "-query", "QT_VERSION"], text=True).strip()
+    libdir = Path(subprocess.check_output([qmake, "-query", "QT_INSTALL_LIBS"], text=True).strip())
+    qtarch = Path(subprocess.check_output([qmake, "-query", "QT_INSTALL_ARCHDATA"], text=True).strip())
+    libexec = Path(subprocess.check_output([qmake, "-query", "QT_INSTALL_LIBEXECS"], text=True).strip())
+    libraries = []
+    original_paths = []
+    system_sources = None
+    for path in (appdir / "usr").rglob("*"):
+        if not path.is_file() or path.is_symlink():
+            continue
+        with path.open("rb") as source:
+            header = source.read(20)
+        if not header.startswith(b"\x7fELF"):
+            continue
+        relative = path.relative_to(appdir / "usr")
+        candidates = [Path("/usr") / relative, libdir / path.name]
+        multiarch = sysconfig.get_config_var("MULTIARCH")
+        if multiarch:
+            candidates += [Path("/usr/lib") / multiarch / path.name, Path("/lib") / multiarch / path.name]
+        if relative.parts[0] in ("qml", "plugins"):
+            candidates.insert(0, qtarch / relative)
+        if relative.parts[0] == "libexec":
+            candidates.insert(0, libexec / path.name)
+        if str(relative) == "bin/sori":
+            candidates.insert(0, build_dir / "sori")
+        if str(relative).startswith("bin/helpers/"):
+            candidates.insert(0, build_dir / Path(*relative.parts[1:]))
+        if relative.parts[:2] == ("bin", "kiwi"):
+            candidates.insert(0, Path(kiwi_cache).joinpath(*relative.parts[2:]))
+        original = matching_elf(candidates, header)
+        if original is None:
+            original = matching_elf(libdir.rglob(path.name), header)
+        if original is None:
+            # Private libraries such as PulseAudio's live below multiarch subdirs
+            # and are not necessarily present in ldconfig's public library cache.
+            if system_sources is None:
+                system_sources = library_index([Path(p) for p in ("/usr/lib64", "/usr/lib", "/lib64", "/lib")])
+            original = matching_elf(system_sources.get(path.name, []), header)
+        if original is None:
+            raise SystemExit(f"Cannot locate original ELF for {relative}")
+        # The pinned deployment tool corrupts RELR relocations in some Fedora Qt
+        # plugins while rewriting ELF files. Keep original binaries byte-for-byte;
+        # AppRun supplies private loader paths to the app and all its subprocesses.
+        shutil.copy2(original, path)
+        original_paths.append(original)
+        libraries.append(path)
+
+    versions = subprocess.check_output(
+        ["readelf", "--version-info", str(appdir / "usr/bin/sori")], text=True
+    )
+    glibc = sorted(set(re.findall(r"GLIBC_(\d+\.\d+)", versions)), key=lambda v: tuple(map(int, v.split("."))))
+    runtime_versions = subprocess.check_output(
+        ["readelf", "--version-info", *(str(path) for path in libraries)], text=True,
+        stderr=subprocess.DEVNULL,
+    )
+    runtime_glibc = sorted(set(re.findall(r"GLIBC_(\d+\.\d+)", runtime_versions)),
+                          key=lambda v: tuple(map(int, v.split("."))))
+    metadata = {
+        "commit": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=project, text=True).strip(),
+        "qt": qt,
+        "executable_glibc_minimum": glibc[-1] if glibc else None,
+        "bundle_glibc_minimum": runtime_glibc[-1] if runtime_glibc else None,
+        "host_os": Path("/etc/os-release").read_text(),
+        "note": "Local build baseline only; cross-distribution compatibility requires separate testing.",
+        "elf_files": sorted(str(p.relative_to(appdir)) for p in libraries),
+    }
+
+    if shutil.which("rpm"):
+        originals = {str(path) for path in original_paths}
+        if originals:
+            result = subprocess.run(
+                ["rpm", "-qf", "--qf", "%{NAME}\t%{VERSION}-%{RELEASE}\t%{LICENSE}\t%{SOURCERPM}\n", *sorted(originals)],
+                text=True, capture_output=True, check=False,
+            )
+            packages = sorted(set(line for line in result.stdout.splitlines() if "\t" in line))
+            metadata["rpm_packages"] = packages
+            for package in sorted({line.split("\t")[0] for line in packages}):
+                files = subprocess.check_output(["rpm", "-ql", package], text=True).splitlines()
+                for name in files:
+                    source = Path(name)
+                    if name.startswith("/usr/share/licenses/") and source.is_file():
+                        target = appdir / source.relative_to("/")
+                        target.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copy2(source, target)
+
+    (appdir / "usr/share/doc/sori/BUILDINFO.json").write_text(json.dumps(metadata, indent=2) + "\n")
+
+
+if __name__ == "__main__":
+    main()
