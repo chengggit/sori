@@ -12,6 +12,7 @@
     onPage,
     onAppearance,
     onScale,
+    titleOverride,
     children,
   }: {
     page: string;
@@ -21,6 +22,7 @@
     onPage: (page: string) => void;
     onAppearance: (value: Appearance) => void;
     onScale: (value: number) => void;
+    titleOverride?: string;
     children?: Snippet;
   } = $props();
 
@@ -35,7 +37,7 @@
   let collapsed = $state(localStorage.getItem('sori-sidebar-collapsed') === 'true');
   $effect(() => localStorage.setItem('sori-sidebar-collapsed', String(collapsed)));
 
-  const title = $derived(links.find((link) => link.page === page)?.label ?? 'Home');
+  const title = $derived(titleOverride ?? links.find((link) => link.page === page)?.label ?? 'Home');
 </script>
 
 <div class="flex h-screen overflow-hidden">

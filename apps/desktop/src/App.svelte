@@ -4,6 +4,7 @@
   import AppShell from './AppShell.svelte';
   import BridgePage from './BridgePage.svelte';
   import LibraryPage from './LibraryPage.svelte';
+  import ReaderPage from './ReaderPage.svelte';
   import { loadAppearance, loadPageScale, type Appearance } from '$lib/appearance';
 
   let route = $state(location.hash);
@@ -12,7 +13,9 @@
   let systemDark = $state(window.matchMedia('(prefers-color-scheme: dark)').matches);
 
   const dark = $derived(appearance === 'dark' || (appearance === 'system' && systemDark));
-  const page = $derived(route.replace(/^#\/?/, '').split('/')[0] || 'home');
+  const path = $derived(route.replace(/^#\/?/, '').split('?')[0]);
+  const page = $derived(path.split('/')[0] || 'home');
+  const readerId = $derived(Number(new URLSearchParams(route.split('?')[1] ?? '').get('id')) || 0);
 
   $effect(() => {
     document.documentElement.classList.toggle('dark', dark);
@@ -56,9 +59,12 @@
     onPage={goTo}
     onAppearance={(value) => (appearance = value)}
     onScale={(value) => (pageScale = value)}
+    titleOverride={page === 'reader' ? 'Reader' : undefined}
   >
     {#if page === 'library'}
       <LibraryPage />
+    {:else if page === 'reader'}
+      <ReaderPage documentId={readerId} onBack={() => goTo('library')} />
     {/if}
   </AppShell>
 {/if}

@@ -120,6 +120,52 @@ function createWindow() {
           finishSmoke(1);
           return;
         }
+        if (smokeHash === 'reader') {
+          const id = await window.webContents.executeJavaScript(`(async () => {
+            await window.sori.invoke('core:invoke', 'document:add', { title: '리더 스모크', content: '학교에 갔어요. '.repeat(60) });
+            const state = await window.sori.invoke('core:invoke', 'library:state', {});
+            return state.data.documents[0].id;
+          })()`);
+          await window.webContents.executeJavaScript(`location.hash = '#/reader?id=${id}'`);
+          for (let attempt = 0; attempt < 10; attempt += 1) {
+            await new Promise((resolve) => setTimeout(resolve, 300));
+            const ready = await window.webContents.executeJavaScript(
+              'Boolean(document.querySelector("[data-testid^=token-]"))',
+            );
+            if (ready) break;
+          }
+          await window.webContents.executeJavaScript(
+            'document.querySelector("[data-testid^=token-]")?.click()',
+          );
+          await new Promise((resolve) => setTimeout(resolve, 500));
+          const panel = await window.webContents.executeJavaScript(
+            'document.querySelector("[data-testid=reader-analysis]")?.textContent ?? ""',
+          );
+          await window.webContents.executeJavaScript(`(() => {
+            const save = [...document.querySelectorAll('[data-testid=analysis-panel] button')]
+              .find((node) => node.textContent.includes('Save word'));
+            save?.click();
+          })()`);
+          await new Promise((resolve) => setTimeout(resolve, 500));
+          const vocabulary = await window.webContents.executeJavaScript(`(async () => {
+            const state = await window.sori.invoke('core:invoke', 'library:state', {});
+            return state.data.vocabulary.length;
+          })()`);
+          await window.webContents.executeJavaScript(`(() => {
+            const element = document.querySelector('[data-testid=reader-text]');
+            element.scrollTop = (element.scrollHeight - element.clientHeight) * 0.6;
+            element.dispatchEvent(new Event('scroll'));
+          })()`);
+          await new Promise((resolve) => setTimeout(resolve, 900));
+          const position = await window.webContents.executeJavaScript(`(async () => {
+            const result = await window.sori.invoke('core:invoke', 'document:read', { id: ${id} });
+            return result.data.position;
+          })()`);
+          clearTimeout(watchdog);
+          finishSmoke(panel.includes('학교') && vocabulary >= 1 && position > 0.4 ? 0 : 1,
+            `Reader page: ${JSON.stringify({ panel, vocabulary, position })}`);
+          return;
+        }
         if (smokeHash === 'library') {
           await window.webContents.executeJavaScript(
             `window.sori.invoke('core:invoke', 'document:add', { title: '스모크 문서', content: '안녕하세요' })`,
@@ -170,7 +216,8 @@ function createWindow() {
   }
 
   if (isDev) {
-    const smokeRoute = smokeHash && smokeHash !== 'library' ? `#${smokeHash}` : '';
+    const smokeRoute =
+      smokeHash && smokeHash !== 'library' && smokeHash !== 'reader' ? `#${smokeHash}` : '';
     window.loadURL(smoke ? `${devUrl}${smokeRoute}` : devUrl);
   } else {
     window.loadFile(indexFile, smoke && smokeHash ? { hash: smokeHash } : {});

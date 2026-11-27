@@ -187,9 +187,14 @@ in Node would be worse than keeping it).
       event keeps the page in sync with mutations. The video shelf is read-only
       here — import and thumbnail/duration jobs arrive with step 11.
 
-- [ ] **8. `feat/electron-reader`** — TXT reader, clickable words, analysis
+- [x] **8. `feat/electron-reader`** — TXT reader, clickable words, analysis
       panel, debounced progress save/restore.
       *Done when:* matches `ReaderPage.qml` and `tst_readerlayout.qml`.
+      Verified: 5 Playwright tests, clean typecheck/build, and an Electron smoke
+      that opens a document, clicks a Korean word, saves it to vocabulary, and
+      restores a 0.6 scroll position from the DB. Passages use the Qt-derived
+      `wordRanges` offsets; PDF documents show an explicit deferred note until
+      step 10. Library "open" now navigates to `#/reader?id=…`.
 
 - [ ] **9. `feat/electron-vocabulary`** — Save word with context, edit
       meanings/notes/tags, list/search/filter, remove; retain snapshots after
