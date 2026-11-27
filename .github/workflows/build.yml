@@ -5,6 +5,12 @@ on:
     tags: ['v*']
   pull_request:
   workflow_dispatch:
+    inputs:
+      platform:
+        description: Platform to package
+        type: choice
+        default: all
+        options: [all, ubuntu-24.04, windows-2022, macos-15]
 permissions:
   contents: read
 concurrency:
@@ -12,24 +18,15 @@ concurrency:
   cancel-in-progress: true
 jobs:
   build:
-    name: ${{ matrix.platform.name }} (${{ matrix.mode }})
+    name: ${{ matrix.os == 'ubuntu-24.04' && 'Ubuntu 24.04 LTS x86_64' || matrix.os == 'windows-2022' && 'Windows x86_64' || 'macOS arm64' }} (${{ matrix.mode }})
     strategy:
       fail-fast: false
       matrix:
         # Main primes the same check cache that future PRs restore. Release
         # packages have their own optimized cache and run only when requested.
         mode: ${{ fromJSON(github.event_name == 'push' && github.ref == 'refs/heads/main' && '["check", "package"]' || github.event_name == 'pull_request' && '["check"]' || '["package"]') }}
-        platform:
-          - name: Ubuntu 24.04 LTS x86_64
-            os: ubuntu-24.04
-            qt-arch: linux_gcc_64
-          - name: Windows x86_64
-            os: windows-2022
-            qt-arch: win64_msvc2022_64
-          - name: macOS arm64
-            os: macos-15
-            qt-arch: clang_64
-    runs-on: ${{ matrix.platform.os }}
+        os: ${{ fromJSON((!inputs.platform || inputs.platform == 'all') && '["ubuntu-24.04", "windows-2022", "macos-15"]' || format('["{0}"]', inputs.platform)) }}
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 60
     env:
       CI_BUILD_TYPE: Release
@@ -80,7 +77,7 @@ jobs:
       - uses: jurplel/install-qt-action@v4
         with:
           version: '6.10.2'
-          arch: ${{ matrix.platform.qt-arch }}
+          arch: ${{ runner.os == 'Linux' && 'linux_gcc_64' || runner.os == 'Windows' && 'win64_msvc2022_64' || 'clang_64' }}
           modules: 'qtpdf qtwebengine qtwebchannel qtpositioning qtshadertools qtserialport'
           cache: true
       - name: Rust toolchain
@@ -139,6 +136,7 @@ jobs:
         run: cmake --build build --target package
       - name: Windows install and uninstall check
         if: matrix.mode == 'package' && runner.os == 'Windows'
+        timeout-minutes: 5
         shell: pwsh
         run: ./scripts/ci/test-windows-installer.ps1
       - uses: actions/upload-artifact@v4

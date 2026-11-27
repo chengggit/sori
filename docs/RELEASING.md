@@ -18,6 +18,8 @@ tags, pull requests, and manual dispatch, using Qt 6.10.2.
 - **Version tags and manual runs:** optimized builds, bundled captions,
   installers, and package smoke checks.
 
+Manual runs can package one platform or all three.
+
 Compiled Rust dependencies, Qt, pip downloads, and Kiwi resources are cached.
 The first run or a toolchain change still needs a cold build.
 
