@@ -12,7 +12,7 @@
   import SettingsPage from "./pages/SettingsPage.svelte";
   import VocabularyPage from "./pages/VocabularyPage.svelte";
   import WatchPage from "./pages/WatchPage.svelte";
-  import YouTubePage from "./pages/YouTubePage.svelte";
+  import ExplorePage from "./pages/ExplorePage.svelte";
   import { persistUi, ui } from "$lib/ui-state.svelte";
   import { startAutoHideScrollbars } from "$lib/scrollbars";
 
@@ -108,10 +108,17 @@
       {#key `${watchId}:${watchYouTubeId}`}<WatchPage
           videoId={watchId}
           youtubeId={watchYouTubeId}
-          onBack={() => goTo(watchYouTubeId ? "home" : "library")}
+          onBack={() =>
+            goTo(
+              watchYouTubeId
+                ? new URLSearchParams(route.split("?")[1] ?? "").get("from") === "explore"
+                  ? "explore"
+                  : "home"
+                : "library",
+            )}
         />{/key}
     {:else if page === "explore"}
-      <YouTubePage />
+      <ExplorePage />
     {:else if page === "settings"}
       <SettingsPage />
     {/if}

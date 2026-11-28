@@ -9,7 +9,7 @@ Open Library takes you to your imported media.
 The search field in the header searches YouTube. With an API key configured,
 Home discovers uploads from the channels managed in Explore. Refresh reloads
 the feed; Load more appends another page. Paste YouTube link opens an embeddable
-video without an API key. YouTube videos currently open in Explore's player.
+video without an API key. YouTube videos open in Watch.
 
 ## Library
 
@@ -95,11 +95,22 @@ from the analysis provider. Enable, drag-reorder, or remove them in Settings.
 
 ## YouTube
 
-Open **Explore** to paste an embeddable video link or search with a YouTube Data
-API key. A saved key takes priority over `SORI_YOUTUBE_API_KEY` or
-`.env.local`; removing it restores that fallback. Capture Korean captions with
-**Fetch captions** when the optional helper is available. Channel subscriptions
-and the uploads feed are managed on the same page.
+Open **Explore** to search YouTube or browse History, Science & nature, Food &
+cooking, Comedy, Interviews, Arts & crafts, Music, and Daily life. Search and
+topics require a YouTube Data API key in Settings. **Paste video link** opens an
+embeddable video in Watch without a developer key. A saved key takes priority
+over `SORI_YOUTUBE_API_KEY` or `.env.local`; removing it restores that fallback.
+
+**Subscriptions** opens channel management. Add a channel link, @handle or channel
+ID, or remove a saved channel. **Your feed** shows subscribed uploads; **Refresh
+videos** reloads the selected topic, search or feed. Scroll near the end or use
+**Load more** to append results. Failed requests offer Retry and retain loaded
+pages. Search settings and channel errors remain separate.
+
+Watch's Back action returns to Explore for videos opened there. Explore keeps
+its last results and scroll position in memory for up to 15 minutes; restarting
+the app clears this view state. Capture Korean captions in Watch with **Fetch
+captions** when the optional helper is available.
 
 ## Settings
 

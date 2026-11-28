@@ -4,10 +4,9 @@
   import { fly } from "svelte/transition";
   import { Film, Link, Play, RefreshCw } from "@lucide/svelte";
   import { Button } from "$lib/components/ui/button";
-  import { Input } from "$lib/components/ui/input";
-  import * as Sheet from "$lib/components/ui/sheet";
+  import VideoGrid from "$lib/youtube/VideoGrid.svelte";
+  import VideoLinkDialog from "$lib/youtube/VideoLinkDialog.svelte";
   import { loadLibraryState } from "$lib/library/commands";
-  import { parseYouTubeLink } from "$lib/dashboard/youtube";
   import { Discovery } from "$lib/home/discovery.svelte";
   import { formatTime, recentVideo, watchLink, type ResumeEntry } from "$lib/home/resume";
   import { platform } from "../platform";
@@ -17,8 +16,6 @@
   let recent = $state<ResumeEntry>();
   let libraryError = $state("");
   let linkOpen = $state(false);
-  let link = $state("");
-  let linkError = $state("");
   let thumbnailFailed = $state(false);
   let active = true;
   const progress = $derived(
@@ -57,15 +54,6 @@
       discovery.destroy();
     };
   });
-  function openLink(event: SubmitEvent) {
-    event.preventDefault();
-    const id = parseYouTubeLink(link);
-    if (!id) {
-      linkError = "Paste a valid YouTube video link.";
-      return;
-    }
-    location.hash = `#/watch?v=${id}`;
-  }
 </script>
 
 <section class="resume-hero" aria-labelledby="continue-heading">
@@ -130,7 +118,6 @@
         variant="outline"
         size="sm"
         onclick={() => {
-          linkError = "";
           linkOpen = true;
         }}
       >
@@ -162,19 +149,7 @@
         </span>
       </div>
     {/if}
-    <div class="video-grid">
-      {#each discovery.videos as video (video.id)}
-        <a data-media-focus class="video-card" href={`#/watch?v=${video.id}`}>
-          <div class="video-thumbnail">
-            <MediaHover>
-              <img src={video.thumbnail} alt="" loading="lazy" referrerpolicy="no-referrer" />
-            </MediaHover>
-          </div>
-          <h3 class="mt-2 line-clamp-2 text-sm font-medium" title={video.title}>{video.title}</h3>
-          <p class="mt-1 truncate text-xs text-muted-foreground">{video.channel}</p>
-        </a>
-      {/each}
-    </div>
+    <VideoGrid videos={discovery.videos} />
   </div>
   {#if discovery.hasMore}<div class="mt-6 flex justify-center">
       <Button
@@ -187,27 +162,7 @@
     </div>{/if}
 </section>
 
-<Sheet.Root bind:open={linkOpen}>
-  <Sheet.Content class="max-w-md rounded-2xl border-transparent gap-0 pb-0">
-    <Sheet.Header>
-      <Sheet.Title class="text-base font-semibold">Open a YouTube video</Sheet.Title><Sheet.Description>
-        Paste a video link to watch it in Sori.
-      </Sheet.Description>
-    </Sheet.Header>
-    <form class="space-y-3 px-4 pb-4" onsubmit={openLink}>
-      <Input
-        aria-label="YouTube link"
-        placeholder="Paste a YouTube video link"
-        bind:value={link}
-        oninput={() => (linkError = "")}
-      />
-      {#if linkError}<p role="alert" class="text-sm text-destructive">{linkError}</p>{/if}
-      <Button type="submit" class="bg-accent-soft text-dashboard-accent hover:bg-accent-soft">
-        <Play /> Open video
-      </Button>
-    </form>
-  </Sheet.Content>
-</Sheet.Root>
+<VideoLinkDialog bind:open={linkOpen} />
 
 <style>
   .resume-hero {
@@ -288,30 +243,7 @@
     font-size: 13px;
     font-weight: 600;
   }
-  .video-grid {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 26px 20px;
-  }
-  .video-card {
-    min-width: 0;
-  }
-  .video-thumbnail {
-    aspect-ratio: 16 / 9;
-    position: relative;
-    overflow: hidden;
-    background: var(--chip);
-    border-radius: 12px;
-  }
-  @media (max-width: 1250px) {
-    .video-grid {
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-  }
   @media (max-width: 1000px) {
-    .video-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
     .resume-thumbnail {
       width: 160px;
     }
@@ -331,9 +263,6 @@
     }
     .resume-button {
       margin-left: auto;
-    }
-    .video-grid {
-      grid-template-columns: 1fr;
     }
   }
 </style>

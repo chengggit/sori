@@ -5,6 +5,7 @@ import {
   subscriptions,
   youtubeSettings,
   type YouTubeVideo,
+  type Subscription,
 } from "../youtube/commands";
 
 /** One owner for feed/search requests; obsolete replies never replace current results. */
@@ -19,22 +20,37 @@ export class Discovery {
   nextPage = $state("");
   tokens = $state<Record<string, string>>({});
   private generation = 0;
-  private ready: Promise<void>;
-  private channelCount = 0;
+  ready: Promise<void>;
+  channels = $state<Subscription[]>([]);
+  configured = $state(false);
+  configurationError = $state("");
+  channelsError = $state("");
+  private configurationGeneration = 0;
+  private alive = true;
   constructor() {
     this.ready = this.configure();
   }
   private async configure() {
+    const generation = ++this.configurationGeneration;
     const [settings, channels] = await Promise.all([youtubeSettings(), subscriptions()]);
+    if (!this.alive || generation !== this.configurationGeneration) return;
     this.hasKey = settings.data?.hasKey ?? false;
-    this.channelCount = channels.data?.length ?? 0;
-    if (!settings.ok || !channels.ok) this.error = settings.error || channels.error;
+    if (channels.ok) this.channels = channels.data ?? [];
+    this.configurationError = settings.ok ? "" : settings.error;
+    this.channelsError = channels.ok ? "" : channels.error;
+    this.configured = true;
+  }
+  refreshConfiguration() {
+    this.ready = this.configure();
+    return this.ready;
   }
   get hasMore() {
     return !!this.nextPage || Object.values(this.tokens).some(Boolean);
   }
   destroy() {
     this.generation++;
+    this.configurationGeneration++;
+    this.alive = false;
   }
   async load(query = "", append = false) {
     const generation = ++this.generation;
@@ -54,17 +70,24 @@ export class Discovery {
     await tick();
     await this.ready;
     if (generation !== this.generation) return;
-    if (!this.hasKey || (!this.query && !this.channelCount)) {
+    if (this.configurationError || (!this.query && this.channelsError)) {
+      this.error = this.configurationError || this.channelsError;
+      this.loading = this.loadingMore = false;
+      return;
+    }
+    if (!this.hasKey || (!this.query && !this.channels.length)) {
       this.notice = !this.hasKey
         ? "Add a YouTube API key in Settings to discover videos."
-        : "Subscribe to channels in Explore to build your feed, or search YouTube above.";
+        : "Subscribe to channels to build your feed, or search YouTube.";
       this.videos = [];
       this.loading = this.loadingMore = false;
       return;
     }
+    const requestedPage = append ? this.nextPage : "";
+    const requestedTokens: Record<string, string> = append ? { ...this.tokens } : {};
     const reply = this.query
-      ? await searchYouTube(this.query, append ? this.nextPage : "")
-      : await subscriptionFeed(append ? this.tokens : {});
+      ? await searchYouTube(this.query, requestedPage)
+      : await subscriptionFeed(requestedTokens);
     if (generation !== this.generation) return;
     // Keep the spinner up briefly so quick refreshes still show feedback.
     const remaining = 320 - (Date.now() - started);
@@ -84,8 +107,12 @@ export class Discovery {
     this.videos = [...(append ? this.videos : []), ...data.videos].filter(
       (video) => !seen.has(video.id) && !!seen.add(video.id),
     );
-    this.nextPage = data.nextPageToken ?? "";
-    this.tokens = data.nextPageTokens ?? {};
+    this.nextPage = data.nextPageToken === requestedPage ? "" : (data.nextPageToken ?? "");
+    this.tokens = Object.fromEntries(
+      Object.entries(data.nextPageTokens ?? {}).filter(
+        ([id, token]) => !!token && token !== requestedTokens[id],
+      ),
+    );
     if (!this.videos.length) this.notice = "No videos found.";
   }
 }

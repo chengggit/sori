@@ -32,9 +32,10 @@ Ctrl/Cmd+Shift+Plus/Minus changes zoom; Ctrl/Cmd+Shift+0 resets it. Shell height
 accounts for application zoom so footer controls remain reachable. Settings
 continues to open the existing page until its own frontend rework slice.
 
-Home and Library share `MediaHover.svelte` for thumbnail dimming, gentle artwork
+Home, Explore and Library share `MediaHover.svelte` for thumbnail dimming, gentle artwork
 zoom and the scale-in play/read badge. Keyboard focus reveals the same treatment;
-Library item menus remain above it and hold the overlay open. Reduced-motion
+Home and Explore also share their YouTube card/grid and link dialog.
+Library item menus remain above the overlay and hold it open. Reduced-motion
 preferences disable these transitions.
 
 ## Adaptability
