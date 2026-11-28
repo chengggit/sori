@@ -38,7 +38,8 @@ src/
   lib/
     components/     # shared shell and UI primitives
     reader/         # reading helpers, shared panel host and PDF reader
-    analysis/       # dictionary requests, vocabulary state and save editor
+    analysis/       # lookup requests, selection state and docked save panel
+    vocabulary/     # saved-word list/details state and shared word form
     dictionary/     # lookup helpers, settings and dictionary panel
     library/        # command wrappers, refresh/thumbnail state and media cards
     video/          # playback, subtitles and command wrappers

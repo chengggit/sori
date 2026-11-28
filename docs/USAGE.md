@@ -28,6 +28,14 @@ Import TXT files or PDFs, or paste text in My Library. Click Korean words to
 analyze them and save vocabulary with context. Meanings, notes, and tags can be
 edited later; saving words with your own meaning works offline.
 
+Vocabulary lists your saved words with search, type filters and sorting. Click a
+word to open its details on the right; drag the divider to resize it, or focus
+the divider and use Left/Right. Escape closes the details. The three-dot menu
+offers **Edit** and **Remove**; removal asks for confirmation. Editing the
+dictionary form, meaning, tags or note keeps the original word and source context.
+A note needs a meaning. Saved context and meanings remain after removing their
+source document or video from My Library.
+
 PDFs offer **Book** and **Scroll** views. In Book view, turn pages with the
 toolbar arrows, Left/Right keys, or the blank left/right halves of a page.
 Book fits the page to the window; Scroll lists wider pages continuously. The

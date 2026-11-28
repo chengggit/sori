@@ -1,3 +1,4 @@
+import type { VocabularyEntry } from "../vocabulary/types";
 import type { Response } from "../../envelope";
 import { platform } from "../../platform";
 
@@ -23,7 +24,7 @@ export type YouTubeHistoryEntry = {
 export type LibraryState = {
   documents: DocumentSummary[];
   videos: VideoSummary[];
-  vocabulary: unknown[];
+  vocabulary: VocabularyEntry[];
   youtubeHistory: YouTubeHistoryEntry[];
   error: string;
 };

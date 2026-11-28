@@ -1,359 +1,315 @@
 <script lang="ts">
-  import { Pencil, Search, Trash2, X } from "@lucide/svelte";
-  import { onMount } from "svelte";
+  import { onMount, tick } from "svelte";
+  import { Bookmark, Search, ArrowUpDown, X } from "@lucide/svelte";
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
-  import { editWord, loadLibraryState, removeWord, type VocabularyEdit } from "$lib/library/commands";
+  import * as Sheet from "$lib/components/ui/sheet";
+  import WordCard from "$lib/vocabulary/WordCard.svelte";
+  import WordDetails from "$lib/vocabulary/WordDetails.svelte";
+  import WordForm from "$lib/vocabulary/WordForm.svelte";
+  import { VocabularyModel } from "$lib/vocabulary/state.svelte";
+  import { displayWord } from "$lib/vocabulary/entries";
+  import { sortOptions, type VocabularyEntry, type WordDraft } from "$lib/vocabulary/types";
+  import { platform } from "../platform";
 
-  type Definition = {
-    term?: string;
-    partOfSpeech?: string;
-    text?: string;
-    sourceUrl?: string;
-    hanja?: string | null;
-    custom?: boolean;
-    note?: string | null;
-  };
-
-  type VocabularyEntry = {
-    id: number;
-    word: string;
-    normalizedForm: string | null;
-    documentId: number | null;
-    sourceTitle: string;
-    context: string;
-    createdAt: number;
-    definition: Definition | null;
-    tags: string[];
-  };
-
-  const sortOptions = ["Recent", "Oldest", "A–Z", "Z–A"] as const;
-  const wordClasses = [
-    "noun",
-    "verb",
-    "adjective",
-    "adverb",
-    "pronoun",
-    "determiner",
-    "particle",
-    "conjunction",
-    "interjection",
-    "numeral",
-  ];
-
-  let entries = $state<VocabularyEntry[]>([]);
-  let query = $state("");
-  let typeFilter = $state("All types");
-  let sort = $state<(typeof sortOptions)[number]>("Recent");
-  let error = $state("");
-  let details = $state<VocabularyEntry | null>(null);
-  let editing = $state<VocabularyEntry | null>(null);
-  let normalizedForm = $state("");
-  let meaning = $state("");
-  let note = $state("");
-  let tags = $state("");
-  let deleting = $state<VocabularyEntry | null>(null);
-  let busy = $state(false);
-
-  function partOfSpeech(entry: VocabularyEntry) {
-    const value = (entry.definition?.partOfSpeech ?? "").trim().toLowerCase();
-    if (value) return value;
-    for (const tag of entry.tags ?? []) {
-      const normalized = tag.trim().toLowerCase().replace(/s$/, "");
-      if (wordClasses.includes(normalized)) return normalized;
-    }
-    return "";
-  }
-
-  function capitalize(value: string) {
-    return value ? value.charAt(0).toUpperCase() + value.slice(1) : "";
-  }
-
-  function displayWord(entry: VocabularyEntry) {
-    const normalized = (entry.normalizedForm ?? "").trim();
-    return normalized && normalized !== entry.word ? normalized : entry.word;
-  }
-
-  function formatMeaning(entry: VocabularyEntry) {
-    return (entry.definition?.text ?? "")
-      .trim()
-      .replace(/\s*\n+\s*/g, "; ")
-      .replace(/[ \t]+/g, " ");
-  }
-
-  const typeOptions = $derived([
-    "All types",
-    ...[...new Set(entries.map((entry) => capitalize(partOfSpeech(entry))).filter(Boolean))].sort(
-      (a, b) => a.localeCompare(b),
-    ),
-  ]);
-
-  const filtered = $derived.by(() => {
-    const needle = query.trim().normalize().toLowerCase();
-    const result = entries.filter((entry) => {
-      if (typeFilter !== "All types" && partOfSpeech(entry) !== typeFilter.toLowerCase()) return false;
-      if (!needle) return true;
-      return [
-        entry.word,
-        entry.normalizedForm,
-        entry.definition?.text,
-        entry.definition?.note,
-        entry.context,
-        entry.sourceTitle,
-        ...(entry.tags ?? []),
-      ]
-        .filter((value): value is string => Boolean(value))
-        .some((value) => value.toLowerCase().includes(needle));
-    });
-    const created = (entry: VocabularyEntry) => Number(entry.createdAt) || 0;
-    result.sort((a, b) => {
-      if (sort === "Oldest") return created(a) - created(b) || a.id - b.id;
-      if (sort === "A–Z") return displayWord(a).localeCompare(displayWord(b));
-      if (sort === "Z–A") return displayWord(b).localeCompare(displayWord(a));
-      return created(b) - created(a) || b.id - a.id;
-    });
-    return result;
-  });
-
-  async function load() {
-    const state = await loadLibraryState();
-    if (!state.ok) {
-      error = state.error;
-      return;
-    }
-    entries = (state.data?.vocabulary ?? []) as VocabularyEntry[];
-    error = state.data?.error ?? "";
-    if (!typeOptions.includes(typeFilter)) typeFilter = "All types";
-  }
-
+  const vocabulary = new VocabularyModel();
+  let editing = $state<VocabularyEntry | null>(null),
+    removing = $state<VocabularyEntry | null>(null);
+  let editorOpen = $state(false),
+    removalOpen = $state(false);
+  let panelWidth = $state(500);
+  let search: HTMLInputElement | null = $state(null);
+  let detailTrigger: HTMLElement | null = null;
+  let dialogTrigger: HTMLElement | null = null;
   onMount(() => {
-    void load();
+    void vocabulary.load();
+    const unsubscribe = platform.onEvent("library-changed", () => void vocabulary.load());
+    return () => {
+      vocabulary.dispose();
+      unsubscribe();
+    };
   });
-
-  function startEdit(entry: VocabularyEntry) {
+  function closeDetails() {
+    vocabulary.selectedId = null;
+    void tick().then(() => {
+      if (detailTrigger?.isConnected) detailTrigger.focus();
+      else search?.focus();
+    });
+  }
+  function edit(entry: VocabularyEntry, trigger = document.activeElement) {
+    dialogTrigger = trigger instanceof HTMLElement ? trigger : null;
     editing = entry;
-    normalizedForm = entry.normalizedForm ?? entry.word;
-    meaning = entry.definition?.text ?? "";
-    note = entry.definition?.note ?? "";
-    tags = entry.tags.join(", ");
-    error = "";
+    vocabulary.editError = "";
+    editorOpen = true;
   }
-
-  async function saveEdit() {
-    if (!editing || busy || !normalizedForm.trim()) return;
-    busy = true;
-    error = "";
-    try {
-      const input: VocabularyEdit = {
-        normalizedForm: normalizedForm.trim(),
-        meaning,
-        note,
-        tags: [
-          ...new Set(
-            tags
-              .split(",")
-              .map((tag) => tag.trim())
-              .filter(Boolean),
-          ),
-        ],
-      };
-      const saved = await editWord(editing.id, input);
-      if (!saved.ok) {
-        error = saved.error;
-        return;
-      }
-      editing = null;
-      await load();
-    } finally {
-      busy = false;
-    }
+  function remove(entry: VocabularyEntry, trigger = document.activeElement) {
+    dialogTrigger = trigger instanceof HTMLElement ? trigger : null;
+    removing = entry;
+    vocabulary.removeError = "";
+    removalOpen = true;
   }
-
-  async function confirmDelete() {
-    if (!deleting || busy) return;
-    busy = true;
-    error = "";
-    try {
-      const removed = await removeWord(deleting.id);
-      if (!removed.ok) {
-        error = removed.error;
-        return;
-      }
-      if (details?.id === deleting.id) details = null;
-      deleting = null;
-      await load();
-    } finally {
-      busy = false;
-    }
+  function restoreDialogFocus(event: Event) {
+    event.preventDefault();
+    void tick().then(() => {
+      if (dialogTrigger?.isConnected) dialogTrigger.focus();
+      else search?.focus();
+    });
+  }
+  function initial(entry: VocabularyEntry): WordDraft {
+    return {
+      word: entry.normalizedForm ?? "",
+      meaning: entry.definition?.text ?? "",
+      note: entry.definition?.note ?? "",
+      tags: entry.tags,
+    };
   }
 </script>
 
-<div class="flex flex-col gap-4">
-  <div class="flex flex-wrap items-center gap-2">
-    <div class="relative w-full max-w-sm">
-      <Search class="absolute left-2.5 top-2.5 text-muted-foreground" size={16} />
-      <Input
-        class="pl-8"
-        placeholder="Search vocabulary"
+<svelte:window
+  onkeydown={(event) => {
+    if (
+      event.key === "Escape" &&
+      !event.defaultPrevented &&
+      vocabulary.selected &&
+      !editorOpen &&
+      !removalOpen
+    ) {
+      event.preventDefault();
+      closeDetails();
+    }
+  }}
+/>
+<div class="vocabulary-page" data-testid="vocabulary-page">
+  <p class="count" data-testid="vocabulary-count">{vocabulary.countLabel}</p>
+  <div class="filters">
+    <div class="search-field">
+      <Search size={16} aria-hidden="true" /><Input
+        bind:ref={search}
         aria-label="Search vocabulary"
-        bind:value={query}
+        placeholder="Search vocabulary…"
+        bind:value={vocabulary.query}
       />
     </div>
-    <select
-      class="h-9 rounded-md border border-input bg-transparent px-2 text-sm"
-      aria-label="Filter by type"
-      bind:value={typeFilter}
-    >
-      {#each typeOptions as option (option)}
-        <option value={option}>{option}</option>
-      {/each}
+    <select aria-label="Filter by type" bind:value={vocabulary.typeFilter}>
+      {#each vocabulary.types as type (type)}<option value={type}>{type}</option>{/each}
     </select>
-    <select
-      class="h-9 rounded-md border border-input bg-transparent px-2 text-sm"
-      aria-label="Sort vocabulary"
-      bind:value={sort}
-    >
-      {#each sortOptions as option (option)}
-        <option value={option}>{option}</option>
-      {/each}
-    </select>
-    <span class="ml-auto text-sm text-muted-foreground" data-testid="vocabulary-count">
-      {filtered.length} of {entries.length}
-      {entries.length === 1 ? "saved word" : "saved words"}
-    </span>
+    <div class="sort-field">
+      <ArrowUpDown size={14} aria-hidden="true" /><select
+        aria-label="Sort vocabulary"
+        bind:value={vocabulary.sort}
+      >
+        {#each sortOptions as sort (sort)}<option value={sort}>{sort}</option>{/each}
+      </select>
+    </div>
   </div>
-
-  {#if error}
-    <p class="text-sm text-destructive" role="alert" data-testid="vocabulary-error">{error}</p>
-  {/if}
-
-  {#if editing}
-    <section class="rounded-lg border border-border bg-card p-4" data-testid="vocabulary-editor">
-      <div class="mb-3 flex items-center justify-between">
-        <h2 class="text-base font-semibold">Edit “{editing.word}”</h2>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Close editor"
-          onclick={() => (editing = null)}
-        >
-          <X />
-        </Button>
-      </div>
-      <div class="flex flex-col gap-3">
-        <Input aria-label="Dictionary form" bind:value={normalizedForm} />
-        <textarea
-          class="min-h-20 w-full rounded-md border border-input bg-transparent p-2"
-          aria-label="Meaning"
-          placeholder="Meaning"
-          bind:value={meaning}></textarea>
-        <textarea
-          class="min-h-20 w-full rounded-md border border-input bg-transparent p-2"
-          aria-label="Note"
-          placeholder="Note"
-          bind:value={note}></textarea>
-        <Input aria-label="Tags" placeholder="Tags, comma separated" bind:value={tags} />
-        <Button
-          onclick={saveEdit}
-          disabled={busy || !normalizedForm.trim()}
-          data-testid="save-vocabulary"
-        >
-          Save changes
-        </Button>
-      </div>
-    </section>
-  {/if}
-
-  {#if filtered.length === 0}
-    <p
-      class="rounded-lg border border-border bg-card p-8 text-center text-muted-foreground"
-      data-testid="empty-vocabulary"
-    >
-      {query || typeFilter !== "All types" ? "No matching words" : "No saved words yet"}
-    </p>
-  {:else}
-    <ul class="grid gap-2 lg:grid-cols-2" data-testid="vocabulary-list">
-      {#each filtered as entry (entry.id)}
-        <li class="rounded-lg border border-border bg-card p-3">
-          <div class="flex items-start gap-2">
-            <button
-              type="button"
-              class="flex-1 text-left"
-              data-testid={`vocabulary-${entry.id}`}
-              onclick={() => (details = entry)}
-            >
-              <span class="font-[family-name:var(--font-korean)] text-lg">{displayWord(entry)}</span>
-              {#if partOfSpeech(entry)}
-                <span class="ml-2 rounded bg-accent-soft px-1.5 py-0.5 text-xs">
-                  {capitalize(partOfSpeech(entry))}
-                </span>
-              {/if}
-              {#if formatMeaning(entry)}
-                <span class="mt-1 block text-sm text-muted-foreground">{formatMeaning(entry)}</span>
-              {/if}
-            </button>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label={`Edit ${entry.word}`}
-              onclick={() => startEdit(entry)}
-            >
-              <Pencil />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label={`Remove ${entry.word}`}
-              onclick={() => (deleting = entry)}
-            >
-              <Trash2 />
-            </Button>
-          </div>
-          {#if entry.tags.length}
-            <p class="mt-2 flex flex-wrap gap-1">
-              {#each entry.tags as tag (tag)}
-                <span class="rounded bg-muted px-1.5 py-0.5 text-xs">{tag}</span>
-              {/each}
-            </p>
-          {/if}
-        </li>
-      {/each}
+  {#if vocabulary.error}<div role="alert" class="load-error" data-testid="vocabulary-error">
+      <p>{vocabulary.error}</p>
+      <Button
+        variant="outline"
+        size="sm"
+        disabled={vocabulary.refreshing}
+        onclick={() => void vocabulary.load()}
+      >
+        Retry
+      </Button>
+    </div>{/if}
+  {#if vocabulary.loading}<p class="text-sm text-muted-foreground" role="status">
+      Loading saved words…
+    </p>{/if}
+  {#if vocabulary.filtered.length}<ul class="word-list" data-testid="vocabulary-list">
+      {#each vocabulary.filtered as entry (entry.id)}<li>
+          <WordCard
+            {entry}
+            busy={vocabulary.busy}
+            onDetails={(event) => {
+              detailTrigger = event.currentTarget as HTMLElement;
+              vocabulary.selectedId = entry.id;
+            }}
+            onEdit={(trigger) => edit(entry, trigger)}
+            onRemove={(trigger) => remove(entry, trigger)}
+          />
+        </li>{/each}
     </ul>
-  {/if}
-
-  {#if details}
-    <section class="rounded-lg border border-border bg-card p-4" data-testid="vocabulary-details">
-      <div class="mb-2 flex items-center justify-between">
-        <h2 class="text-lg font-semibold">{displayWord(details)}</h2>
+  {:else if !vocabulary.loading && !vocabulary.error}<div class="empty" data-testid="empty-vocabulary">
+      {#if !vocabulary.entries.length}<Bookmark size={32} />
+        <h2>No saved words yet</h2>
+        <p>Save a word from Reader or a video to see it here.</p>{:else}<Search size={32} />
+        <h2>No words match your search and filters.</h2>
         <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-label="Close details"
-          onclick={() => (details = null)}
+          variant="secondary"
+          size="sm"
+          onclick={() => {
+            vocabulary.clearFilters();
+            search?.focus();
+          }}
         >
-          <X />
-        </Button>
-      </div>
-      <p class="text-sm text-muted-foreground">From {details.sourceTitle}</p>
-      <p class="mt-2 whitespace-pre-wrap font-[family-name:var(--font-korean)]">{details.context}</p>
-      {#if details.definition?.note}
-        <p class="mt-2 text-sm">Note: {details.definition.note}</p>
-      {/if}
-      <Button class="mt-3" variant="outline" onclick={() => details && startEdit(details)}>Edit</Button>
-    </section>
-  {/if}
+          <X size={14} />Clear filters
+        </Button>{/if}
+    </div>{/if}
+</div>
+{#if vocabulary.selected}<WordDetails
+    entry={vocabulary.selected}
+    bind:width={panelWidth}
+    onClose={closeDetails}
+    onEdit={() => vocabulary.selected && edit(vocabulary.selected)}
+    onRemove={() => vocabulary.selected && remove(vocabulary.selected)}
+  />{/if}
 
-  {#if deleting}
-    <div
-      class="rounded-lg border border-destructive bg-card p-4"
-      role="alertdialog"
-      data-testid="vocabulary-delete"
-    >
-      <p class="mb-3 text-sm">Remove “{deleting.word}” from Vocabulary?</p>
-      <div class="flex gap-2">
-        <Button variant="outline" onclick={() => (deleting = null)}>Cancel</Button>
-        <Button variant="destructive" onclick={confirmDelete} disabled={busy}>Remove</Button>
+<Sheet.Root bind:open={editorOpen}>
+  <Sheet.Content
+    showCloseButton={!vocabulary.busy}
+    onCloseAutoFocus={restoreDialogFocus}
+    class="max-w-[500px] rounded-2xl border-transparent gap-0 pb-0"
+    overlayProps={{ style: "backdrop-filter:none;" }}
+    onEscapeKeydown={(event) => {
+      if (vocabulary.busy) event.preventDefault();
+    }}
+    onInteractOutside={(event) => {
+      if (vocabulary.busy) event.preventDefault();
+    }}
+  >
+    <Sheet.Header>
+      <Sheet.Title class="text-lg">Edit saved word</Sheet.Title><Sheet.Description class="sr-only">
+        Update the dictionary form, meaning, tags and note for this saved selection.
+      </Sheet.Description>
+    </Sheet.Header>
+    <div class="px-5 pb-5" data-testid="vocabulary-editor">
+      {#if editing}{#key editing.id}<WordForm
+            mode="edit"
+            saved
+            initial={initial(editing)}
+            saving={vocabulary.busy}
+            error={vocabulary.editError}
+            onSave={(draft) => vocabulary.save(editing!.id, draft)}
+            onClose={() => (editorOpen = false)}
+          />{/key}{/if}
+    </div>
+  </Sheet.Content>
+</Sheet.Root>
+<Sheet.Root bind:open={removalOpen}>
+  <Sheet.Content
+    showCloseButton={!vocabulary.busy}
+    onCloseAutoFocus={restoreDialogFocus}
+    class="max-w-[380px] rounded-2xl border-transparent gap-0 pb-0"
+    overlayProps={{ style: "backdrop-filter:none;" }}
+    onEscapeKeydown={(event) => {
+      if (vocabulary.busy) event.preventDefault();
+    }}
+    onInteractOutside={(event) => {
+      if (vocabulary.busy) event.preventDefault();
+    }}
+  >
+    <Sheet.Header>
+      <Sheet.Title>Remove saved word?</Sheet.Title><Sheet.Description>
+        Remove “{removing ? displayWord(removing) : ""}” from Vocabulary?
+      </Sheet.Description>
+    </Sheet.Header>
+    <div class="px-5 pb-5" data-testid="vocabulary-delete">
+      {#if vocabulary.removeError}<p role="alert" class="mb-4 text-sm text-destructive">
+          {vocabulary.removeError}
+        </p>{/if}
+      <div class="flex justify-end gap-2">
+        <Button variant="outline" disabled={vocabulary.busy} onclick={() => (removalOpen = false)}>
+          Cancel
+        </Button><Button
+          disabled={vocabulary.busy}
+          onclick={async () => {
+            if (removing && (await vocabulary.remove(removing.id))) {
+              removalOpen = false;
+              void tick().then(() => search?.focus());
+            }
+          }}
+        >
+          Remove
+        </Button>
       </div>
     </div>
-  {/if}
-</div>
+  </Sheet.Content>
+</Sheet.Root>
+
+<style>
+  .count {
+    color: var(--muted-foreground);
+    font-size: 13px;
+    margin-bottom: 14px;
+  }
+  .filters {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 14px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .search-field {
+    position: relative;
+    flex: 1;
+    min-width: 200px;
+  }
+  .search-field :global(svg) {
+    position: absolute;
+    left: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--muted-foreground);
+    pointer-events: none;
+    z-index: 1;
+  }
+  .search-field :global(input) {
+    padding-left: 36px;
+    border-radius: 10px;
+    height: 38px;
+  }
+  select {
+    width: 132px;
+    height: 38px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--card);
+    padding: 0 10px;
+    font-size: 13px;
+  }
+  .sort-field {
+    position: relative;
+  }
+  .sort-field :global(svg) {
+    position: absolute;
+    top: 12px;
+    left: 10px;
+    pointer-events: none;
+    color: var(--muted-foreground);
+  }
+  .sort-field select {
+    padding-left: 30px;
+  }
+  .word-list {
+    display: grid;
+    gap: 8px;
+  }
+  .load-error {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 14px;
+    font-size: 14px;
+    color: var(--destructive);
+  }
+  .empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    gap: 12px;
+    min-height: 288px;
+    padding: 24px;
+    color: var(--muted-foreground);
+  }
+  .empty h2 {
+    font-weight: 600;
+    color: var(--foreground);
+  }
+  .empty p {
+    font-size: 14px;
+  }
+</style>

@@ -413,3 +413,34 @@ Qt HistoryPage row measurements and current Electron services.
   A follow-up retains session scroll position when returning from Watch; all 8
   History browser checks passed after that change. Windows/macOS and live
   YouTube playback remain unverified locally.
+
+## Step 8 implementation notes
+
+Implemented on `feat/frontend-vocabulary`, stacked on History while PRs #49–#52
+remain unmerged. Awaiting user review. Inspected Qt's VocabularyPage,
+VocabularyDetails, VocabularyEditor and VocabularyForm, plus the old Svelte page.
+
+- Matched the wide, single-column word list, count, search/type/sort row,
+  borderless cards and three-dot Edit/Remove menu. Korean display/search uses
+  NFC without rewriting stored source words. Search also covers saved meanings,
+  notes, tags, context and source titles.
+- Details slide from the right below the header, with a pointer/keyboard
+  resizable divider. Definition, note, context, saved date and source snapshots
+  stay readable offline. Retained tags, dictionary-source links and footer
+  Edit/Remove actions alongside the Qt layout.
+- Editing uses a separate dialog; the shared WordForm also supplies Reader and
+  Watch's docked save fields. Dictionary form can be cleared while retaining the
+  original word. Rust remains responsible for persistence and validation.
+  Errors retain the draft; pending mutations cannot dismiss the dialog. Removal
+  requires confirmation and failed removal keeps the entry and details intact.
+- VocabularyModel refreshes on library notifications, rejects obsolete/disposed
+  reads and selects details by ID so successful edits refresh the open panel.
+  External refreshes preserve open edit drafts. Dialog/details closing restores
+  keyboard focus. Empty results and storage errors have distinct feedback.
+- Validation passed: warning-free typecheck, production build, formatting,
+  32 unit tests, Electron checks, all 61 browser tests and all 12 packaged Linux
+  smoke routes with temporary libraries. The native Vocabulary route removes a
+  source document, verifies its retained snapshots, edits the saved meaning,
+  checks refreshed details/tags, and confirms removal. Visual captures cover
+  light/dark, details, editing, narrow windows and zoom. Windows/macOS remain
+  unverified locally. No database/schema or Rust changes were needed.
