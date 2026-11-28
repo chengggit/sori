@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { fly } from "svelte/transition";
   import { Film, Link, Play, RefreshCw } from "@lucide/svelte";
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
@@ -139,12 +140,7 @@
       >
         <Link size={15} />Paste YouTube link
       </Button>
-      <Button
-        variant="outline"
-        size="sm"
-        disabled={discovery.loading || discovery.loadingMore}
-        onclick={() => discovery.load(discovery.query)}
-      >
+      <Button variant="outline" size="sm" onclick={() => discovery.load(discovery.query)}>
         <RefreshCw size={15} />Refresh
       </Button>
     </div>
@@ -156,20 +152,32 @@
         {discovery.hasKey ? "Explore" : "Open Settings"}
       </a>
     </p>{/if}
-  {#if discovery.loading}<p role="status" class="mb-4 text-sm text-muted-foreground">
-      Loading videos…
-    </p>{/if}
-  <div class="video-grid">
-    {#each discovery.videos as video (video.id)}
-      <a class="video-card" href={`#/explore?v=${video.id}`}>
-        <div class="video-thumbnail">
-          <img src={video.thumbnail} alt="" loading="lazy" referrerpolicy="no-referrer" />
-          {@render playOverlay()}
-        </div>
-        <h3 class="mt-2 line-clamp-2 text-sm font-medium" title={video.title}>{video.title}</h3>
-        <p class="mt-1 truncate text-xs text-muted-foreground">{video.channel}</p>
-      </a>
-    {/each}
+  <div class="relative">
+    {#if discovery.loading || discovery.loadingMore}
+      <div
+        class="pointer-events-none absolute inset-0 z-10 grid place-items-center"
+        aria-hidden="true"
+        transition:fly={{ y: -12, duration: 180 }}
+      >
+        <span
+          class="grid size-14 place-items-center rounded-full bg-white text-dashboard-accent shadow-lg"
+        >
+          <span class="refresh-spinner"></span>
+        </span>
+      </div>
+    {/if}
+    <div class="video-grid">
+      {#each discovery.videos as video (video.id)}
+        <a class="video-card" href={`#/explore?v=${video.id}`}>
+          <div class="video-thumbnail">
+            <img src={video.thumbnail} alt="" loading="lazy" referrerpolicy="no-referrer" />
+            {@render playOverlay()}
+          </div>
+          <h3 class="mt-2 line-clamp-2 text-sm font-medium" title={video.title}>{video.title}</h3>
+          <p class="mt-1 truncate text-xs text-muted-foreground">{video.channel}</p>
+        </a>
+      {/each}
+    </div>
   </div>
   {#if discovery.hasMore}<div class="mt-6 flex justify-center">
       <Button
@@ -261,6 +269,24 @@
     box-shadow: 0 2px 10px rgb(0 0 0 / 25%);
     transform: scale(0.82);
     transition: transform 200ms ease;
+  }
+  .refresh-spinner {
+    width: 26px;
+    height: 26px;
+    border: 3px solid color-mix(in oklch, var(--dashboard-accent) 25%, transparent);
+    border-top-color: var(--dashboard-accent);
+    border-radius: 50%;
+    animation: refresh-spin 700ms linear infinite;
+  }
+  @keyframes refresh-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .refresh-spinner {
+      animation-duration: 1.6s;
+    }
   }
   .resume-thumbnail:hover img,
   .video-thumbnail:hover img,

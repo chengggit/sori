@@ -62,3 +62,32 @@ a {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
+
+/* Slim scrollbars whose thumbs only appear while their container is scrolling. */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: transparent;
+  border-radius: 999px;
+}
+.is-scrolling::-webkit-scrollbar-thumb {
+  background: color-mix(in oklch, var(--foreground) 32%, transparent);
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+@supports (-moz-appearance: none) {
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+  }
+  .is-scrolling {
+    scrollbar-color: color-mix(in oklch, var(--foreground) 32%, transparent) transparent;
+  }
+}

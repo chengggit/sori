@@ -12,6 +12,7 @@
   import WatchPage from "./pages/WatchPage.svelte";
   import YouTubePage from "./pages/YouTubePage.svelte";
   import { persistUi, ui } from "$lib/ui-state.svelte";
+  import { startAutoHideScrollbars } from "$lib/scrollbars";
 
   let homeRequest = $state({ query: "", sequence: 0 });
   let route = $state(location.hash);
@@ -36,6 +37,7 @@
   }
 
   onMount(() => {
+    const stopScrollbars = startAutoHideScrollbars();
     const onHashChange = () => {
       route = location.hash;
     };
@@ -46,6 +48,7 @@
     window.addEventListener("hashchange", onHashChange);
     media.addEventListener("change", onThemeChange);
     return () => {
+      stopScrollbars();
       window.removeEventListener("hashchange", onHashChange);
       media.removeEventListener("change", onThemeChange);
     };

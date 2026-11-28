@@ -1,3 +1,4 @@
+import { tick } from "svelte";
 import {
   searchYouTube,
   subscriptionFeed,
@@ -37,6 +38,7 @@ export class Discovery {
   }
   async load(query = "", append = false) {
     const generation = ++this.generation;
+    const started = Date.now();
     const nextQuery = query.trim();
     if (!append) {
       if (nextQuery !== this.query) this.videos = [];
@@ -48,6 +50,8 @@ export class Discovery {
     this.notice = "";
     this.loading = !append;
     this.loadingMore = append;
+    // Flush the busy state before a fast reply can clear it, so the spinner is visible.
+    await tick();
     await this.ready;
     if (generation !== this.generation) return;
     if (!this.hasKey || (!this.query && !this.channelCount)) {
@@ -61,6 +65,10 @@ export class Discovery {
     const reply = this.query
       ? await searchYouTube(this.query, append ? this.nextPage : "")
       : await subscriptionFeed(append ? this.tokens : {});
+    if (generation !== this.generation) return;
+    // Keep the spinner up briefly so quick refreshes still show feedback.
+    const remaining = 320 - (Date.now() - started);
+    if (remaining > 0) await new Promise((resolve) => setTimeout(resolve, remaining));
     if (generation !== this.generation) return;
     this.loading = this.loadingMore = false;
     if (!reply.ok || !reply.data) {
