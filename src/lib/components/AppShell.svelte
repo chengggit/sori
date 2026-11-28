@@ -72,8 +72,8 @@
     <header class="sticky top-0 z-10 border-b border-border bg-background">
       <div
         class="mx-auto flex h-14 items-center gap-2 px-4 sm:px-8"
-        class:home-width={page === "home"}
-        class:max-w-6xl={page !== "home"}
+        class:home-width={["home", "library"].includes(page)}
+        class:max-w-6xl={!["home", "library"].includes(page)}
       >
         <Sidebar.Trigger class="md:hidden" />
         <h1 data-testid="page-title" class="text-lg font-semibold" class:sr-only={page === "home"}>
@@ -84,8 +84,8 @@
     </header>
     <div
       class="mx-auto px-4 py-6 sm:px-8"
-      class:home-width={page === "home"}
-      class:max-w-6xl={page !== "home"}
+      class:home-width={["home", "library"].includes(page)}
+      class:max-w-6xl={!["home", "library"].includes(page)}
     >
       {@render children?.()}
     </div>

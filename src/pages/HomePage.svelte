@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import MediaHover from "$lib/components/media/MediaHover.svelte";
   import { fly } from "svelte/transition";
   import { Film, Link, Play, RefreshCw } from "@lucide/svelte";
   import { Button } from "$lib/components/ui/button";
@@ -67,24 +68,19 @@
   }
 </script>
 
-{#snippet playOverlay()}
-  <span class="thumbnail-overlay" aria-hidden="true">
-    <span class="play-badge"><Play size={22} fill="currentColor" strokeWidth={1.5} /></span>
-  </span>
-{/snippet}
-
 <section class="resume-hero" aria-labelledby="continue-heading">
   <h2 id="continue-heading" class="mb-4 text-xs font-semibold tracking-widest">CONTINUE WATCHING</h2>
   {#if libraryError}<p role="alert" class="mb-3 text-sm text-destructive">{libraryError}</p>{/if}
   {#if recent}
-    <div class="resume-card" data-testid="resume-card">
+    <div data-media-focus class="resume-card" data-testid="resume-card">
       <div class="resume-thumbnail">
-        {#if thumbnail && !thumbnailFailed}<img
-            src={thumbnail}
-            alt=""
-            onerror={() => (thumbnailFailed = true)}
-          />{:else}<Film size={32} aria-hidden="true" />{/if}
-        {@render playOverlay()}
+        <MediaHover>
+          {#if thumbnail && !thumbnailFailed}<img
+              src={thumbnail}
+              alt=""
+              onerror={() => (thumbnailFailed = true)}
+            />{:else}<Film size={32} aria-hidden="true" />{/if}
+        </MediaHover>
       </div>
       <div class="min-w-0 flex-1 py-3">
         <h3 class="truncate font-semibold">{recent.displayTitle || recent.title}</h3>
@@ -168,10 +164,11 @@
     {/if}
     <div class="video-grid">
       {#each discovery.videos as video (video.id)}
-        <a class="video-card" href={`#/explore?v=${video.id}`}>
+        <a data-media-focus class="video-card" href={`#/explore?v=${video.id}`}>
           <div class="video-thumbnail">
-            <img src={video.thumbnail} alt="" loading="lazy" referrerpolicy="no-referrer" />
-            {@render playOverlay()}
+            <MediaHover>
+              <img src={video.thumbnail} alt="" loading="lazy" referrerpolicy="no-referrer" />
+            </MediaHover>
           </div>
           <h3 class="mt-2 line-clamp-2 text-sm font-medium" title={video.title}>{video.title}</h3>
           <p class="mt-1 truncate text-xs text-muted-foreground">{video.channel}</p>
@@ -200,7 +197,6 @@
     <form class="space-y-3 px-4 pb-4" onsubmit={openLink}>
       <Input
         aria-label="YouTube link"
-        class="focus-visible:border-dashboard-accent focus-visible:ring-0"
         placeholder="Paste a YouTube video link"
         bind:value={link}
         oninput={() => (linkError = "")}
@@ -241,35 +237,6 @@
     border-radius: 12px;
     overflow: hidden;
   }
-  .resume-thumbnail img,
-  .video-thumbnail img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    transition: transform 200ms ease;
-  }
-  .thumbnail-overlay {
-    position: absolute;
-    inset: 0;
-    display: grid;
-    place-items: center;
-    background: color-mix(in oklch, black 38%, transparent);
-    opacity: 0;
-    transition: opacity 200ms ease;
-    pointer-events: none;
-  }
-  .play-badge {
-    display: grid;
-    place-items: center;
-    width: 46px;
-    height: 46px;
-    border-radius: 50%;
-    background: #fff;
-    color: var(--dashboard-accent);
-    box-shadow: 0 2px 10px rgb(0 0 0 / 25%);
-    transform: scale(0.82);
-    transition: transform 200ms ease;
-  }
   .refresh-spinner {
     width: 26px;
     height: 26px;
@@ -287,24 +254,6 @@
     .refresh-spinner {
       animation-duration: 1.6s;
     }
-  }
-  .resume-thumbnail:hover img,
-  .video-thumbnail:hover img,
-  .video-card:focus-visible img,
-  .resume-card:has(.resume-button:focus-visible) img {
-    transform: scale(1.03);
-  }
-  .resume-thumbnail:hover .thumbnail-overlay,
-  .video-thumbnail:hover .thumbnail-overlay,
-  .video-card:focus-visible .thumbnail-overlay,
-  .resume-card:has(.resume-button:focus-visible) .thumbnail-overlay {
-    opacity: 1;
-  }
-  .resume-thumbnail:hover .play-badge,
-  .video-thumbnail:hover .play-badge,
-  .video-card:focus-visible .play-badge,
-  .resume-card:has(.resume-button:focus-visible) .play-badge {
-    transform: scale(1);
   }
   .resume-progress {
     display: block;

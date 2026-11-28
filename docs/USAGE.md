@@ -11,6 +11,17 @@ Home discovers uploads from the channels managed in Explore. Refresh reloads
 the feed; Load more appends another page. Paste YouTube link opens an embeddable
 video without an API key. YouTube videos currently open in Explore's player.
 
+## Library
+
+My Library separates text/PDF covers and local video cards. Search matches titles;
+video cards show stored playback progress. Open a cover to read or watch. Hover
+or keyboard-focus a card to reveal its item menu; touch layouts keep menus visible.
+
+Import text opens a dialog for pasted text or a native TXT/PDF file picker.
+Text entries can be edited from their item menu. PDFs remain read-only in the
+text editor. Delete removes a document and any managed PDF copy; removing a video
+only removes its library entry and leaves the original media file on disk.
+
 ## Reading and vocabulary
 
 Import TXT files or PDFs, or paste text in My Library. Click Korean words to

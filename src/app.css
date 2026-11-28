@@ -58,9 +58,35 @@ a {
   color: inherit;
 }
 
-:focus-visible:not(input, textarea, select) {
+:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+
+/* Text fields use one continuous focus edge, without stacked outline/ring layers.
+   An inset stroke adds emphasis without changing dimensions or shifting text. */
+:is(
+  input:not(
+    [type="checkbox"],
+    [type="radio"],
+    [type="range"],
+    [type="color"],
+    [type="hidden"],
+    [type="button"],
+    [type="submit"],
+    [type="reset"],
+    [type="image"]
+  ),
+  textarea,
+  select
+):focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+:is(input, textarea, select)[aria-invalid="true"]:focus {
+  border-color: var(--destructive);
+  box-shadow: inset 0 0 0 1px var(--destructive);
 }
 
 /* Slim scrollbars whose thumbs only appear while their container is scrolling. */

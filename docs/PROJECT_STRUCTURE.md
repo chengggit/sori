@@ -39,7 +39,7 @@ src/
     components/     # shared shell and UI primitives
     reader/         # reading helpers, analysis panel and PDF reader
     dictionary/     # lookup helpers, settings and dictionary panel
-    library/        # typed library command wrappers
+    library/        # command wrappers, refresh/thumbnail state and media cards
     video/          # playback, subtitles and command wrappers
     dashboard/      # YouTube parsing and IFrame playback helpers
     home/           # Home search, discovery requests and resume helpers

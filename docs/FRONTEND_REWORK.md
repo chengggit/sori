@@ -66,7 +66,7 @@ git merge --no-ff feat/frontend-shell
       have useful actions, resume links open the correct item, and optional online
       controls show loading/errors without blocking offline use.
 
-- [ ] **2. Library — `feat/frontend-library`**
+- [x] **2. Library — `feat/frontend-library`**
       Start from old `src/routes/library/+page.svelte`: document/video shelves,
       search, import sheet, item actions, edit and remove flows. Keep current native
       file pickers, paste import, TXT/PDF support and Rust-owned metadata/progress.
@@ -189,7 +189,7 @@ Implemented on `feat/frontend-home`, using the user-provided Qt screenshot and
 `/home/cheng/Documents/sori-qt/qml/pages/{HomePage,ExplorePage}.qml` as the visual
 and behavioral reference. The shell branch was merged into the integration
 branch before this slice started. Step 1 was accepted by the user on 2026-11-28;
-integration into `feat/frontend-rework` is pending.
+integration into `feat/frontend-rework` completed through PR #47.
 
 - Home uses a header search form, a most-recent local/YouTube resume card, and a
   responsive discovery grid. Discovery follows Qt's subscription feed behavior;
@@ -214,3 +214,47 @@ integration into `feat/frontend-rework` is pending.
   fix and passes afterward without live network access. Final checks include
   25 unit tests and 5 targeted Home/Explore browser checks, with actual image
   loading asserted against the Rust response shape.
+
+## Step 2 implementation notes
+
+Implemented on `feat/frontend-library`, created from the merged Home PR.
+Accepted by the user on 2026-11-28 for integration into `feat/frontend-rework`.
+
+- Matched the supplied Qt Library reference: wide content area, 220px portrait
+  text/PDF covers with initial-letter artwork and type badges, 340px landscape
+  video cards, progress bars and hover/focus action menus.
+- Reused the old Svelte dropdown-menu and sheet interaction patterns with current
+  Electron command wrappers. Import/paste, text editing, deletion and video
+  removal use dialogs with keyboard/focus handling and visible operation errors.
+- PDFs open in the existing reader and expose Delete, but not a text editor.
+  Search matches original and display titles and distinguishes empty shelves
+  from no matching results. Existing local thumbnails use the managed protocol;
+  missing thumbnails are prepared serially without blocking card rendering.
+- Moved library refresh/thumbnail orchestration into `lib/library/state.svelte.ts`
+  and shared playback time formatting into `lib/video/time.ts`.
+- Browser coverage uses mutable fixtures for paste/edit/remove/native-picker
+  outcomes and verifies preserved drafts after failed saves. Captures in
+  `test-results/library-baseline/` cover light/dark/narrow layouts. Video images
+  in browser captures use the fallback icon; actual image loading is checked in
+  the packaged Electron smoke route against a generated temporary video.
+- Validation passed: typecheck, build, formatting, 25 unit tests, 20 browser tests,
+  and all 11 existing packaged Linux smoke routes. The expanded Library route
+  verified actual TXT/PDF imports, a generated video thumbnail, stored progress,
+  and preservation of the original video after removal. Windows/macOS remain
+  unverified locally. Changes are uncommitted for review.
+- Follow-up: Home and Library now share `components/media/MediaHover.svelte`.
+  Both use Home's 200ms artwork zoom and scale-in action badge, with a book icon
+  for documents. Library menus sit above the overlay and hold it open while used.
+  Typecheck/build and all 9 Home/Library browser checks passed after extraction.
+- Follow-up: normalize decomposed Hangul to NFC for Library display/search without
+  rewriting stored titles; use bundled Noto Sans KR and whole-word wrapping for
+  card titles. The three-dot button uses a borderless, shadowless card fill.
+  A decomposed-title browser regression and all 6 Library checks pass.
+- Follow-up: matched Qt's 560×520 import editor: file chooser first, focused title,
+  expandable Korean text area, Cancel and soft Import text actions, a borderless
+  rounded card and dimmed backdrop without blur. All 7 Library browser checks
+  pass, including editor autofocus/Cancel and the existing import/edit flows.
+- Follow-up: unified app-wide form focus styling and removed stacked rings from
+  shared inputs/buttons/sidebar controls. Text fields use a single inset accent
+  edge without layout shifts; keyboard outlines and invalid-field colors remain.
+  Typecheck/build/formatting, 25 unit tests and all 24 browser tests passed.
