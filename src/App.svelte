@@ -71,7 +71,6 @@
     appearance={ui.appearance}
     {dark}
     pageScale={ui.pageScale}
-    onPage={goTo}
     onAppearance={(value) => (ui.appearance = value)}
     onScale={(value) => (ui.pageScale = value)}
     titleOverride={page === "reader"

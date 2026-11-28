@@ -83,7 +83,7 @@ git merge --no-ff feat/frontend-shell
       context; saved meanings work offline; dictionary errors, provider fallback,
       external links and embedded tab enable/order/retention behavior remain usable.
 
-- [ ] **4. Reader — `feat/frontend-reader`**
+- [x] **4. Reader — `feat/frontend-reader`**
       Start from old `src/routes/read/+page.svelte`, `DocumentReader.svelte`, and
       `TokenPassage.svelte`. Integrate the shared analysis panel and preserve the
       current PDF renderer rather than losing PDF support in a text-only port.
@@ -91,7 +91,7 @@ git merge --no-ff feat/frontend-shell
       Book/Scroll modes and reader typography work, progress saves/restores, and
       switching documents cannot apply stale analysis or progress to another item.
 
-- [ ] **5. Watch — `feat/frontend-watch`**
+- [x] **5. Watch — `feat/frontend-watch`**
       Start from old `src/routes/watch/+page.svelte` and `WatchVideo.svelte` layouts.
       Keep Electron's Chromium player and Range protocols; adapt the old controls,
       transcript and analysis layout without restoring mpv or Tauri video plugins.
@@ -101,7 +101,7 @@ git merge --no-ff feat/frontend-shell
       switching videos discards stale results and leaving playback flushes progress.
       Sidecar attachments must restore on reopening.
 
-- [ ] **6. Explore — `feat/frontend-explore`**
+- [x] **6. Explore — `feat/frontend-explore`**
       Start from old `src/routes/explore/+page.svelte`: topic browsing and search
       presentation. Retain current subscriptions/feed and caption-fetch workflows,
       even though the older page does not provide their full UI. Share video cards
@@ -110,7 +110,7 @@ git merge --no-ff feat/frontend-shell
       a video work through Rust services; loading, missing keys, offline conditions,
       empty responses and failed requests have distinct states.
 
-- [ ] **7. History — `feat/frontend-history`**
+- [x] **7. History — `feat/frontend-history`**
       Start from old `src/routes/history/+page.svelte`, replacing localStorage watch
       history with current Rust-backed YouTube history. Present local resume data
       where the existing services support it; inspect available timestamps before
@@ -120,13 +120,13 @@ git merge --no-ff feat/frontend-shell
       progress and working resume links; it updates after playback and has a useful
       empty state without inventing viewing records.
 
-- [ ] **8. Vocabulary — `feat/frontend-vocabulary`**
+- [x] **8. Vocabulary — `feat/frontend-vocabulary`**
       Start from old `src/routes/vocabulary/+page.svelte` and its relevant components.
       Retain the current search/filter/sort, meanings, notes, tags and source snapshots.
       **Done when:** Reader/Watch saves appear here; users can inspect, edit and remove
       entries; saved meanings work offline and survive removal of their source item.
 
-- [ ] **9. Settings — `feat/frontend-settings`**
+- [x] **9. Settings — `feat/frontend-settings`**
       Reuse the old layout's settings sheet presentation. Default to restoring the
       sidebar-opened sheet while preserving a direct settings route to the same
       controls. Reconcile that presentation with the current broader settings UI.
@@ -417,7 +417,7 @@ Qt HistoryPage row measurements and current Electron services.
 ## Step 8 implementation notes
 
 Implemented on `feat/frontend-vocabulary`, stacked on History while PRs #49–#52
-remain unmerged. Awaiting user review. Inspected Qt's VocabularyPage,
+remain unmerged. Accepted by the user for PR #53 on 2026-11-28. Inspected Qt's VocabularyPage,
 VocabularyDetails, VocabularyEditor and VocabularyForm, plus the old Svelte page.
 
 - Matched the wide, single-column word list, count, search/type/sort row,
@@ -444,3 +444,46 @@ VocabularyDetails, VocabularyEditor and VocabularyForm, plus the old Svelte page
   checks refreshed details/tags, and confirms removal. Visual captures cover
   light/dark, details, editing, narrow windows and zoom. Windows/macOS remain
   unverified locally. No database/schema or Rust changes were needed.
+
+## Step 9 implementation notes
+
+Implemented on `feat/frontend-settings`, stacked on Vocabulary while PRs #49–#53
+remain unmerged. Awaiting user review. Inspected Qt's SettingsSheet and the old
+Svelte layout's settings sheet.
+
+- Sidebar Settings opens a centered 720×560 sheet over the current page, with
+  General, Dictionaries and Connections categories and an independently scrolling
+  form. Narrow windows put categories above the form. The direct Settings route
+  uses the same component/model. Appearance remains a theme/zoom shortcut;
+  channel management stays in Explore rather than duplicating its workflow here.
+- Preserved theme, application zoom, reading font, reader size/line height and
+  transcript line height with their existing UI persistence. Dictionary/YouTube
+  state stays in Rust; each section has its own loading, error and success feedback.
+  Failed mutations retain drafts; pending writes prevent dismissal, and closing
+  Settings clears draft keys. Saved key values are never returned to the form.
+- Added replacement-key entry, corrected removal status refresh, and retained
+  the native KRDict validation/provider rules. Removing KRDict's key returns to
+  Wiktionary. YouTube distinguishes saved keys, environment fallback and no key.
+  Successful native settings mutations notify mounted discovery models so Home
+  and Explore refresh their configuration without navigation.
+- Embedded dictionaries list both enabled and disabled providers, allowing tabs
+  to be re-enabled. Enabled tabs support drag and keyboard-accessible arrow
+  reordering; custom HTTPS URLs are validated, deduplicated and removable.
+  Settings uses the existing tab store/order shared with Reader and Watch.
+- Browser validation covers sheet/route presentation, mobile focus handoff,
+  theme/zoom/typography persistence, key errors and fallback, provider changes,
+  custom/disabled tabs, section retries and configuration updates beneath the
+  sheet. Captures cover General, Dictionaries, Connections, dark and narrow zoom.
+  Windows/macOS and live external API responses remain unverified locally.
+- Validation passed: warning-free typecheck, production build, formatting,
+  32 unit tests, Electron IPC/security checks, all 69 browser tests and all 12
+  packaged Linux smoke routes using temporary libraries. The Settings smoke
+  opens the sheet over Library, changes theme, saves/selects/removes the KRDict
+  key/provider and saves/removes a YouTube key through the UI and real bridge.
+  Rust/schema and CI triggers remain unchanged.
+
+## Integration and polish
+
+The user accepted integration of Reader through Settings on 2026-11-28.
+These slices are merged into `feat/frontend-rework`; final acceptance continues
+on `chore/frontend-polish`. CI stays manual-only until that acceptance pass.

@@ -200,6 +200,18 @@ module.exports = function registerIpc(handle, native) {
       const reply = JSON.parse(await native.invoke(command, JSON.stringify(payload ?? {})));
       if (
         reply.ok &&
+        /^(dictionary:(saveKey|removeKey|select)|youtube:(saveKey|removeKey))$/.test(command)
+      ) {
+        setTimeout(() => {
+          try {
+            event.sender.send("core:event", { name: "settings-changed" });
+          } catch {
+            // The invoking window may have closed while the command completed.
+          }
+        }, 200);
+      }
+      if (
+        reply.ok &&
         /^(document:(add|import|update|remove)|video:(import|remove|saveProgress|saveSubtitles)|vocabulary:(save|edit|remove)|progress:saveDocument)$/.test(
           command,
         )

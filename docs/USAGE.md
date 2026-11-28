@@ -140,6 +140,22 @@ Settings covers theme (system/light/dark), application zoom, reading typography,
 dictionary provider and keys, YouTube key, and embedded tab order. All
 preferences are stored locally.
 
+The sidebar opens Settings over your current page. Choose **General** for theme,
+zoom and reading/transcript typography, **Dictionaries** for the analysis provider,
+KRDict key and embedded tabs, or **Connections** for YouTube. Escape or the close
+button returns to your page. The direct `#/settings` route offers the same controls.
+Appearance remains a shortcut to theme and zoom.
+
+Keys can be replaced without removing them first. Removing the KRDict key returns
+analysis to Wiktionary. YouTube distinguishes a locally saved key from an
+environment key; removing the saved key restores the environment fallback, if
+configured. Failed saves keep the entered text for retry. Draft keys are cleared
+when Settings closes; saved keys are never filled back into the inputs.
+
+Embedded tabs can be disabled and re-enabled. Drag enabled tabs or use their
+up/down arrows to change their order. Custom dictionary URLs must use HTTPS
+without a username or password; use `{word}` for the selected word.
+
 ## Offline behavior
 
 Reading, local playback, Korean analysis, vocabulary and saved meanings work
