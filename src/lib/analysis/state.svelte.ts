@@ -12,7 +12,8 @@ export type SavedWord = {
   definition: DictionaryDefinition | null;
   tags: string[];
 };
-export type WordDraft = { word: string; meaning: string; note: string; tags: string[] };
+export type { WordDraft } from "../vocabulary/types";
+import type { WordDraft } from "../vocabulary/types";
 
 export class AnalysisModel {
   definitions = $state<DictionaryDefinition[]>([]);

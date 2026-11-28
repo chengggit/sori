@@ -78,6 +78,12 @@ owns superseded-request handling, ordered lemma lookup, KRDict empty-result
 fallback, and vocabulary save/edit/remove operations through typed services.
 Source word/context and Kiwi UTF-16 offsets remain unchanged.
 
+`src/lib/vocabulary/WordForm.svelte` supplies the fields for the docked save panel
+and Vocabulary's edit dialog. VocabularyModel owns list refreshes, selection by
+ID and mutation feedback; typed commands still delegate all storage and editing
+rules to Rust. Source/context snapshots remain readable when their media is
+removed. Search and type/sort helpers operate on that canonical library state.
+
 Inactive dictionary frames are retained for 30 seconds; tab switches preserve
 save drafts. Embedded tab order is persisted with keyboard/drag reordering.
 HTTPS frames support user-defined lookup templates; third-party response headers

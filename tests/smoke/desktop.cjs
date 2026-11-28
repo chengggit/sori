@@ -543,19 +543,29 @@ module.exports = function attachSmokeChecks(window, { app, isDev, smokeHash }) {
         const documentId = state.data.documents[0].id;
         await window.sori.invoke('core:invoke', 'vocabulary:save', {
           kind: 'document', id: documentId,
-          input: { word: '안녕', context: '안녕하세요', tags: [] }
+          input: { word: '안녕', context: '안녕하세요', tags: ['reading'] }
         });
+        await window.sori.invoke('core:invoke', 'document:remove', { id: documentId });
       })()`);
         await window.webContents.executeJavaScript(`location.hash = '#/vocabulary'`);
         for (let attempt = 0; attempt < 10; attempt += 1) {
           await new Promise((resolve) => setTimeout(resolve, 300));
           const ready = await window.webContents.executeJavaScript(
-            'Boolean(document.querySelector("[data-testid^=vocabulary-]"))',
+            'Boolean(document.querySelector("[data-testid^=word-card-]"))',
           );
           if (ready) break;
         }
         await window.webContents.executeJavaScript(`(() => {
-        document.querySelector('[aria-label="Edit 안녕"]').click();
+        document.querySelector('[aria-label="Open details for 안녕"]').click();
+      })()`);
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        const snapshot = await window.webContents.executeJavaScript(`(() => {
+        const panel = document.querySelector('[data-testid=vocabulary-details]');
+        return panel.textContent.includes('단어 스모크') && panel.textContent.includes('안녕하세요');
+      })()`);
+        await window.webContents.executeJavaScript(`(() => {
+        [...document.querySelectorAll('[data-testid=vocabulary-details] button')]
+          .find((button) => button.textContent.trim() === 'Edit').click();
       })()`);
         await new Promise((resolve) => setTimeout(resolve, 300));
         await window.webContents.executeJavaScript(`(() => {
@@ -568,12 +578,16 @@ module.exports = function attachSmokeChecks(window, { app, isDev, smokeHash }) {
           'document.querySelector("[data-testid=save-vocabulary]").click()',
         );
         await new Promise((resolve) => setTimeout(resolve, 600));
-        const meaning = await window.webContents.executeJavaScript(`(async () => {
+        const saved = await window.webContents.executeJavaScript(`(async () => {
         const state = await window.sori.invoke('core:invoke', 'library:state', {});
-        return state.data.vocabulary[0]?.definition?.text ?? '';
+        return state.data.vocabulary[0];
       })()`);
+        const detailsUpdated = await window.webContents.executeJavaScript(
+          'document.querySelector("[data-testid=vocabulary-details]").textContent.includes("hello")',
+        );
         await window.webContents.executeJavaScript(`(() => {
-        document.querySelector('[aria-label="Remove 안녕"]').click();
+        [...document.querySelectorAll('[data-testid=vocabulary-details] button')]
+          .find((button) => button.textContent.trim() === 'Remove').click();
       })()`);
         await new Promise((resolve) => setTimeout(resolve, 600));
         const dialogVisible = await window.webContents.executeJavaScript(
@@ -595,8 +609,18 @@ module.exports = function attachSmokeChecks(window, { app, isDev, smokeHash }) {
         }
         clearTimeout(watchdog);
         finishSmoke(
-          meaning === "hello" && remaining === 0 ? 0 : 1,
-          `Vocabulary page: ${JSON.stringify({ meaning, dialogVisible, remaining })}`,
+          snapshot &&
+            detailsUpdated &&
+            saved.definition?.text === "hello" &&
+            saved.documentId === null &&
+            saved.sourceTitle === "단어 스모크" &&
+            saved.context === "안녕하세요" &&
+            saved.tags.includes("reading") &&
+            dialogVisible &&
+            remaining === 0
+            ? 0
+            : 1,
+          `Vocabulary page: ${JSON.stringify({ snapshot, detailsUpdated, saved, dialogVisible, remaining })}`,
         );
         return;
       }
