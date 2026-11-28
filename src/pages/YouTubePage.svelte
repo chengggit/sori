@@ -1,16 +1,12 @@
 <script lang="ts">
   import { ExternalLink, Search, Trash2 } from "@lucide/svelte";
-  import { onDestroy, onMount, tick } from "svelte";
+  import { onMount } from "svelte";
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
   import { parseYouTubeLink } from "$lib/dashboard/youtube";
-  import { trackPlayback } from "$lib/dashboard/playback";
-  import type { PlaybackControls } from "$lib/video/playback";
   import { loadLibraryState } from "$lib/library/commands";
   import {
     addSubscription,
-    fetchTranscript,
-    fetchMetadata,
     removeSubscription,
     removeYouTubeKey,
     saveYouTubeKey,
@@ -24,9 +20,6 @@
   } from "$lib/youtube/commands";
 
   let link = $state("");
-  let current = $state<string | null>(null);
-  let title = $state("");
-  let channel = $state("");
   let query = $state("");
   let results = $state<YouTubeVideo[]>([]);
   let nextPage = $state("");
@@ -37,13 +30,6 @@
   let channelList = $state<Subscription[]>([]);
   let feed = $state<YouTubeVideo[]>([]);
   let history = $state<Record<string, number>>({});
-  let transcript = $state("");
-
-  let frame = $state<HTMLIFrameElement>();
-  let controls: PlaybackControls | undefined;
-  let tracker: { destroy(): void } | undefined;
-  let savedSeconds = 0;
-  let currentDuration = 0;
 
   function report(reply: { ok: boolean; error: string }) {
     if (!reply.ok) error = reply.error;
@@ -81,42 +67,8 @@
     void refreshSubscriptions();
   });
 
-  onDestroy(() => tracker?.destroy());
-
-  async function play(id: string, videoTitle = "", videoChannel = "") {
-    tracker?.destroy();
-    tracker = undefined;
-    controls = undefined;
-    current = id;
-    title = videoTitle;
-    channel = videoChannel;
-    transcript = "";
-    savedSeconds = history[id] ?? 0;
-    currentDuration = 0;
-    if (!videoTitle) {
-      const info = await fetchMetadata(id);
-      if (report(info) && info.data) {
-        title = info.data.title;
-        channel = info.data.channel;
-      }
-    }
-    // Let Svelte create the iframe with the new src before attaching the API.
-    await tick();
-    if (frame) {
-      tracker = trackPlayback(frame, {
-        onTime: () => {},
-        onSave: async (seconds, duration) => {
-          if (!current) return;
-          currentDuration = duration ?? currentDuration;
-          const saved = await saveYouTubeProgress(current, title, channel, seconds, currentDuration);
-          report(saved);
-        },
-        onControls: (next) => {
-          controls = next;
-          if (next && savedSeconds > 0) next.seek(savedSeconds);
-        },
-      });
-    }
+  async function play(id: string, _title = "", _channel = "") {
+    location.hash = `#/watch?v=${encodeURIComponent(id)}`;
   }
 
   function openLink() {
@@ -153,15 +105,6 @@
     const reply = await subscriptionFeed();
     if (report(reply)) feed = reply.data?.videos ?? [];
   }
-
-  async function loadTranscript() {
-    if (!current) return;
-    const reply = await fetchTranscript(current, "ko");
-    if (!report(reply)) return;
-    const data = reply.data as { timedJson?: unknown } | null;
-    const cues = data?.timedJson;
-    transcript = Array.isArray(cues) ? `${cues.length} timed cues cached` : "No timed captions found.";
-  }
 </script>
 
 <div class="flex flex-col gap-4">
@@ -180,30 +123,6 @@
 
   {#if error}
     <p class="text-sm text-destructive" role="alert" data-testid="youtube-error">{error}</p>
-  {/if}
-
-  {#if current}
-    <section class="rounded-lg border border-border bg-card p-3" data-testid="youtube-player">
-      <h2 class="mb-2 font-semibold">{title || "YouTube video"}</h2>
-      <div class="aspect-video w-full max-w-3xl overflow-hidden rounded-lg bg-black">
-        <iframe
-          bind:this={frame}
-          class="h-full w-full border-0"
-          src={`https://www.youtube.com/embed/${current}?enablejsapi=1`}
-          title={title || "YouTube player"}
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture"
-          allowfullscreen
-        ></iframe>
-      </div>
-      <div class="mt-2 flex flex-wrap gap-2">
-        <Button variant="outline" onclick={() => controls?.play()}>Play</Button>
-        <Button variant="outline" onclick={() => controls?.pause()}>Pause</Button>
-        <Button variant="outline" onclick={loadTranscript} data-testid="fetch-transcript">
-          Fetch captions
-        </Button>
-        {#if transcript}<span class="text-sm text-muted-foreground">{transcript}</span>{/if}
-      </div>
-    </section>
   {/if}
 
   <section class="flex flex-col gap-2">

@@ -103,8 +103,18 @@ Other resource origins, sandboxing and top-level IPC sender checks stay restrict
   metadata/thumbnails through `video:thumbnail`; imported media stays in place.
 - FFprobe inspects tracks; FFmpeg extracts text subtitles. Both are bundled in
   packages and fall back to PATH in development.
+- `WatchSession` owns source loading, track generations, captions and attached
+  text for local and YouTube Watch. Superseded/disposed jobs cannot apply results.
+  Caption/transcript passages tokenize lazily through the shared TokenPassage.
 - Subtitle generations reject results from previously opened media.
-- SRT/VTT attachments and untimed TXT transcripts are supported.
+- SRT/VTT attachments save their original text through Rust; reopening restores
+  the sidecar. A native TXT picker feeds Rust's existing video/YouTube transcript
+  validation and persistence services, including separate text reading progress.
+- Caption lookup uses the shared AnalysisModel in a compact popup; full analysis
+  uses the shared sidebar. Fullscreen tools remain within the fullscreen element.
+- Home/Explore playback links route to Watch. YouTube keeps its IFrame API player,
+  while local playback keeps the managed Range protocol. Online metadata loads
+  independently of locally stored resume state and cached captions.
 - Playback and reading checkpoints are debounced and flushed on leave.
 - YouTube uses the embedded IFrame API; Data API calls and caption fetching run
   in Rust. Online features are optional and never required for core workflows.

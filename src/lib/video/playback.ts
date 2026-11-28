@@ -5,7 +5,9 @@ export type PlaybackControls = {
 };
 
 export type PlaybackEvents = {
-  onTime(seconds: number): void;
+  onTime(seconds: number, duration?: number): void;
+  onState?(playing: boolean): void;
+  onError?(message: string): void;
   onSave(seconds: number, duration?: number, completed?: boolean): void;
   onControls(controls: PlaybackControls | undefined): void;
 };

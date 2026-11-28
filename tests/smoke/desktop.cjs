@@ -138,7 +138,7 @@ module.exports = function attachSmokeChecks(window, { app, isDev, smokeHash }) {
       })()`);
         await new Promise((resolve) => setTimeout(resolve, 800));
         const src = await window.webContents.executeJavaScript(
-          'document.querySelector("[data-testid=youtube-player] iframe")?.src ?? ""',
+          'document.querySelector("iframe[data-testid=youtube-player]")?.src ?? ""',
         );
         clearTimeout(watchdog);
         finishSmoke(
@@ -254,19 +254,23 @@ module.exports = function attachSmokeChecks(window, { app, isDev, smokeHash }) {
           );
           if (caption.includes("안녕하세요")) break;
         }
+        for (let attempt = 0; attempt < 30; attempt++) {
+          const ready = await window.webContents.executeJavaScript(
+            'Boolean(document.querySelector("[data-testid=primary-caption] [role=button]"))',
+          );
+          if (ready) break;
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
         await window.webContents.executeJavaScript(`(() => {
-        document.querySelector('[data-testid=primary-caption] button')?.click();
+        document.querySelector('[data-testid=primary-caption] [role=button]')?.click();
       })()`);
         await new Promise((resolve) => setTimeout(resolve, 600));
+        await window.webContents.executeJavaScript(`(() => {
+          [...document.querySelectorAll('[data-testid=caption-definition] button')].find(node => node.textContent.trim() === 'Open full analysis')?.click();
+        })()`);
+        await new Promise((resolve) => setTimeout(resolve, 300));
         const analysis = await window.webContents.executeJavaScript(
           'document.querySelector("[data-testid=watch-analysis]")?.textContent ?? ""',
-        );
-        await window.webContents.executeJavaScript(`(() => {
-        document.querySelector('[data-testid=cue-3]')?.click();
-      })()`);
-        await new Promise((resolve) => setTimeout(resolve, 300));
-        const position = await window.webContents.executeJavaScript(
-          'document.querySelector("video").currentTime',
         );
         const transcript = await window.webContents.executeJavaScript(
           'Boolean(document.querySelector("[data-testid=transcript]"))',
@@ -291,6 +295,13 @@ module.exports = function attachSmokeChecks(window, { app, isDev, smokeHash }) {
           if (savedWord) break;
         }
 
+        await window.webContents.executeJavaScript(`(() => {
+        document.querySelector('[data-testid=cue-3]')?.click();
+      })()`);
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        const position = await window.webContents.executeJavaScript(
+          'document.querySelector("video").currentTime',
+        );
         clearTimeout(watchdog);
         finishSmoke(
           caption.includes("안녕하세요") &&

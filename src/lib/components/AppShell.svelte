@@ -69,7 +69,10 @@
     openAppearance={() => (appearanceOpen = true)}
   />
   <main data-testid="page-content" class="min-w-0 flex-1 overflow-auto">
-    <header class="sticky top-0 z-10 border-b border-border bg-background">
+    <header
+      class:hidden={page === "watch"}
+      class="sticky top-0 z-10 border-b border-border bg-background"
+    >
       <div
         class="mx-auto flex h-14 items-center gap-2 px-4 sm:px-8"
         class:home-width={["home", "library"].includes(page)}
@@ -89,7 +92,8 @@
     <div
       class="mx-auto"
       class:reader-workspace={page === "reader"}
-      class:page-padding={page !== "reader"}
+      class:watch-workspace={page === "watch"}
+      class:page-padding={page !== "reader" && page !== "watch"}
       class:home-width={["home", "library"].includes(page)}
       class:max-w-6xl={!["home", "library", "reader", "watch"].includes(page)}
     >
@@ -142,10 +146,16 @@
 </Sheet.Root>
 
 <style>
+  .watch-workspace {
+    height: var(--app-height);
+  }
   .page-padding {
     padding: 24px 32px;
   }
   @media (max-width: 639px) {
+    .watch-workspace {
+      height: var(--app-height);
+    }
     .page-padding {
       padding-inline: 16px;
     }

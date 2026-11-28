@@ -247,8 +247,9 @@ in Node would be worse than keeping it).
       played; the track was auto-selected, its cue rendered, a clicked word
       opened Kiwi analysis, and clicking a transcript cue sought to 3 s. Added
       `video:saveSubtitles` to the Rust dispatcher. Sidecar attachments work
-      for the session but are not persisted yet; they need a file-path-based
-      command. Smoke checks now use isolated data directories per route.
+      for the session at this migration stage. The frontend Watch rework later
+      connected file-path persistence and restored attachments on reopening.
+      Smoke checks use isolated data directories per route.
 
 - [x] **13. `feat/electron-dictionaries`** — Wiktionary + KRDict services,
       offline saved meanings, embedded Naver/Papago/KRDict/custom tabs with drag

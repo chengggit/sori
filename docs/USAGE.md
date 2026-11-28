@@ -49,13 +49,30 @@ item. Reader font, size and line height are adjustable in Settings.
 | Transcript timestamp    | Seek to that line           |
 | Caption/transcript word | Look up and save vocabulary |
 
-Use the **Primary** and **Secondary** selectors to choose subtitle tracks, or
-**Attach SRT/VTT** to add a sidecar. Clicking a transcript cue seeks to it;
-manual scrolling suspends automatic following until **Resume follow** is used.
+Local Watch uses controls over the video: timeline, play/pause, mute, volume,
+CC and fullscreen. Controls fade during playback and remain visible while paused.
+Open **CC** for primary/secondary tracks, **Show subtitles**, and **Add subtitle
+files**. Attached SRT/VTT content is saved locally and restored on reopening.
+
+The transcript sits below the video. Its timestamps seek; Korean words open the
+analysis sidebar. Manual scrolling pauses following and offers **Resume follow**;
+following also resumes after five seconds without interaction. **Add transcript**
+imports a UTF-8 TXT file. Switch between text and timed subtitles, or use the
+three-dot menu to replace/remove the text. Text reading position is saved locally.
+
+Clicking a caption word pauses playback and opens a compact definition popup.
+Use its bookmark to save quickly, or **Open full analysis** for meanings, tags,
+notes and dictionary tabs. Closing lookup resumes playback only if it was playing
+when lookup began. Fullscreen keeps lookup tools inside the player.
+
+YouTube opens in the same Watch layout with its embedded player controls and
+cached/fetched transcript. Its playback and codec support remain controlled by
+YouTube. Local playback uses Chromium's supported codecs; alternate local audio
+track selection is not currently exposed.
 
 ## Word analysis and saving
 
-Click a Korean word in Reader or local-video subtitles to open the shared panel.
+Click a Korean word in Reader or a Watch transcript to open the shared panel.
 Analysis looks up the selected word and its dictionary form automatically. Click
 a meaning to select it, then use the bookmark button to open Save word. You can
 change the word, meaning, comma-separated tags and optional note before saving.

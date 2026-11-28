@@ -9,20 +9,31 @@
     source,
     onClose,
     testId,
+    fullHeight = false,
   }: {
     analysis: Analysis;
     source: WordSource;
     onClose: () => void;
     testId: string;
+    fullHeight?: boolean;
   } = $props();
   const duration = window.matchMedia("(prefers-reduced-motion: reduce)").matches ? 0 : 200;
 </script>
 
-<aside class="analysis-sidebar" data-testid={testId} transition:fly={{ x: 500, duration, opacity: 1 }}>
+<aside
+  class="analysis-sidebar"
+  class:full-height={fullHeight}
+  data-testid={testId}
+  transition:fly={{ x: 500, duration, opacity: 1 }}
+>
   <AnalysisPanel {analysis} {source} {onClose} docked />
 </aside>
 
 <style>
+  .full-height {
+    top: 0 !important;
+    height: var(--app-height) !important;
+  }
   .analysis-sidebar {
     position: fixed;
     z-index: 20;

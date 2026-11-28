@@ -16,6 +16,6 @@ export function recentVideo(local: ResumeEntry[], youtube: ResumeEntry[]): Resum
   ].sort((a, b) => (b.watchedAt ?? 0) - (a.watchedAt ?? 0))[0];
 }
 export function watchLink(item: ResumeEntry) {
-  return item.youtubeId ? `#/explore?v=${encodeURIComponent(item.youtubeId)}` : `#/watch?id=${item.id}`;
+  return item.youtubeId ? `#/watch?v=${encodeURIComponent(item.youtubeId)}` : `#/watch?id=${item.id}`;
 }
 export { formatTime } from "../video/time";

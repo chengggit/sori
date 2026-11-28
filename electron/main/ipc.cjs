@@ -34,6 +34,14 @@ module.exports = function registerIpc(handle, native) {
     }
     return path;
   });
+  handle("dialog:openTranscript", async (event) => {
+    const result = await dialog.showOpenDialog(BrowserWindow.fromWebContents(event.sender), {
+      title: "Choose a text transcript",
+      properties: ["openFile"],
+      filters: [{ name: "Text transcript", extensions: ["txt"] }],
+    });
+    return result.canceled ? null : result.filePaths[0];
+  });
   handle("dialog:openVideo", async (event) => {
     const result = await dialog.showOpenDialog(BrowserWindow.fromWebContents(event.sender), {
       title: "Import a video",
@@ -166,6 +174,7 @@ module.exports = function registerIpc(handle, native) {
       throw new Error("Choose a subtitle file under 8 MiB.");
     }
     return {
+      path,
       name: basename(path),
       text: new TextDecoder("utf-8", { fatal: true }).decode(await readFile(path)),
     };

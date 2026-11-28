@@ -92,11 +92,21 @@ export function saveVideoProgress(id: number, seconds: number, duration: number)
   return platform.invoke<null>("video:saveProgress", { id, seconds, duration });
 }
 
-export function saveWord(kind: "local" | "document", id: number, draft: VocabularyDraft) {
-  return platform.invoke<unknown>("vocabulary:save", { kind, id, input: draft });
+export function saveWord(
+  kind: "local" | "document" | "youtube",
+  id: number | string,
+  draft: VocabularyDraft,
+  title = "",
+) {
+  return platform.invoke<unknown>("vocabulary:save", { kind, id, input: draft, title });
 }
 
-export function findWord(kind: "local" | "document", id: number, word: string, context: string) {
+export function findWord(
+  kind: "local" | "document" | "youtube",
+  id: number | string,
+  word: string,
+  context: string,
+) {
   return platform.invoke<unknown>("vocabulary:find", { kind, id, word, context });
 }
 

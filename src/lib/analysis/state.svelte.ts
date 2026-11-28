@@ -3,7 +3,8 @@ import { wholeWordTerms } from "../reader/breakdown";
 import { dictionarySettings, lookupWord, type DictionaryDefinition } from "../dictionary/lookup";
 import { editWord, findWord, removeWord, saveWord } from "../library/commands";
 
-export type WordSource = { kind: "document" | "local"; id: number };
+export type WordSource =
+  { kind: "document" | "local"; id: number } | { kind: "youtube"; id: string; title: string };
 export type SavedWord = {
   id: number;
   word: string;
@@ -106,13 +107,18 @@ export class AnalysisModel {
           note: draft.note,
           tags: draft.tags,
         })
-      : await saveWord(this.source.kind, this.source.id, {
-          word: this.analysis.word,
-          normalizedForm: draft.word,
-          context: this.analysis.context || this.analysis.word,
-          definition: draft.meaning ? definition : null,
-          tags: draft.tags,
-        });
+      : await saveWord(
+          this.source.kind,
+          this.source.id,
+          {
+            word: this.analysis.word,
+            normalizedForm: draft.word,
+            context: this.analysis.context || this.analysis.word,
+            definition: draft.meaning ? definition : null,
+            tags: draft.tags,
+          },
+          this.source.kind === "youtube" ? this.source.title : "",
+        );
     if (selection !== this.selection) return false;
     this.saving = false;
     if (!reply.ok) {

@@ -64,7 +64,7 @@
       linkError = "Paste a valid YouTube video link.";
       return;
     }
-    location.hash = `#/explore?v=${id}`;
+    location.hash = `#/watch?v=${id}`;
   }
 </script>
 
@@ -164,7 +164,7 @@
     {/if}
     <div class="video-grid">
       {#each discovery.videos as video (video.id)}
-        <a data-media-focus class="video-card" href={`#/explore?v=${video.id}`}>
+        <a data-media-focus class="video-card" href={`#/watch?v=${video.id}`}>
           <div class="video-thumbnail">
             <MediaHover>
               <img src={video.thumbnail} alt="" loading="lazy" referrerpolicy="no-referrer" />

@@ -14,7 +14,7 @@ describe("continue watching", () => {
     expect(recentVideo([local], [{ ...youtube, seconds: 0 }])).toEqual(local);
     expect(recentVideo([{ ...local, watchedAt: null }], [])).toBeUndefined();
     expect(watchLink(local)).toBe("#/watch?id=1");
-    expect(watchLink(youtube)).toBe("#/explore?v=abcdefghijk");
+    expect(watchLink(youtube)).toBe("#/watch?v=abcdefghijk");
   });
   it("formats long video positions", () => {
     expect(formatTime(348)).toBe("5:48");

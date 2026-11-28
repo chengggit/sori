@@ -55,7 +55,7 @@ export function trackPlayback(frame: HTMLIFrameElement, events: PlaybackEvents) 
 
   function record(target: Player, completed = false) {
     const duration = target.getDuration();
-    events.onTime(target.getCurrentTime());
+    events.onTime(target.getCurrentTime(), target.getDuration());
     events.onSave(
       Math.floor(target.getCurrentTime()),
       Number.isFinite(duration) && duration > 0 ? duration : undefined,
@@ -75,17 +75,19 @@ export function trackPlayback(frame: HTMLIFrameElement, events: PlaybackEvents) 
               pause: () => target.pauseVideo(),
               seek: (seconds) => target.seekTo(seconds, true),
             });
+            events.onTime(target.getCurrentTime(), target.getDuration());
           },
           onStateChange({ data, target }) {
             if (disposed) return;
             clearInterval(timer);
             playing = data === 1;
+            events.onState?.(playing);
             if (playing || data === 2) record(target);
             if (playing) {
               let ticks = 0;
               timer = setInterval(() => {
                 if (++ticks % 8 === 0) record(target);
-                else events.onTime(target.getCurrentTime());
+                else events.onTime(target.getCurrentTime(), target.getDuration());
               }, 250);
             }
             if (data === 0) record(target, true);
@@ -94,7 +96,9 @@ export function trackPlayback(frame: HTMLIFrameElement, events: PlaybackEvents) 
       });
     })
     .catch(() => {
-      // The iframe can still play if the API script is unavailable.
+      events.onError?.(
+        "YouTube playback controls could not connect. You can still use the embedded player.",
+      );
     });
 
   return {
