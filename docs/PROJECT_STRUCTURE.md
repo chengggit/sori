@@ -44,6 +44,7 @@ src/
     video/          # playback, subtitles and command wrappers
     dashboard/      # YouTube parsing and IFrame playback helpers
     home/           # Home search, discovery requests and resume helpers
+    history/        # chronological watch records, row layout and resume checks
     explore/        # topics, subscriptions and transient browsing state
     youtube/        # typed commands, shared video cards/grid and link dialog
 native/             # generated sori-node.node (ignored)

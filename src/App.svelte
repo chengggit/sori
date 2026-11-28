@@ -7,6 +7,7 @@
   import AnalysisPage from "./dev/AnalysisPage.svelte";
   import AppShell from "$lib/components/AppShell.svelte";
   import BridgePage from "./dev/BridgePage.svelte";
+  import HistoryPage from "./pages/HistoryPage.svelte";
   import LibraryPage from "./pages/LibraryPage.svelte";
   import ReaderPage from "./pages/ReaderPage.svelte";
   import SettingsPage from "./pages/SettingsPage.svelte";
@@ -26,6 +27,7 @@
   const page = $derived(path.split("/")[0] || "home");
   const readerId = $derived(Number(new URLSearchParams(route.split("?")[1] ?? "").get("id")) || 0);
   const watchId = $derived(readerId);
+  const watchOrigin = $derived(new URLSearchParams(route.split("?")[1] ?? "").get("from"));
   const watchYouTubeId = $derived(new URLSearchParams(route.split("?")[1] ?? "").get("v") ?? "");
 
   $effect(() => {
@@ -110,13 +112,17 @@
           youtubeId={watchYouTubeId}
           onBack={() =>
             goTo(
-              watchYouTubeId
-                ? new URLSearchParams(route.split("?")[1] ?? "").get("from") === "explore"
-                  ? "explore"
-                  : "home"
-                : "library",
+              watchOrigin === "history"
+                ? "history"
+                : watchYouTubeId
+                  ? watchOrigin === "explore"
+                    ? "explore"
+                    : "home"
+                  : "library",
             )}
         />{/key}
+    {:else if page === "history"}
+      <HistoryPage />
     {:else if page === "explore"}
       <ExplorePage />
     {:else if page === "settings"}

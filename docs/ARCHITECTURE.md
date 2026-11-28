@@ -99,6 +99,24 @@ feeds use per-channel cursors and omit exhausted channels. Repeated response
 cursors stop pagination. Disposed models reject late configuration/results.
 Explore-origin Watch links carry a return destination so Back restores browsing.
 
+## Viewing history
+
+`lib/history` combines watched local `VideoSummary` rows with typed YouTube
+history from `library:state`. Both `local_watch_history.watched_at` and
+`youtube_watch_history.watched_at` are native Unix seconds. Rows sort together
+without manufacturing dates; local rows with no watch timestamp are excluded.
+Same-second ties preserve the existing source ordering. Zero progress is valid
+when a watch record exists.
+
+History reads cached titles/progress offline and requests local thumbnail/duration
+jobs serially for visible rows. Enrichment patches metadata fields without
+replacing newer progress. Artwork failures use the shared fallback/hover
+presentation. A normal local-row activation checks `video:read` before navigation;
+missing media stays in the list with an error. Disposed/superseded loads and open
+requests cannot change the current view. Returning from Watch reloads native state;
+library-change notifications also refresh mounted History. No new storage or
+service commands are introduced.
+
 ## Reading and analysis
 
 - TXT import: UTF-8, at most 2 MiB; paste-as-text is stored as a TXT document.

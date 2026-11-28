@@ -11,11 +11,20 @@ export type VideoSummary = {
   thumbnailUrl: string | null;
   watchedAt: number | null;
 };
+export type YouTubeHistoryEntry = {
+  youtubeId: string;
+  title: string;
+  channel: string;
+  seconds: number;
+  duration: number;
+  watchedAt: number;
+  thumbnailUrl: string;
+};
 export type LibraryState = {
   documents: DocumentSummary[];
   videos: VideoSummary[];
   vocabulary: unknown[];
-  youtubeHistory: unknown[];
+  youtubeHistory: YouTubeHistoryEntry[];
   error: string;
 };
 

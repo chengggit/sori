@@ -1,5 +1,5 @@
 const { execFileSync } = require("node:child_process");
-const { writeFileSync } = require("node:fs");
+const { writeFileSync, copyFileSync, unlinkSync } = require("node:fs");
 const { join } = require("node:path");
 const { tmpdir } = require("node:os");
 
@@ -322,6 +322,102 @@ module.exports = function attachSmokeChecks(window, { app, isDev, smokeHash }) {
             ? 0
             : 1,
           `Subtitles: ${JSON.stringify({ caption, analysis, position, transcript, savedWord })}`,
+        );
+        return;
+      }
+      if (smokeHash === "history") {
+        const path = join(process.env.SORI_DATA_DIR || tmpdir(), "history.mp4");
+        const unplayed = join(process.env.SORI_DATA_DIR || tmpdir(), "unplayed.mp4");
+        const ffmpeg = app.isPackaged
+          ? join(process.resourcesPath, "bin", process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg")
+          : "ffmpeg";
+        execFileSync(
+          ffmpeg,
+          [
+            "-v",
+            "error",
+            "-f",
+            "lavfi",
+            "-i",
+            "color=c=blue:s=320x240:d=5",
+            "-pix_fmt",
+            "yuv420p",
+            "-y",
+            path,
+          ],
+          { timeout: 30000 },
+        );
+        copyFileSync(path, unplayed);
+        const id = await window.webContents.executeJavaScript(`(async () => {
+          for (const path of ${JSON.stringify([path, unplayed])}) {
+            const reply = await window.sori.invoke('core:invoke', 'video:import', {path});
+            if (!reply.ok) throw new Error(reply.error);
+          }
+          const state = await window.sori.invoke('core:invoke', 'library:state', {});
+          const id = state.data.videos.find(item => item.title === 'history').id;
+          await window.sori.invoke('core:invoke', 'video:saveProgress', {id,seconds:1,duration:5});
+          await window.sori.invoke('core:invoke', 'youtube:saveProgress', {id:'abcdefghijk',title:'한국 역사',channel:'Korean',seconds:2,duration:10});
+          return id;
+        })()`);
+        await window.webContents.executeJavaScript(`location.hash = '#/history'`);
+        let rows = 0,
+          thumbnail = false;
+        for (let attempt = 0; attempt < 35; attempt++) {
+          await new Promise((resolve) => setTimeout(resolve, 200));
+          [rows, thumbnail] = await window.webContents.executeJavaScript(`[
+            document.querySelectorAll('.history-row').length,
+            Boolean(document.querySelector('[data-testid="history-local:${id}"] img')?.naturalWidth)
+          ]`);
+          if (rows === 2 && thumbnail) break;
+        }
+        await window.webContents.executeJavaScript(
+          `document.querySelector('[data-testid="history-local:${id}"]').click()`,
+        );
+        let resumed = false;
+        for (let attempt = 0; attempt < 25; attempt++) {
+          await new Promise((resolve) => setTimeout(resolve, 200));
+          resumed = await window.webContents.executeJavaScript(
+            `Boolean(document.querySelector('video')?.readyState >= 1 && Math.abs(document.querySelector('video').currentTime-1)<0.1)`,
+          );
+          if (resumed) break;
+        }
+        await window.webContents.executeJavaScript(`(async()=>{
+          const video = document.querySelector('video'); video.currentTime=2;await video.play();
+        })()`);
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        await window.webContents.executeJavaScript(`document.querySelector('video').pause()`);
+        await new Promise((resolve) => setTimeout(resolve, 300));
+        await window.webContents.executeJavaScript(
+          `[...document.querySelectorAll('button')].find(node=>node.textContent.trim()==='Back')?.click()`,
+        );
+        let returned = false;
+        for (let attempt = 0; attempt < 20; attempt++) {
+          await new Promise((resolve) => setTimeout(resolve, 150));
+          returned = await window.webContents.executeJavaScript(
+            `location.hash === '#/history' && Boolean(document.querySelector('[data-testid="history-local:${id}"]')?.textContent.includes('0:02'))`,
+          );
+          if (returned) break;
+        }
+        unlinkSync(path);
+        await window.webContents.executeJavaScript(
+          `document.querySelector('[data-testid="history-local:${id}"]').click()`,
+        );
+        let unavailable = false;
+        for (let attempt = 0; attempt < 20; attempt++) {
+          await new Promise((resolve) => setTimeout(resolve, 100));
+          unavailable = await window.webContents.executeJavaScript(
+            `location.hash === '#/history' && [...document.querySelectorAll('[role=alert]')].some(node=>node.textContent.includes('moved or removed'))`,
+          );
+          if (unavailable) break;
+        }
+        const retained = await window.webContents.executeJavaScript(`(async()=>{
+          const state=await window.sori.invoke('core:invoke','library:state',{});
+          return state.data.videos.length === 2 && state.data.videos.find(item=>item.id===${id}).seconds>=2 && document.querySelectorAll('.history-row').length===2;
+        })()`);
+        clearTimeout(watchdog);
+        finishSmoke(
+          rows === 2 && thumbnail && resumed && returned && unavailable && retained ? 0 : 1,
+          `History page: ${JSON.stringify({ rows, thumbnail, resumed, returned, unavailable, retained })}`,
         );
         return;
       }
