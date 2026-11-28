@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { ArrowLeft } from "@lucide/svelte";
+  import { normalizeDisplayText } from "$lib/text";
   import { onMount } from "svelte";
   import HomePage from "./pages/HomePage.svelte";
   import HomeSearch from "$lib/home/HomeSearch.svelte";
@@ -16,6 +18,7 @@
 
   let homeRequest = $state({ query: "", sequence: 0 });
   let route = $state(location.hash);
+  let readerTitle = $state("");
   let systemDark = $state(window.matchMedia("(prefers-color-scheme: dark)").matches);
 
   const dark = $derived(ui.appearance === "dark" || (ui.appearance === "system" && systemDark));
@@ -77,6 +80,12 @@
           : undefined}
   >
     {#snippet header()}
+      {#if page === "reader"}
+        <a href="#/library" class="flex shrink-0 items-center gap-2 text-sm text-muted-foreground">
+          <ArrowLeft size={16} /> Library
+        </a>
+        <span class="truncate font-semibold" lang="ko">{normalizeDisplayText(readerTitle)}</span>
+      {/if}
       {#if page === "home"}<HomeSearch
           onSearch={(query) => {
             homeRequest = { query, sequence: homeRequest.sequence + 1 };
@@ -88,7 +97,10 @@
     {:else if page === "library"}
       <LibraryPage />
     {:else if page === "reader"}
-      {#key readerId}<ReaderPage documentId={readerId} onBack={() => goTo("library")} />{/key}
+      {#key readerId}<ReaderPage
+          documentId={readerId}
+          onTitle={(title) => (readerTitle = title)}
+        />{/key}
     {:else if page === "vocabulary"}
       <VocabularyPage />
     {:else if page === "watch"}

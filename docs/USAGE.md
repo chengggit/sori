@@ -29,7 +29,10 @@ analyze them and save vocabulary with context. Meanings, notes, and tags can be
 edited later; saving words with your own meaning works offline.
 
 PDFs offer **Book** and **Scroll** views. In Book view, turn pages with the
-arrow buttons; in Scroll view, all pages are listed continuously. Scanned PDFs
+toolbar arrows, Left/Right keys, or the blank left/right halves of a page.
+Book fits the page to the window; Scroll lists wider pages continuously. The
+mode toggle preserves the current page. Use −/+ to zoom, or click the percentage
+to reset it to 100%. Scanned PDFs
 can be viewed, but word selection requires an embedded text layer.
 
 Reading and player progress are saved locally and restored when you reopen an
@@ -49,6 +52,20 @@ item. Reader font, size and line height are adjustable in Settings.
 Use the **Primary** and **Secondary** selectors to choose subtitle tracks, or
 **Attach SRT/VTT** to add a sidecar. Clicking a transcript cue seeks to it;
 manual scrolling suspends automatic following until **Resume follow** is used.
+
+## Word analysis and saving
+
+Click a Korean word in Reader or local-video subtitles to open the shared panel.
+Analysis looks up the selected word and its dictionary form automatically. Click
+a meaning to select it, then use the bookmark button to open Save word. You can
+change the word, meaning, comma-separated tags and optional note before saving.
+Words can also be saved with your own meaning offline, or without a meaning.
+Open a filled bookmark to edit or remove the saved entry.
+
+Dictionary tabs stay beside Analysis. Use arrow keys to switch tabs, or drag /
+Alt+Arrow keys to reorder the enabled dictionaries. The save draft survives tab
+switches; inactive embedded pages are released after 30 seconds. If a dictionary
+refuses embedding, use Open in browser. Sources lists the loaded definition links.
 
 ## Dictionaries
 

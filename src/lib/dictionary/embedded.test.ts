@@ -14,5 +14,8 @@ describe("embedded dictionary URLs", () => {
       "https://dict.example/%ED%95%9C%EA%B5%AD%EC%96%B4",
     );
     expect(embeddedLookupUrl("custom", "한국어", "not a url")).toBe("");
+    expect(embeddedLookupUrl("krdict", "한국어")).toBe(
+      "https://krdict.korean.go.kr/m/eng/searchResult?mainSearchWord=%ED%95%9C%EA%B5%AD%EC%96%B4",
+    );
   });
 });

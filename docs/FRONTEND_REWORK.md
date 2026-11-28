@@ -74,7 +74,7 @@ git merge --no-ff feat/frontend-shell
       data; PDF and video items retain their current capabilities; mutations refresh
       the page and removing an item preserves the original user media files.
 
-- [ ] **3. Analysis and dictionary panels — `feat/frontend-analysis`**
+- [x] **3. Analysis and dictionary panels — `feat/frontend-analysis`**
       Reuse old `features/reader` word breakdown, meaning and save panels plus
       `features/dictionary/EmbeddedLookup.svelte`. Adapt them to current Kiwi output,
       dictionary commands and vocabulary envelopes; retain UTF-16 offsets.
@@ -258,3 +258,59 @@ Accepted by the user on 2026-11-28 for integration into `feat/frontend-rework`.
   shared inputs/buttons/sidebar controls. Text fields use a single inset accent
   edge without layout shifts; keyboard outlines and invalid-field colors remain.
   Typecheck/build/formatting, 25 unit tests and all 24 browser tests passed.
+
+## Step 3 implementation notes
+
+Implemented on `feat/frontend-analysis`, using the supplied Qt analysis, save
+form and embedded-dictionary screenshots. Accepted by the user on 2026-11-28;
+further visual polish is deferred.
+
+- Shared Analysis/Naver/KRDict/Papago/custom tab strip, word/bookmark header,
+  automatic word/lemma lookup, selectable/expandable meanings, morphology when
+  meanings are unavailable, and source attribution.
+- Docked save form supports edited word/meaning, tags, notes, saved-word editing
+  and removal, draft retention across tabs, visible failures and offline saves.
+  Reader and local Watch pass source identity to the same panel/model.
+- Fixed KRDict embedded-tab support, persisted order restoration, empty-result
+  fallback and inactive-frame retention. Typing in Watch's panel no longer fires
+  playback shortcuts. CSP permits HTTPS custom frames without replacing the
+  dictionaries' own security policies. Some sites may still require the external
+  browser; local mock frames validate mechanics rather than live site support.
+- Reader's full layout/resize treatment remains part of its next slice. Existing
+  readers and playback remain mounted around the shared panel for this stage.
+- Validation passed: typecheck with no warnings, production build, formatting,
+  26 unit tests, Electron security checks, 30 browser tests and all 11 packaged
+  Linux smoke routes using temporary libraries. Packaged Reader and Watch checks
+  verified offline word saving with their original document/video context.
+  Live embedded sites and Windows/macOS remain unverified locally.
+
+- Follow-up: Reader and Watch use a shared right-edge sidebar below the shell
+  header, with a slide-in transition and reduced-motion support. Wide windows
+  reserve content space; narrow windows overlay the content. The panel no longer
+  participates in the centered page's wrapping row.
+
+## Step 4 implementation notes
+
+Implemented on `feat/frontend-reader` using the supplied Qt Book, Scroll and
+plain-text references. Awaiting user review.
+
+- Document title and Library link live in the shell header. Text reads in a
+  centered 780px column without a card or persistent word underlines, with
+  Settings typography and full-height independent scrolling.
+- Adapted the old TokenPassage component for visible-passage analysis. Selection
+  offsets include each passage's document offset; disposed readers discard late
+  replies. The shared vocabulary sidebar preserves the reading session.
+- PDF Book fits the available height; Scroll uses continuous pages up to 920px
+  wide. Toolbar navigation, keyboard arrows, blank-page-half turns, zoom/reset,
+  page retention across mode/size changes, device-pixel-ratio canvas rendering
+  and matched text layers use the existing pdf.js/native protocol.
+- PDF progress uses the current page fraction in both modes so they reopen at
+  the same page. Existing fractional records are interpreted as page fractions;
+  older Scroll records stored scroll fractions, so their first restored page may
+  differ slightly. Scanned PDFs still have no OCR/word selection.
+- Validation: typecheck with no warnings, build, formatting, 26 unit tests and
+  all 32 browser checks passed. Reader/shell checks passed again after guarding
+  incomplete title metadata. Packaged Linux Reader/PDF checks verified real
+  vocabulary saving, a stored 0.6 reading position, native PDF loading, 25 text
+  spans and switching to Scroll. Browser captures use a synthetic three-page PDF
+  for navigation/zoom/resize checks. Windows/macOS remain unverified locally.
