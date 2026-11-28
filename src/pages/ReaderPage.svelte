@@ -1,7 +1,7 @@
 <script lang="ts">
   import { ArrowLeft } from "@lucide/svelte";
   import { onDestroy, onMount, tick } from "svelte";
-  import AnalysisPanel from "$lib/reader/AnalysisPanel.svelte";
+  import AnalysisSidebar from "$lib/analysis/AnalysisSidebar.svelte";
   import PdfReader from "$lib/reader/PdfReader.svelte";
   import { Button } from "$lib/components/ui/button";
   import type { Analysis } from "$lib/reader/analysis";
@@ -9,13 +9,7 @@
   import { trackReadingProgress } from "$lib/reader/progress";
   import { tokenizeText, type KoreanToken } from "$lib/nlp/tokenization";
   import { ui } from "$lib/ui-state.svelte";
-  import {
-    readDocument,
-    saveDocumentProgress,
-    saveWord,
-    type DocumentView,
-    type VocabularyDraft,
-  } from "$lib/library/commands";
+  import { readDocument, saveDocumentProgress, type DocumentView } from "$lib/library/commands";
 
   let { documentId, onBack }: { documentId: number; onBack: () => void } = $props();
 
@@ -99,14 +93,9 @@
       if (!saved.ok) error = saved.error;
     });
   }
-
-  async function save(draft: VocabularyDraft) {
-    const saved = await saveWord("document", documentId, draft);
-    if (!saved.ok) error = saved.error;
-  }
 </script>
 
-<div class="flex flex-col gap-3">
+<div class="workspace flex flex-col gap-3" class:analysis-open={!!selected}>
   <Button variant="ghost" onclick={onBack} class="self-start">
     <ArrowLeft /> Back to library
   </Button>
@@ -144,11 +133,22 @@
               </button>{:else}<span>{block.text}</span>{/if}{/each}{/each}
       </div>
     {/if}
-
-    {#if selected}
-      <aside class="w-full min-w-72 max-w-md" data-testid="reader-analysis">
-        <AnalysisPanel analysis={selected} onSave={save} />
-      </aside>
-    {/if}
   </div>
 </div>
+
+{#if selected}
+  <AnalysisSidebar
+    analysis={selected}
+    source={{ kind: "document", id: documentId }}
+    onClose={() => (selected = null)}
+    testId="reader-analysis"
+  />
+{/if}
+
+<style>
+  @media (min-width: 1100px) {
+    .workspace.analysis-open {
+      padding-right: 500px;
+    }
+  }
+</style>

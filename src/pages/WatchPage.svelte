@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Maximize, Pause, Play } from "@lucide/svelte";
   import { onDestroy, onMount } from "svelte";
-  import AnalysisPanel from "$lib/reader/AnalysisPanel.svelte";
+  import AnalysisSidebar from "$lib/analysis/AnalysisSidebar.svelte";
   import { Button } from "$lib/components/ui/button";
   import { tokenBlocks } from "$lib/reader/tokens";
   import { tokenizeText, type KoreanToken } from "$lib/nlp/tokenization";
@@ -93,6 +93,12 @@
   }
 
   function onKeydown(event: KeyboardEvent) {
+    if (
+      event.defaultPrevented ||
+      (event.target instanceof HTMLElement &&
+        event.target.closest("input, textarea, select, button, [data-testid=analysis-panel]"))
+    )
+      return;
     if (event.key === " " || event.code === "Space") {
       event.preventDefault();
       togglePlay();
@@ -209,7 +215,7 @@
 
 <svelte:window onkeydown={onKeydown} />
 
-<div class="flex flex-col gap-3">
+<div class="workspace flex flex-col gap-3" class:analysis-open={!!selected}>
   <Button variant="ghost" onclick={onBack} class="self-start">← Back to library</Button>
 
   {#if error}
@@ -348,12 +354,6 @@
       </p>
     </div>
 
-    {#if selected}
-      <aside class="w-full min-w-72 max-w-md" data-testid="watch-analysis">
-        <AnalysisPanel analysis={selected} />
-      </aside>
-    {/if}
-
     {#if primaryCues.length}
       <aside class="w-full min-w-64 max-w-xs">
         <div class="mb-2 flex items-center justify-between">
@@ -389,3 +389,20 @@
     {/if}
   </div>
 </div>
+
+{#if selected}
+  <AnalysisSidebar
+    analysis={selected}
+    source={{ kind: "local", id: videoId }}
+    onClose={() => (selected = null)}
+    testId="watch-analysis"
+  />
+{/if}
+
+<style>
+  @media (min-width: 1100px) {
+    .workspace.analysis-open {
+      padding-right: 500px;
+    }
+  }
+</style>

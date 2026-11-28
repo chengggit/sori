@@ -7,7 +7,7 @@ export type EmbedSettings = {
 };
 
 export const embedSettings = writable<EmbedSettings>({
-  enabled: ["naver-ko", "papago"],
+  enabled: ["naver-ko", "krdict", "papago"],
   custom: [],
 });
 
@@ -16,7 +16,7 @@ export function loadEmbedSettings() {
     const saved = JSON.parse(localStorage.getItem("sori-embeds") ?? "null");
     if (saved && Array.isArray(saved.enabled)) {
       const enabled = saved.enabled.map((provider: unknown) =>
-        provider === "naver" || provider === "krdict" ? "naver-ko" : provider,
+        provider === "naver" ? "naver-ko" : provider,
       );
       const custom: { id: string; url: string }[] = [];
       for (const item of Array.isArray(saved.custom) ? saved.custom : []) {
@@ -35,10 +35,12 @@ export function loadEmbedSettings() {
         if (enabled.includes("custom")) enabled.push("custom-legacy");
       }
       embedSettings.set({
-        enabled: [
-          ...embeddedProviders.map((provider) => provider.value),
-          ...custom.map((item) => item.id),
-        ].filter((id) => enabled.includes(id)),
+        enabled: [...new Set(enabled)].filter(
+          (id): id is string =>
+            typeof id === "string" &&
+            (embeddedProviders.some((entry) => entry.value === id) ||
+              custom.some((entry) => entry.id === id)),
+        ),
         custom,
       });
     }

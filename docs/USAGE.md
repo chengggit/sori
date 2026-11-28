@@ -50,6 +50,20 @@ Use the **Primary** and **Secondary** selectors to choose subtitle tracks, or
 **Attach SRT/VTT** to add a sidecar. Clicking a transcript cue seeks to it;
 manual scrolling suspends automatic following until **Resume follow** is used.
 
+## Word analysis and saving
+
+Click a Korean word in Reader or local-video subtitles to open the shared panel.
+Analysis looks up the selected word and its dictionary form automatically. Click
+a meaning to select it, then use the bookmark button to open Save word. You can
+change the word, meaning, comma-separated tags and optional note before saving.
+Words can also be saved with your own meaning offline, or without a meaning.
+Open a filled bookmark to edit or remove the saved entry.
+
+Dictionary tabs stay beside Analysis. Use arrow keys to switch tabs, or drag /
+Alt+Arrow keys to reorder the enabled dictionaries. The save draft survives tab
+switches; inactive embedded pages are released after 30 seconds. If a dictionary
+refuses embedding, use Open in browser. Sources lists the loaded definition links.
+
 ## Dictionaries
 
 Choose the analysis dictionary in Settings. Wiktionary doesn't need an API key.

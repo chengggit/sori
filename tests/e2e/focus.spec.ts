@@ -1,6 +1,7 @@
 import { expect, test, type Locator } from "@playwright/test";
 
 async function singleFieldEdge(field: Locator) {
+  await field.evaluate((node) => node.ownerDocument.fonts.ready);
   const before = await field.boundingBox();
   await field.focus();
   await expect(field).toBeFocused();

@@ -37,7 +37,8 @@ src/
   dev/              # bridge and analysis diagnostic screens
   lib/
     components/     # shared shell and UI primitives
-    reader/         # reading helpers, analysis panel and PDF reader
+    reader/         # reading helpers, shared panel host and PDF reader
+    analysis/       # dictionary requests, vocabulary state and save editor
     dictionary/     # lookup helpers, settings and dictionary panel
     library/        # command wrappers, refresh/thumbnail state and media cards
     video/          # playback, subtitles and command wrappers
@@ -91,6 +92,8 @@ These screens are in `src/dev`; they are not library features.
 
 Windows use context isolation, sandboxing and disabled Node integration. Preload
 exposes only allowlisted IPC channels. Main validates the sending top-level
-frame, applies an explicit CSP for dictionary/YouTube origins, and denies
-navigation and new windows. See [ARCHITECTURE.md](ARCHITECTURE.md)
+frame and denies navigation/new windows. CSP restricts scripts and connections
+to app/YouTube origins while allowing HTTPS frames for user-defined dictionary
+templates. Embedded pages keep their own response security policies; they have
+no Node or preload access. See [ARCHITECTURE.md](ARCHITECTURE.md)
 for data flow and ownership.

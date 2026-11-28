@@ -74,7 +74,7 @@ git merge --no-ff feat/frontend-shell
       data; PDF and video items retain their current capabilities; mutations refresh
       the page and removing an item preserves the original user media files.
 
-- [ ] **3. Analysis and dictionary panels — `feat/frontend-analysis`**
+- [x] **3. Analysis and dictionary panels — `feat/frontend-analysis`**
       Reuse old `features/reader` word breakdown, meaning and save panels plus
       `features/dictionary/EmbeddedLookup.svelte`. Adapt them to current Kiwi output,
       dictionary commands and vocabulary envelopes; retain UTF-16 offsets.
@@ -258,3 +258,33 @@ Accepted by the user on 2026-11-28 for integration into `feat/frontend-rework`.
   shared inputs/buttons/sidebar controls. Text fields use a single inset accent
   edge without layout shifts; keyboard outlines and invalid-field colors remain.
   Typecheck/build/formatting, 25 unit tests and all 24 browser tests passed.
+
+## Step 3 implementation notes
+
+Implemented on `feat/frontend-analysis`, using the supplied Qt analysis, save
+form and embedded-dictionary screenshots. Accepted by the user on 2026-11-28;
+further visual polish is deferred.
+
+- Shared Analysis/Naver/KRDict/Papago/custom tab strip, word/bookmark header,
+  automatic word/lemma lookup, selectable/expandable meanings, morphology when
+  meanings are unavailable, and source attribution.
+- Docked save form supports edited word/meaning, tags, notes, saved-word editing
+  and removal, draft retention across tabs, visible failures and offline saves.
+  Reader and local Watch pass source identity to the same panel/model.
+- Fixed KRDict embedded-tab support, persisted order restoration, empty-result
+  fallback and inactive-frame retention. Typing in Watch's panel no longer fires
+  playback shortcuts. CSP permits HTTPS custom frames without replacing the
+  dictionaries' own security policies. Some sites may still require the external
+  browser; local mock frames validate mechanics rather than live site support.
+- Reader's full layout/resize treatment remains part of its next slice. Existing
+  readers and playback remain mounted around the shared panel for this stage.
+- Validation passed: typecheck with no warnings, production build, formatting,
+  26 unit tests, Electron security checks, 30 browser tests and all 11 packaged
+  Linux smoke routes using temporary libraries. Packaged Reader and Watch checks
+  verified offline word saving with their original document/video context.
+  Live embedded sites and Windows/macOS remain unverified locally.
+
+- Follow-up: Reader and Watch use a shared right-edge sidebar below the shell
+  header, with a slide-in transition and reduced-motion support. Wide windows
+  reserve content space; narrow windows overlay the content. The panel no longer
+  participates in the centered page's wrapping row.
