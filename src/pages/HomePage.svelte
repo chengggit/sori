@@ -183,21 +183,24 @@
 </section>
 
 <Sheet.Root bind:open={linkOpen}>
-  <Sheet.Content>
+  <Sheet.Content class="max-w-md rounded-2xl border-transparent gap-0 pb-0">
     <Sheet.Header>
-      <Sheet.Title>Paste YouTube link</Sheet.Title><Sheet.Description>
-        Open an embeddable YouTube video. No API key is needed.
+      <Sheet.Title class="text-base font-semibold">Open a YouTube video</Sheet.Title><Sheet.Description>
+        Paste a video link to watch it in Sori.
       </Sheet.Description>
     </Sheet.Header>
     <form class="space-y-3 px-4 pb-4" onsubmit={openLink}>
       <Input
         aria-label="YouTube link"
-        placeholder="https://www.youtube.com/watch?v=…"
+        class="focus-visible:border-dashboard-accent focus-visible:ring-0"
+        placeholder="Paste a YouTube video link"
         bind:value={link}
         oninput={() => (linkError = "")}
       />
       {#if linkError}<p role="alert" class="text-sm text-destructive">{linkError}</p>{/if}
-      <Button type="submit" disabled={!link.trim()}>Open video</Button>
+      <Button type="submit" class="bg-accent-soft text-dashboard-accent hover:bg-accent-soft">
+        <Play /> Open video
+      </Button>
     </form>
   </Sheet.Content>
 </Sheet.Root>

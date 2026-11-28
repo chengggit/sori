@@ -56,7 +56,8 @@ function createWindow() {
       nodeIntegration: false,
     },
   });
-  window.removeMenu();
+  // Keep Electron's default menu in development so View → Toggle Developer Tools works.
+  if (!isDev) window.removeMenu();
   window.webContents.on("will-navigate", (event) => event.preventDefault());
   window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
 
