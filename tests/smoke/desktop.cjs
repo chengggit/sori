@@ -13,7 +13,8 @@ module.exports = function attachSmokeChecks(window, { app, isDev, smokeHash }) {
     () => finishSmoke(2, "Smoke check timed out waiting for the page."),
     20_000,
   );
-  window.webContents.once("did-fail-load", (_event, code, description) => {
+  window.webContents.on("did-fail-load", (_event, code, description, _url, isMainFrame) => {
+    if (!isMainFrame) return;
     clearTimeout(watchdog);
     finishSmoke(1, `Smoke check failed to load: ${description} (${code})`);
   });
@@ -182,7 +183,7 @@ module.exports = function attachSmokeChecks(window, { app, isDev, smokeHash }) {
         );
         await new Promise((resolve) => setTimeout(resolve, 800));
         const panel = await window.webContents.executeJavaScript(
-          'Boolean(document.querySelector("[data-testid=dictionary-panel]"))',
+          'Boolean(document.querySelector("[data-testid=analysis-panel]"))',
         );
         const tabs = await window.webContents.executeJavaScript(
           'document.querySelectorAll("[data-testid^=embed-tab-]").length',
@@ -194,7 +195,7 @@ module.exports = function attachSmokeChecks(window, { app, isDev, smokeHash }) {
             settings.provider === "wiktionary" &&
             settings.hasKey &&
             panel &&
-            tabs === 2
+            tabs >= 3
             ? 0
             : 1,
           `Dictionary: ${JSON.stringify({ settings, panel, tabs })}`,
@@ -270,12 +271,36 @@ module.exports = function attachSmokeChecks(window, { app, isDev, smokeHash }) {
         const transcript = await window.webContents.executeJavaScript(
           'Boolean(document.querySelector("[data-testid=transcript]"))',
         );
+        await window.webContents.executeJavaScript(
+          `document.querySelector('[aria-label="Save word"]')?.click()`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        await window.webContents.executeJavaScript(
+          `document.querySelector('[data-testid=save-word-editor] button[type=submit]')?.click()`,
+        );
+        let savedWord = false;
+        for (let attempt = 0; attempt < 15; attempt++) {
+          await new Promise((resolve) => setTimeout(resolve, 200));
+          savedWord = await window.webContents.executeJavaScript(`(async () => {
+            const state = await window.sori.invoke('core:invoke', 'library:state', {});
+            const entry = state.data.vocabulary[0];
+            if (!entry) return false;
+            const found = await window.sori.invoke('core:invoke', 'vocabulary:find', { kind: 'local', id: ${id}, word: entry.word, context: entry.context });
+            return found.ok && found.data?.id === entry.id;
+          })()`);
+          if (savedWord) break;
+        }
+
         clearTimeout(watchdog);
         finishSmoke(
-          caption.includes("안녕하세요") && analysis.includes("Ending") && position >= 3 && transcript
+          caption.includes("안녕하세요") &&
+            analysis.includes("Ending") &&
+            position >= 3 &&
+            transcript &&
+            savedWord
             ? 0
             : 1,
-          `Subtitles: ${JSON.stringify({ caption, analysis, position, transcript })}`,
+          `Subtitles: ${JSON.stringify({ caption, analysis, position, transcript, savedWord })}`,
         );
         return;
       }
@@ -483,11 +508,13 @@ module.exports = function attachSmokeChecks(window, { app, isDev, smokeHash }) {
           );
           if (panel.includes("학교")) break;
         }
-        await window.webContents.executeJavaScript(`(() => {
-        const save = [...document.querySelectorAll('[data-testid=analysis-panel] button')]
-          .find((node) => node.textContent.includes('Save word'));
-        save?.click();
-      })()`);
+        await window.webContents.executeJavaScript(
+          `document.querySelector('[aria-label="Save word"]')?.click()`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, 100));
+        await window.webContents.executeJavaScript(
+          `document.querySelector('[data-testid=save-word-editor] button[type=submit]')?.click()`,
+        );
         let vocabulary = 0;
         for (let attempt = 0; attempt < 10; attempt += 1) {
           await new Promise((resolve) => setTimeout(resolve, 300));

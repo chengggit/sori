@@ -70,6 +70,20 @@ with Qt/mpv adapters removed. `crates/sori-node` exposes `init`,
   `pdfs/` storage.
 - Tests use temporary libraries, never the user's database.
 
+## Shared analysis panel
+
+`src/lib/reader/AnalysisPanel.svelte` hosts the tab strip, word heading, dictionary
+view and docked save form for Reader and Watch. `src/lib/analysis/state.svelte.ts`
+owns superseded-request handling, ordered lemma lookup, KRDict empty-result
+fallback, and vocabulary save/edit/remove operations through typed services.
+Source word/context and Kiwi UTF-16 offsets remain unchanged.
+
+Inactive dictionary frames are retained for 30 seconds; tab switches preserve
+save drafts. Embedded tab order is persisted with keyboard/drag reordering.
+HTTPS frames support user-defined lookup templates; third-party response headers
+are preserved. Sites can refuse embedding, so Open in browser remains available.
+Other resource origins, sandboxing and top-level IPC sender checks stay restricted.
+
 ## Reading and analysis
 
 - TXT import: UTF-8, at most 2 MiB; paste-as-text is stored as a TXT document.

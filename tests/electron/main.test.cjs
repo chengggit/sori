@@ -135,3 +135,37 @@ test("thumbnail protocol only serves managed numeric JPEG paths", async (t) => {
     405,
   );
 });
+
+test("CSP allows HTTPS dictionary frames without overwriting their response policy", () => {
+  let onHeaders;
+  const { applyCsp } = loadMainModule("security.cjs", {
+    electron: {
+      session: {
+        defaultSession: {
+          webRequest: {
+            onHeadersReceived: (handler) => {
+              onHeaders = handler;
+            },
+          },
+        },
+      },
+    },
+  });
+  applyCsp(false);
+  let result;
+  const original = {
+    "Content-Security-Policy": ["script-src https://dictionary.example"],
+    "X-Frame-Options": ["SAMEORIGIN"],
+  };
+  onHeaders({ resourceType: "subFrame", responseHeaders: original }, (value) => {
+    result = value;
+  });
+  assert.equal(result.responseHeaders, original);
+  onHeaders({ resourceType: "mainFrame", responseHeaders: {} }, (value) => {
+    result = value;
+  });
+  const policy = result.responseHeaders["Content-Security-Policy"][0];
+  assert.match(policy, /frame-src https:;/);
+  assert.match(policy, /default-src 'self'/);
+  assert.match(policy, /script-src 'self' https:\/\/www.youtube.com;/);
+});

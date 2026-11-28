@@ -73,7 +73,7 @@
       <div
         class="mx-auto flex h-14 items-center gap-2 px-4 sm:px-8"
         class:home-width={["home", "library"].includes(page)}
-        class:max-w-6xl={!["home", "library"].includes(page)}
+        class:max-w-6xl={!["home", "library", "reader", "watch"].includes(page)}
       >
         <Sidebar.Trigger class="md:hidden" />
         <h1 data-testid="page-title" class="text-lg font-semibold" class:sr-only={page === "home"}>
@@ -85,7 +85,7 @@
     <div
       class="mx-auto px-4 py-6 sm:px-8"
       class:home-width={["home", "library"].includes(page)}
-      class:max-w-6xl={!["home", "library"].includes(page)}
+      class:max-w-6xl={!["home", "library", "reader", "watch"].includes(page)}
     >
       {@render children?.()}
     </div>
