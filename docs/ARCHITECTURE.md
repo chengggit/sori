@@ -70,6 +70,19 @@ with Qt/mpv adapters removed. `crates/sori-node` exposes `init`,
   `pdfs/` storage.
 - Tests use temporary libraries, never the user's database.
 
+## Settings presentation
+
+`src/lib/settings/SettingsContent.svelte` is shared by the sidebar-opened dialog
+and direct Settings route. Its model isolates dictionary/YouTube request errors,
+busy states and success feedback, discards results after disposal, and rereads
+canonical settings after mutations. API key inputs are drafts; returned settings
+contain only configured/saved flags. Preferences retain their existing local UI
+store, and keys stay in Rust-owned storage.
+
+Successful dictionary/YouTube configuration mutations emit `settings-changed`
+through the preload event bridge. Mounted discovery models refresh configuration
+without navigating away from Home or Explore. Failed mutations emit no event.
+
 ## Shared analysis panel
 
 `src/lib/reader/AnalysisPanel.svelte` hosts the tab strip, word heading, dictionary

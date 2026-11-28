@@ -40,6 +40,7 @@ src/
     reader/         # reading helpers, shared panel host and PDF reader
     analysis/       # lookup requests, selection state and docked save panel
     vocabulary/     # saved-word list/details state and shared word form
+    settings/       # shared settings sheet/route, controls and request state
     dictionary/     # lookup helpers, settings and dictionary panel
     library/        # command wrappers, refresh/thumbnail state and media cards
     video/          # playback, subtitles and command wrappers

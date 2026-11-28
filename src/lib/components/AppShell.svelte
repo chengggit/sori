@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
   import AppSidebar from "./AppSidebar.svelte";
+  import SettingsDialog from "$lib/settings/SettingsDialog.svelte";
   import * as Sidebar from "$lib/components/ui/sidebar";
   import * as Sheet from "$lib/components/ui/sheet";
   import { appearanceOptions, clampPageScale, type Appearance } from "$lib/appearance";
@@ -10,7 +11,6 @@
     appearance,
     dark,
     pageScale,
-    onPage,
     onAppearance,
     onScale,
     titleOverride,
@@ -21,7 +21,6 @@
     appearance: Appearance;
     dark: boolean;
     pageScale: number;
-    onPage: (page: string) => void;
     onAppearance: (value: Appearance) => void;
     onScale: (value: number) => void;
     titleOverride?: string;
@@ -31,6 +30,7 @@
 
   let open = $state(localStorage.getItem("sori-sidebar-collapsed") !== "true");
   let appearanceOpen = $state(false);
+  let settingsOpen = $state(false);
   const titles: Record<string, string> = {
     home: "Home",
     explore: "Explore",
@@ -65,7 +65,9 @@
 >
   <AppSidebar
     {page}
-    openSettings={() => onPage("settings")}
+    openSettings={() => {
+      if (page !== "settings") settingsOpen = true;
+    }}
     openAppearance={() => (appearanceOpen = true)}
   />
   <main data-testid="page-content" class="min-w-0 flex-1 overflow-auto">
@@ -117,6 +119,8 @@
     </div>
   </main>
 </Sidebar.Provider>
+
+<SettingsDialog bind:open={settingsOpen} />
 
 <Sheet.Root bind:open={appearanceOpen}>
   <Sheet.Content>

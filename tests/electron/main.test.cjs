@@ -35,6 +35,19 @@ test("successful mutations notify the invoking renderer; failures do not", async
   assert.equal(sent[0][0], "core:event");
   assert.equal(sent[0][1].name, "library-changed");
 
+  for (const command of [
+    "dictionary:saveKey",
+    "dictionary:removeKey",
+    "dictionary:select",
+    "youtube:saveKey",
+    "youtube:removeKey",
+  ]) {
+    await invoke(event, command, {});
+    assert.equal(timers.length, 1);
+    timers.shift()();
+    assert.equal(sent.at(-1)[1].name, "settings-changed");
+  }
+
   for (const command of ["library:state", "document:read", "video:read", "vocabulary:find"]) {
     await invoke(event, command, {});
   }
@@ -43,8 +56,10 @@ test("successful mutations notify the invoking renderer; failures do not", async
   reply = { ok: false, data: null, error: "Import failed" };
   assert.equal((await invoke(event, "document:add", {})).error, "Import failed");
   await invoke(event, "analyzeText", {});
+  await invoke(event, "youtube:saveKey", {});
+  await invoke(event, "dictionary:select", {});
   assert.equal(timers.length, 0);
-  assert.equal(sent.length, 1);
+  assert.equal(sent.length, 6);
 });
 
 test("IPC accepts only the app top-level frame in development and packages", async () => {

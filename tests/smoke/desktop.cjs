@@ -83,25 +83,80 @@ module.exports = function attachSmokeChecks(window, { app, isDev, smokeHash }) {
         return;
       }
       if (smokeHash === "settings") {
-        await window.webContents.executeJavaScript(`location.hash = '#/settings'`);
-        for (let attempt = 0; attempt < 20; attempt += 1) {
-          await new Promise((resolve) => setTimeout(resolve, 300));
-          const ready = await window.webContents.executeJavaScript(
-            'Boolean(document.querySelector("[data-testid=appearance-settings]"))',
-          );
-          if (ready) break;
-        }
-        await window.webContents.executeJavaScript(
-          'document.querySelector("[data-testid=settings-theme-dark]").click()',
+        const js = (code) => window.webContents.executeJavaScript(code);
+        const waitFor = async (code) => {
+          for (let attempt = 0; attempt < 30; attempt++) {
+            if (await js(code)) return true;
+            await new Promise((resolve) => setTimeout(resolve, 100));
+          }
+          throw new Error("Settings UI did not reach the expected state.");
+        };
+        const click = (label) =>
+          js(`(() => {
+          const button = [...document.querySelectorAll('[data-testid=settings-content] button')]
+            .find(node => node.textContent.trim() === ${JSON.stringify(label)});
+          if (!button) throw new Error('Missing Settings control');
+          button.click();
+        })()`);
+        const fill = (label, value) =>
+          js(`(() => {
+          const field = document.querySelector('input[aria-label=' + ${JSON.stringify(JSON.stringify(label))} + ']');
+          Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(field, ${JSON.stringify(value)});
+          field.dispatchEvent(new Event('input', { bubbles: true }));
+        })()`);
+        await js(`location.hash = '#/library'`);
+        await waitFor(`Boolean(document.querySelector('[data-testid=nav-settings]'))`);
+        await js(`document.querySelector('[data-testid=nav-settings]').click()`);
+        await waitFor(`Boolean(document.querySelector('[data-testid=appearance-settings]'))`);
+        const stayed = await js(`location.hash === '#/library'`);
+        await js(`document.querySelector('[data-testid=settings-theme-dark]').click()`);
+        await click("Dictionaries");
+        await waitFor(`!document.querySelector('[aria-label="KRDict API key"]').disabled`);
+        await fill("KRDict API key", "0123456789abcdef0123456789abcdef");
+        await click("Save KRDict key");
+        await waitFor(
+          `[...document.querySelectorAll('[data-testid=dictionary-settings] p')].some(node => node.textContent === 'KRDict key saved locally.')`,
         );
-        await new Promise((resolve) => setTimeout(resolve, 300));
-        const state = await window.webContents.executeJavaScript(`(() => ({
-        dark: document.documentElement.classList.contains('dark'),
-        sections: ['appearance-settings', 'dictionary-settings', 'youtube-settings', 'embed-settings']
-          .filter((id) => document.querySelector('[data-testid=' + id + ']')).length,
-      }))()`);
+        await js(
+          `(() => { const field = document.querySelector('[data-testid=dictionary-settings] select'); field.value = 'krdict'; field.dispatchEvent(new Event('change', { bubbles: true })); })()`,
+        );
+        await waitFor(
+          `document.querySelector('[data-testid=dictionary-settings] select').value === 'krdict'`,
+        );
+        const dictionary = await js(`window.sori.invoke('core:invoke', 'dictionary:settings', {})`);
+        await click("Remove KRDict key");
+        await waitFor(
+          `document.querySelector('[data-testid=dictionary-settings] select').value === 'wiktionary'`,
+        );
+        await click("Connections");
+        await waitFor(`!document.querySelector('[aria-label="YouTube API key"]').disabled`);
+        await fill("YouTube API key", "AIzaSettingsSmoke123456");
+        await click("Save YouTube key");
+        await waitFor(
+          `document.querySelector('[data-testid=youtube-key-state]').textContent === 'API key saved locally.'`,
+        );
+        const youtube = await js(`window.sori.invoke('core:invoke', 'youtube:settings', {})`);
+        await click("Remove YouTube key");
+        await waitFor(
+          `![...document.querySelectorAll('[data-testid=youtube-settings] button')].some(node => node.textContent.trim() === 'Remove YouTube key')`,
+        );
+        const cleared = await js(`window.sori.invoke('core:invoke', 'youtube:settings', {})`);
+        const state = await js(
+          `({ dark: document.documentElement.classList.contains('dark'), sections: ['appearance-settings', 'dictionary-settings', 'youtube-settings', 'embed-settings'].filter(id => document.querySelector('[data-testid=' + id + ']')).length })`,
+        );
         clearTimeout(watchdog);
-        finishSmoke(state.dark && state.sections === 4 ? 0 : 1, `Settings: ${JSON.stringify(state)}`);
+        finishSmoke(
+          stayed &&
+            state.dark &&
+            state.sections === 4 &&
+            dictionary.data.provider === "krdict" &&
+            dictionary.data.hasKey &&
+            youtube.data.saved &&
+            !cleared.data.saved
+            ? 0
+            : 1,
+          `Settings: ${JSON.stringify({ stayed, ...state, dictionary: dictionary.data, youtube: youtube.data, cleared: cleared.data })}`,
+        );
         return;
       }
       if (smokeHash === "youtube") {

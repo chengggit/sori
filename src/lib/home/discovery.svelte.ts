@@ -1,4 +1,5 @@
 import { tick } from "svelte";
+import { platform } from "../../platform";
 import {
   searchYouTube,
   subscriptionFeed,
@@ -27,8 +28,14 @@ export class Discovery {
   channelsError = $state("");
   private configurationGeneration = 0;
   private alive = true;
+  private stopSettings: () => void;
   constructor() {
     this.ready = this.configure();
+    this.stopSettings = platform.onEvent("settings-changed", () => {
+      this.generation++;
+      this.loading = this.loadingMore = false;
+      void this.refreshConfiguration();
+    });
   }
   private async configure() {
     const generation = ++this.configurationGeneration;
@@ -48,6 +55,7 @@ export class Discovery {
     return !!this.nextPage || Object.values(this.tokens).some(Boolean);
   }
   destroy() {
+    this.stopSettings();
     this.generation++;
     this.configurationGeneration++;
     this.alive = false;

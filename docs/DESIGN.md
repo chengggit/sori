@@ -30,7 +30,10 @@ The header keeps the page title and mobile navigation toggle in view.
 Appearance opens a dialog for system/light/dark themes and application zoom.
 Ctrl/Cmd+Shift+Plus/Minus changes zoom; Ctrl/Cmd+Shift+0 resets it. Shell height
 accounts for application zoom so footer controls remain reachable. Settings
-continues to open the existing page until its own frontend rework slice.
+opens over the current page in a centered sheet with General, Dictionaries and
+Connections categories. Categories move above the controls in narrow windows;
+each category scrolls independently. The direct Settings route uses the same
+controls. Channel management stays in Explore.
 
 Home, Explore and Library share `MediaHover.svelte` for thumbnail dimming, gentle artwork
 zoom and the scale-in play/read badge. Keyboard focus reveals the same treatment;
