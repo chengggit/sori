@@ -1,327 +1,376 @@
 <script lang="ts">
-  import { FileText, Film, Pencil, Plus, Search, Trash2, X } from "@lucide/svelte";
+  import { FolderOpen, Film, Plus, Search } from "@lucide/svelte";
   import { onMount } from "svelte";
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
+  import * as Sheet from "$lib/components/ui/sheet";
+  import MediaCard from "$lib/library/MediaCard.svelte";
+  import { LibraryModel } from "$lib/library/state.svelte";
   import {
     addDocument,
     importDocument,
-    loadLibraryState,
     readDocument,
     removeDocument,
-    removeVideo as removeVideoEntry,
+    removeVideo,
     updateDocument,
     importVideo,
+    type DocumentSummary,
+    type VideoSummary,
   } from "$lib/library/commands";
   import { openVideoPicker } from "$lib/video/commands";
+  import { normalizeDisplayText } from "$lib/text";
   import { platform } from "../platform";
 
-  type LibraryItem = { id: number; title: string; pdf: boolean };
-
-  let documents = $state<LibraryItem[]>([]);
-  let videos = $state<{ id: number; title: string }[]>([]);
+  const library = new LibraryModel();
   let query = $state("");
-  let error = $state("");
-  let busy = $state(false);
-  let importOpen = $state(false);
-  let editing = $state<LibraryItem | null>(null);
+  let editorOpen = $state(false);
+  let editing = $state<DocumentSummary | null>(null);
   let draftTitle = $state("");
   let draftText = $state("");
-  let deleting = $state<LibraryItem | null>(null);
-  let deletingVideo = $state<{ id: number; title: string } | null>(null);
-
-  const visibleDocuments = $derived(
-    documents.filter((item) =>
-      item.title.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()),
+  let removal = $state<{ item: DocumentSummary | VideoSummary; video: boolean } | null>(null);
+  let removalOpen = $state(false);
+  let titleField = $state<HTMLInputElement | null>(null);
+  let searchField = $state<HTMLInputElement | null>(null);
+  const search = $derived(normalizeDisplayText(query.trim()).toLocaleLowerCase());
+  const documents = $derived(
+    library.documents.filter((item) =>
+      normalizeDisplayText(item.title).toLocaleLowerCase().includes(search),
     ),
   );
-  const visibleVideos = $derived(
-    videos.filter((item) => item.title.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())),
+  const videos = $derived(
+    library.videos.filter((item) =>
+      normalizeDisplayText(`${item.displayTitle} ${item.title}`).toLocaleLowerCase().includes(search),
+    ),
   );
 
-  async function load() {
-    const state = await loadLibraryState();
-    if (!state.ok) {
-      error = state.error;
-      return;
-    }
-    documents = (state.data?.documents ?? []) as LibraryItem[];
-    videos = (state.data?.videos ?? []) as { id: number; title: string }[];
-    error = state.data?.error ?? "";
-  }
-
   onMount(() => {
-    const unsubscribe = platform.onEvent("library-changed", () => void load());
-    void load();
-    return unsubscribe;
+    void library.load();
+    const unsubscribe = platform.onEvent("library-changed", () => void library.load());
+    return () => {
+      library.dispose();
+      unsubscribe();
+    };
   });
-
-  function report(result: { ok: boolean; error: string }) {
-    if (!result.ok) error = result.error;
-    return result.ok;
-  }
-
-  async function chooseFile() {
-    if (busy) return;
-    busy = true;
-    error = "";
-    try {
-      const picked = await platform.invoke<string | null>("dialog:openDocument");
-      if (!report(picked)) return;
-      if (!picked.data) return;
-      if (report(await importDocument(picked.data))) {
-        await load();
-        query = "";
-        importOpen = false;
-      }
-    } finally {
-      busy = false;
-    }
-  }
-
   function openImport() {
     editing = null;
     draftTitle = "";
     draftText = "";
-    error = "";
-    importOpen = true;
+    library.error = "";
+    editorOpen = true;
   }
-
-  async function editDocument(item: LibraryItem) {
-    const result = await readDocument(item.id);
-    if (!report(result)) return;
-    editing = item;
-    draftTitle = item.title;
-    draftText = result.data?.content ?? "";
-    error = "";
-    importOpen = true;
+  async function edit(item: DocumentSummary) {
+    const success = await library.run(async () => {
+      const reply = await readDocument(item.id);
+      if (reply.ok && reply.data) {
+        editing = item;
+        draftTitle = item.title;
+        draftText = reply.data.content;
+        editorOpen = true;
+      }
+      return reply;
+    });
+    if (!success) searchField?.focus();
   }
-
-  async function saveDraft() {
-    if (busy || !draftText.trim()) return;
-    busy = true;
-    error = "";
-    try {
-      const result = editing
-        ? await updateDocument(editing.id, draftTitle, draftText)
-        : await addDocument(draftTitle, draftText);
-      if (!report(result)) return;
-      await load();
+  async function save(event: SubmitEvent) {
+    event.preventDefault();
+    if (!draftText.trim() || (editing && !draftTitle.trim())) return;
+    const success = await library.run(() =>
+      editing ? updateDocument(editing.id, draftTitle, draftText) : addDocument(draftTitle, draftText),
+    );
+    if (success) {
+      editorOpen = false;
       query = "";
-      importOpen = false;
-      editing = null;
-      draftTitle = "";
-      draftText = "";
-    } finally {
-      busy = false;
     }
   }
-
-  function openDocument(item: LibraryItem) {
-    location.hash = `#/reader?id=${item.id}`;
-    deleting = null;
-  }
-
-  function openVideo(id: number) {
-    location.hash = `#/watch?id=${id}`;
-  }
-
-  async function confirmDeleteVideo() {
-    if (!deletingVideo || busy) return;
-    busy = true;
-    error = "";
-    try {
-      if (report(await removeVideoEntry(deletingVideo.id))) {
-        await load();
-        deletingVideo = null;
-      }
-    } finally {
-      busy = false;
+  async function chooseFile() {
+    let imported = false;
+    const success = await library.run(async () => {
+      const picked = await platform.invoke<string | null>("dialog:openDocument");
+      if (!picked.ok || !picked.data) return picked;
+      const reply = await importDocument(picked.data);
+      imported = reply.ok;
+      return reply;
+    });
+    if (success && imported) {
+      editorOpen = false;
+      query = "";
     }
   }
-
   async function chooseVideo() {
-    if (busy) return;
-    busy = true;
-    error = "";
-    try {
+    const success = await library.run(async () => {
       const picked = await openVideoPicker();
-      if (!report(picked)) return;
-      if (!picked.data) return;
-      if (report(await importVideo(picked.data))) {
-        await load();
-        query = "";
-      }
-    } finally {
-      busy = false;
-    }
+      return picked.ok && picked.data ? importVideo(picked.data) : picked;
+    });
+    if (success) query = "";
   }
-
-  async function confirmDelete() {
-    if (!deleting || busy) return;
-    busy = true;
-    error = "";
-    try {
-      if (report(await removeDocument(deleting.id))) {
-        await load();
-        deleting = null;
-      }
-    } finally {
-      busy = false;
-    }
+  function requestRemoval(item: DocumentSummary | VideoSummary, video: boolean) {
+    library.error = "";
+    removal = { item, video };
+    removalOpen = true;
+  }
+  async function confirmRemoval() {
+    if (!removal) return;
+    const { item, video } = removal;
+    if (await library.run(() => (video ? removeVideo(item.id) : removeDocument(item.id))))
+      removalOpen = false;
+  }
+  function restoreFocus(event: Event) {
+    event.preventDefault();
+    searchField?.focus();
   }
 </script>
 
-<div class="flex flex-col gap-4">
-  <div class="flex flex-wrap items-center gap-2">
-    <div class="relative w-full max-w-sm">
-      <Search class="absolute left-2.5 top-2.5 text-muted-foreground" size={16} />
+<div class="library-page">
+  <div class="library-toolbar">
+    <div class="relative w-full max-w-[440px]">
+      <Search class="pointer-events-none absolute left-3 top-3 text-muted-foreground" size={15} />
       <Input
-        class="pl-8"
+        bind:ref={searchField}
+        class="h-[38px] pl-9 text-[13px]"
         placeholder="Search your library"
         aria-label="Search your library"
         bind:value={query}
       />
     </div>
-    <div class="flex-1"></div>
-    <Button variant="outline" onclick={openImport} data-testid="import-text">
-      <Plus /> Import text
-    </Button>
-    <Button variant="outline" onclick={chooseVideo} data-testid="import-video">
-      <Film /> Import video
-    </Button>
+    <div class="flex gap-2">
+      <Button variant="outline" disabled={library.busy} onclick={openImport} data-testid="import-text">
+        <Plus size={15} />Import text
+      </Button>
+      <Button
+        variant="outline"
+        disabled={library.busy}
+        onclick={chooseVideo}
+        data-testid="import-video"
+      >
+        <Film size={15} />Import video
+      </Button>
+    </div>
   </div>
-
-  {#if error}
-    <p class="text-sm text-destructive" data-testid="library-error" role="alert">{error}</p>
-  {/if}
-
-  {#if importOpen}
-    <section class="rounded-lg border border-border bg-card p-4" data-testid="import-panel">
-      <div class="mb-3 flex items-center justify-between">
-        <h2 class="text-base font-semibold">{editing ? "Edit text" : "Import text"}</h2>
-        <Button variant="ghost" size="icon-sm" aria-label="Close" onclick={() => (importOpen = false)}>
-          <X />
-        </Button>
-      </div>
-      <div class="flex flex-col gap-3">
-        <Input placeholder="Title (optional)" aria-label="Title" bind:value={draftTitle} />
-        <textarea
-          class="min-h-40 w-full rounded-md border border-input bg-transparent p-3 font-[family-name:var(--font-korean)]"
-          placeholder="Paste Korean text here"
-          aria-label="Text"
-          bind:value={draftText}></textarea>
-        {#if !editing}
-          <Button variant="outline" onclick={chooseFile} disabled={busy} data-testid="choose-file">
-            <FileText /> Choose .txt or .pdf
-          </Button>
-        {/if}
-        <Button onclick={saveDraft} disabled={busy || !draftText.trim()} data-testid="save-document">
-          {editing ? "Save changes" : "Add to library"}
-        </Button>
-      </div>
-    </section>
-  {/if}
-
-  <section>
-    <h2 class="mb-2 text-sm font-semibold text-muted-foreground" data-testid="text-count">
-      Texts ({documents.length})
-    </h2>
-    {#if visibleDocuments.length === 0}
-      <p class="text-sm text-muted-foreground" data-testid="empty-texts">
-        {query ? "No matching texts" : "No texts yet"}
-      </p>
-    {:else}
-      <ul class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3" data-testid="document-list">
-        {#each visibleDocuments as item (item.id)}
-          <li class="flex items-center gap-2 rounded-lg border border-border bg-card p-3">
-            <button
-              type="button"
-              class="flex-1 truncate text-left"
-              data-testid={`open-document-${item.id}`}
-              onclick={() => openDocument(item)}
-            >
-              <FileText size={16} class="mr-2 inline text-dashboard-accent" />
-              {item.title}{item.pdf ? " · PDF" : ""}
-            </button>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label={`Edit ${item.title}`}
-              onclick={() => editDocument(item)}
-            >
-              <Pencil />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label={`Delete ${item.title}`}
-              onclick={() => (deleting = item)}
-            >
-              <Trash2 />
-            </Button>
-          </li>
-        {/each}
-      </ul>
+  {#if library.error && !editorOpen && !removalOpen}<p
+      class="text-sm text-destructive"
+      data-testid="library-error"
+      role="alert"
+    >
+      {library.error} <button class="underline" onclick={() => library.load()}>Retry</button>
+    </p>{/if}
+  {#if library.loading}<p role="status" class="text-sm text-muted-foreground">
+      Loading library…
+    </p>{:else}
+    {#if !search || documents.length}
+      <section aria-labelledby="texts-title">
+        <h2 id="texts-title" class="shelf-title" data-testid="text-count">
+          Texts <span>{documents.length}</span>
+        </h2>
+        {#if documents.length}
+          <ul class="document-shelf" data-testid="document-list">
+            {#each documents as item (item.id)}<li>
+                <MediaCard
+                  {item}
+                  busy={library.busy}
+                  onEdit={item.pdf ? undefined : () => edit(item)}
+                  onRemove={() => requestRemoval(item, false)}
+                />
+              </li>{/each}
+          </ul>
+        {:else}<p class="empty-shelf" data-testid="empty-texts">No texts yet</p>{/if}
+      </section>
     {/if}
-  </section>
-
-  {#if visibleVideos.length}
-    <section>
-      <h2 class="mb-2 text-sm font-semibold text-muted-foreground">Videos</h2>
-      <ul class="grid gap-2 sm:grid-cols-2" data-testid="video-list">
-        {#each visibleVideos as video (video.id)}
-          <li class="flex items-center gap-1 rounded-lg border border-border bg-card p-2">
-            <button
-              type="button"
-              class="flex-1 truncate text-left"
-              data-testid={`open-video-${video.id}`}
-              onclick={() => openVideo(video.id)}
-            >
-              <Film size={16} class="mr-2 inline text-dashboard-accent" />
-              {video.title}
-            </button>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label={`Remove video ${video.title}`}
-              onclick={() => (deletingVideo = { id: video.id, title: video.title })}
-            >
-              <Trash2 />
-            </Button>
-          </li>
-        {/each}
-      </ul>
-    </section>
-  {/if}
-
-  {#if deleting}
-    <div
-      class="rounded-lg border border-destructive bg-card p-4"
-      role="alertdialog"
-      data-testid="delete-confirm"
-    >
-      <p class="mb-3 text-sm">Delete “{deleting.title}” from your library?</p>
-      <div class="flex gap-2">
-        <Button variant="outline" onclick={() => (deleting = null)}>Cancel</Button>
-        <Button variant="destructive" onclick={confirmDelete} disabled={busy}>Delete</Button>
-      </div>
-    </div>
-  {/if}
-
-  {#if deletingVideo}
-    <div
-      class="rounded-lg border border-destructive bg-card p-4"
-      role="alertdialog"
-      data-testid="delete-video-confirm"
-    >
-      <p class="mb-3 text-sm">
-        Remove “{deletingVideo.title}” from your library? The video file stays on disk.
-      </p>
-      <div class="flex gap-2">
-        <Button variant="outline" onclick={() => (deletingVideo = null)}>Cancel</Button>
-        <Button variant="destructive" onclick={confirmDeleteVideo} disabled={busy}>Remove</Button>
-      </div>
-    </div>
+    {#if !search || videos.length}
+      <section aria-labelledby="videos-title">
+        <h2 id="videos-title" class="shelf-title">Videos <span>{videos.length}</span></h2>
+        {#if videos.length}
+          <ul class="video-shelf" data-testid="video-list">
+            {#each videos as item (item.id)}<li>
+                <MediaCard
+                  {item}
+                  video
+                  busy={library.busy}
+                  onRemove={() => requestRemoval(item, true)}
+                />
+              </li>{/each}
+          </ul>
+        {:else}<p class="empty-shelf">No videos yet</p>{/if}
+      </section>
+    {/if}
+    {#if search && !documents.length && !videos.length}<p role="status" class="empty-shelf">
+        No matching items. Try another title.
+      </p>{/if}
+    {#if !search && !library.documents.length && !library.videos.length && !library.error}<p
+        class="text-sm text-muted-foreground"
+      >
+        Import a video, a .txt or .pdf file, or paste Korean text to get started.
+      </p>{/if}
   {/if}
 </div>
+
+<Sheet.Root
+  bind:open={editorOpen}
+  onOpenChange={(open) => {
+    if (!open) library.error = "";
+  }}
+>
+  <Sheet.Content
+    onOpenAutoFocus={(event) => {
+      event.preventDefault();
+      titleField?.focus();
+    }}
+    onCloseAutoFocus={restoreFocus}
+    showCloseButton={false}
+    overlayProps={{ style: "backdrop-filter: none;" }}
+    class="h-[520px] max-h-[calc(var(--app-height)-3rem)] w-[calc(100%-3rem)] max-w-[560px] gap-0 rounded-[20px] border-0 bg-card p-5 shadow-none"
+    data-testid="import-panel"
+  >
+    <Sheet.Header class="mb-3 shrink-0 gap-0 p-0">
+      <Sheet.Title class="text-lg font-semibold">
+        {editing ? "Edit document" : "Import text or PDF"}
+      </Sheet.Title>
+      <Sheet.Description class="sr-only">
+        {editing
+          ? "Update the title or text. Changing the text resets its reading progress."
+          : "Choose a text or PDF file, or paste Korean text to import."}
+      </Sheet.Description>
+    </Sheet.Header>
+    <form class="flex min-h-0 flex-1 flex-col gap-3" onsubmit={save}>
+      {#if !editing}
+        <Button
+          type="button"
+          variant="outline"
+          class="h-[38px] shrink-0 self-start bg-transparent px-3 text-[13px] shadow-none"
+          onclick={chooseFile}
+          disabled={library.busy}
+          data-testid="choose-file"
+        >
+          <FolderOpen size={16} />Choose a text or PDF file
+        </Button>
+      {/if}
+      <label class="flex shrink-0 flex-col gap-1.5 text-sm font-medium">
+        <span>Title</span>
+        <Input
+          bind:ref={titleField}
+          aria-label="Title"
+          placeholder="Title"
+          class="h-[38px] rounded-xl font-normal"
+          bind:value={draftTitle}
+          disabled={library.busy}
+        />
+      </label>
+      <label class="flex min-h-0 flex-1 flex-col gap-1.5 text-sm font-medium">
+        <span>Text</span>
+        <textarea
+          aria-label="Text"
+          class="min-h-16 flex-1 resize-none rounded-xl border border-input bg-transparent p-3 font-[family-name:var(--font-korean)] text-[15px] font-normal outline-none placeholder:text-muted-foreground"
+          placeholder="Paste or type Korean text"
+          bind:value={draftText}
+          disabled={library.busy}></textarea>
+      </label>
+      {#if library.error}<p role="alert" class="shrink-0 text-sm text-destructive">
+          {library.error}
+        </p>{/if}
+      <div class="mt-0.5 flex shrink-0 justify-end gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          class="h-[38px] bg-transparent px-4 text-[13px] shadow-none"
+          disabled={library.busy}
+          onclick={() => (editorOpen = false)}
+        >
+          Cancel
+        </Button>
+        <Button
+          type="submit"
+          variant="ghost"
+          class="h-[38px] bg-accent-soft px-4 text-[13px] text-dashboard-accent hover:bg-accent-soft disabled:bg-transparent disabled:text-muted-foreground disabled:opacity-100"
+          disabled={library.busy || !draftText.trim() || (!!editing && !draftTitle.trim())}
+          data-testid="save-document"
+        >
+          {library.busy ? "Saving…" : editing ? "Save changes" : "Import text"}
+        </Button>
+      </div>
+    </form>
+  </Sheet.Content>
+</Sheet.Root>
+
+<Sheet.Root
+  bind:open={removalOpen}
+  onOpenChange={(open) => {
+    if (!open) library.error = "";
+  }}
+>
+  <Sheet.Content
+    onCloseAutoFocus={restoreFocus}
+    data-testid={removal?.video ? "delete-video-confirm" : "delete-confirm"}
+  >
+    <Sheet.Header>
+      <Sheet.Title>{removal?.video ? "Remove video" : "Delete text"}</Sheet.Title><Sheet.Description>
+        {removal?.video
+          ? `Remove “${normalizeDisplayText((removal.item as VideoSummary).displayTitle || removal.item.title)}” from your library? The video file stays on disk.`
+          : `Delete “${normalizeDisplayText(removal?.item.title ?? "")}” from your library?`}
+      </Sheet.Description>
+    </Sheet.Header>
+    <div class="space-y-4 px-5 pb-5">
+      {#if library.error}<p role="alert" class="text-sm text-destructive">{library.error}</p>{/if}
+      <div class="flex justify-end gap-2">
+        <Button variant="outline" disabled={library.busy} onclick={() => (removalOpen = false)}>
+          Cancel
+        </Button><Button variant="destructive" disabled={library.busy} onclick={confirmRemoval}>
+          {removal?.video ? "Remove" : "Delete"}
+        </Button>
+      </div>
+    </div>
+  </Sheet.Content>
+</Sheet.Root>
+
+<style>
+  .library-page {
+    display: flex;
+    flex-direction: column;
+    gap: 26px;
+  }
+  .library-toolbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: -10px;
+  }
+  .shelf-title {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-size: 18px;
+    line-height: 1.2;
+    font-weight: 600;
+    margin-bottom: 10px;
+  }
+  .shelf-title span {
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--muted-foreground);
+  }
+  .document-shelf,
+  .video-shelf {
+    display: grid;
+    gap: 26px 20px;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 180px), 220px));
+    list-style: none;
+    padding: 0;
+  }
+  .video-shelf {
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 340px));
+  }
+  .empty-shelf {
+    padding: 16px 0;
+    font-size: 14px;
+    color: var(--muted-foreground);
+  }
+  @media (max-width: 600px) {
+    .document-shelf {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 20px 14px;
+    }
+    .video-shelf {
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+</style>

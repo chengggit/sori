@@ -515,20 +515,68 @@ module.exports = function attachSmokeChecks(window, { app, isDev, smokeHash }) {
         return;
       }
       if (smokeHash === "library") {
-        await window.webContents.executeJavaScript(
-          `window.sori.invoke('core:invoke', 'document:add', { title: '스모크 문서', content: '안녕하세요' })`,
+        const movie = join(process.env.SORI_DATA_DIR, "library-smoke.mkv");
+        execFileSync(
+          app.isPackaged
+            ? join(process.resourcesPath, "bin", process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg")
+            : "ffmpeg",
+          [
+            "-v",
+            "error",
+            "-f",
+            "lavfi",
+            "-i",
+            "color=c=blue:s=320x240:d=4",
+            "-pix_fmt",
+            "yuv420p",
+            "-y",
+            movie,
+          ],
+          { timeout: 30000 },
         );
+        const pdf = join(process.cwd(), "tests", "fixtures", "pdf-rendering.pdf");
+        const seeded = await window.webContents.executeJavaScript(`(async () => {
+          for (const [command, payload] of [
+            ['document:add', { title: '스모크 문서', content: '안녕하세요' }],
+            ['document:import', { path: ${JSON.stringify(pdf)} }],
+          ]) {
+            const reply = await window.sori.invoke('core:invoke', command, payload);
+            if (!reply.ok) throw new Error(reply.error);
+          }
+          const imported = await window.sori.invoke('core:invoke', 'video:import', { path: ${JSON.stringify(movie)} });
+          if (!imported.ok) throw new Error(imported.error);
+          const id = imported.data.id;
+          await window.sori.invoke('core:invoke', 'video:saveProgress', { id, seconds: 1, duration: 4 });
+          return id;
+        })()`);
         await window.webContents.executeJavaScript(`location.hash = '#/library'`);
-        let listed = "";
-        for (let attempt = 0; attempt < 10; attempt += 1) {
+        let result;
+        for (let attempt = 0; attempt < 35; attempt++) {
           await new Promise((resolve) => setTimeout(resolve, 300));
-          listed = await window.webContents.executeJavaScript(
-            'document.querySelector("[data-testid=document-list]")?.textContent ?? ""',
-          );
-          if (listed.includes("스모크 문서")) break;
+          result = await window.webContents.executeJavaScript(`(() => {
+            const documents = document.querySelector('[data-testid=document-list]');
+            const img = document.querySelector('[data-testid=video-list] img');
+            return { text: documents?.textContent, pdf: documents?.textContent.includes('PDF'), loaded: !!img?.naturalWidth, progress: document.querySelector('[data-testid=video-list] [role=progressbar]')?.getAttribute('aria-valuenow') };
+          })()`);
+          if (result.loaded && result.pdf) break;
         }
+        if (
+          !result.loaded ||
+          !result.pdf ||
+          !result.text?.includes("스모크 문서") ||
+          result.progress !== "25"
+        ) {
+          clearTimeout(watchdog);
+          finishSmoke(1, `Library page: ${JSON.stringify(result)}`);
+          return;
+        }
+        await window.webContents.executeJavaScript(`(async () => {
+          const reply = await window.sori.invoke('core:invoke', 'video:remove', { id: ${seeded} });
+          if (!reply.ok) throw new Error(reply.error);
+        })()`);
+        const retained = require("node:fs").existsSync(movie);
         clearTimeout(watchdog);
-        finishSmoke(listed.includes("스모크 문서") ? 0 : 1, `Library page: ${listed}`);
+        finishSmoke(retained ? 0 : 1, `Library page: ${JSON.stringify({ ...result, retained })}`);
         return;
       }
       if (smokeHash === "analysis") {

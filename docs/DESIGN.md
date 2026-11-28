@@ -32,6 +32,11 @@ Ctrl/Cmd+Shift+Plus/Minus changes zoom; Ctrl/Cmd+Shift+0 resets it. Shell height
 accounts for application zoom so footer controls remain reachable. Settings
 continues to open the existing page until its own frontend rework slice.
 
+Home and Library share `MediaHover.svelte` for thumbnail dimming, gentle artwork
+zoom and the scale-in play/read badge. Keyboard focus reveals the same treatment;
+Library item menus remain above it and hold the overlay open. Reduced-motion
+preferences disable these transitions.
+
 ## Adaptability
 
 - Support window resizing, application zoom, and independent reader typography
@@ -55,6 +60,13 @@ continues to open the existing page until its own frontend rework slice.
 - Give immediate feedback for actions, including clear drag and drop previews.
 - Use subtle motion to explain changes without distracting from the content.
 - Avoid confirmation dialogs for reversible actions.
+
+## Focus styles
+
+Text inputs, textareas and selects share one continuous accent focus edge: a
+border color and inset stroke, with no outer outline or ring and no size change.
+Invalid fields keep their destructive color. Buttons and links use a single
+keyboard-focus outline; shared controls do not add a second ring on top.
 
 ## Accessibility
 

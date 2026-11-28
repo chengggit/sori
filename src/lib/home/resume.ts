@@ -18,10 +18,4 @@ export function recentVideo(local: ResumeEntry[], youtube: ResumeEntry[]): Resum
 export function watchLink(item: ResumeEntry) {
   return item.youtubeId ? `#/explore?v=${encodeURIComponent(item.youtubeId)}` : `#/watch?id=${item.id}`;
 }
-export function formatTime(value: number) {
-  const seconds = Math.max(0, Math.floor(value || 0));
-  const minutes = Math.floor(seconds / 60);
-  return seconds >= 3600
-    ? `${Math.floor(minutes / 60)}:${String(minutes % 60).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`
-    : `${minutes}:${String(seconds % 60).padStart(2, "0")}`;
-}
+export { formatTime } from "../video/time";

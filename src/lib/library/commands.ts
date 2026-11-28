@@ -1,9 +1,19 @@
 import type { Response } from "../../envelope";
 import { platform } from "../../platform";
 
+export type DocumentSummary = { id: number; title: string; pdf: boolean };
+export type VideoSummary = {
+  id: number;
+  title: string;
+  displayTitle: string;
+  seconds: number;
+  duration: number;
+  thumbnailUrl: string | null;
+  watchedAt: number | null;
+};
 export type LibraryState = {
-  documents: unknown[];
-  videos: unknown[];
+  documents: DocumentSummary[];
+  videos: VideoSummary[];
   vocabulary: unknown[];
   youtubeHistory: unknown[];
   error: string;

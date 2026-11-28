@@ -18,10 +18,12 @@
     side = "center",
     showCloseButton = true,
     portalProps,
+    overlayProps,
     children,
     ...restProps
   }: WithoutChildrenOrChild<SheetPrimitive.ContentProps> & {
     portalProps?: WithoutChildrenOrChild<ComponentProps<typeof SheetPortal>>;
+    overlayProps?: ComponentProps<typeof SheetOverlay>;
     side?: Side | "center";
     showCloseButton?: boolean;
     children: Snippet;
@@ -29,7 +31,7 @@
 </script>
 
 <SheetPortal {...portalProps}>
-  <SheetOverlay />
+  <SheetOverlay {...overlayProps} />
   <SheetPrimitive.Content
     bind:ref
     data-slot="sheet-content"
