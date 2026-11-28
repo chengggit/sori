@@ -70,6 +70,20 @@ cached/fetched transcript. Its playback and codec support remain controlled by
 YouTube. Local playback uses Chromium's supported codecs; alternate local audio
 track selection is not currently exposed.
 
+## History
+
+History combines local and YouTube watch records, newest first by their saved
+watch timestamps. Local imports without a watch record stay in My Library until
+playback progress is recorded. Duration badges and progress bars use stored
+values; videos with an unknown duration show the time watched instead.
+
+Open a row to resume in Watch; Back returns to History and restores your list
+position for this app session. If an original local
+video was moved or removed, History keeps the record and shows the error without
+leaving the list. History reads saved titles and progress locally; YouTube
+playback and remote thumbnails still need a connection. Local thumbnails are
+prepared as rows come into view.
+
 ## Word analysis and saving
 
 Click a Korean word in Reader or a Watch transcript to open the shared panel.

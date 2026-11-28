@@ -381,3 +381,35 @@ Explore page, its topic results and QML, plus the old Svelte Explore page.
   repeated cursors, subscription failures/mutations, keyless link entry and Watch
   return context. Captures cover light/dark, narrow windows, zoom and the channel
   management dialog. Windows/macOS remain unverified locally.
+
+## Step 7 implementation notes
+
+Implemented on `feat/frontend-history`, stacked on Explore while PRs #49–#51
+remain unmerged. Accepted by the user for an unmerged PR on 2026-11-28.
+Adapted the old Svelte History list to the
+Qt HistoryPage row measurements and current Electron services.
+
+- Added the routed History destination and wide content frame. Rows use 268px
+  landscape artwork, duration badges, progress tracks, two-line titles, channel
+  labels and a shared animated hover treatment. The empty state opens Explore.
+- Audited native timestamps: both sources use SQLite Unix seconds. Combined
+  history sorts actual saved timestamps; unplayed local imports are excluded,
+  while zero-position records with a watch timestamp remain valid. Ties preserve
+  source ordering. No backend or schema changes were needed.
+- HistoryModel reads typed library state, prepares local metadata serially for
+  visible rows, and rejects disposed/superseded responses. Metadata enrichment
+  does not replace newer playback progress. Cached YouTube metadata is displayed
+  without requiring a network/API request to open History.
+- Local activation checks the original file before leaving History. Missing files
+  leave the record/list intact with a visible error. Both source links carry a
+  History return destination, and fresh progress is read after Watch or mutation
+  notifications. Browser images use YouTube fixtures and local fallback artwork;
+  the packaged test verifies the real managed thumbnail protocol.
+- Validation passed: warning-free typecheck, build, formatting, 28 unit tests,
+  Electron checks, the full 53-test browser suite and all 12 packaged Linux
+  smoke routes using temporary libraries. The new native History route verifies
+  combined records, exclusion of an unplayed import, real thumbnail loading,
+  restored/updated playback position and retention after the media file moves.
+  A follow-up retains session scroll position when returning from Watch; all 8
+  History browser checks passed after that change. Windows/macOS and live
+  YouTube playback remain unverified locally.

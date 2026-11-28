@@ -75,8 +75,8 @@
     >
       <div
         class="mx-auto flex h-14 items-center gap-2 px-4 sm:px-8"
-        class:home-width={["home", "library", "explore"].includes(page)}
-        class:max-w-6xl={!["home", "library", "explore", "reader", "watch"].includes(page)}
+        class:home-width={["home", "library", "explore", "history"].includes(page)}
+        class:max-w-6xl={!["home", "library", "explore", "history", "reader", "watch"].includes(page)}
       >
         <Sidebar.Trigger class="md:hidden" />
         <h1
@@ -94,8 +94,8 @@
       class:reader-workspace={page === "reader"}
       class:watch-workspace={page === "watch"}
       class:page-padding={page !== "reader" && page !== "watch"}
-      class:home-width={["home", "library", "explore"].includes(page)}
-      class:max-w-6xl={!["home", "library", "explore", "reader", "watch"].includes(page)}
+      class:home-width={["home", "library", "explore", "history"].includes(page)}
+      class:max-w-6xl={!["home", "library", "explore", "history", "reader", "watch"].includes(page)}
     >
       {@render children?.()}
     </div>
