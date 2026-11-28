@@ -82,6 +82,7 @@ mpv build, or Vulkan SDK is required. Prepare Kiwi with
 ```sh
 npm run test:core        # Rust domain tests
 npm run test:native      # Kiwi analysis through the addon
+npm run test:http-bridge # real HTTP client dispatch with offline proxy failures
 npm run test:persistence # CRUD through the bridge on a temp DB
 npm run test:migration   # upgrade the old Tauri schema fixture
 npm run test:unit        # Vitest helpers

@@ -56,7 +56,7 @@ git merge --no-ff feat/frontend-shell
       work with keyboard navigation, light/dark themes and narrow windows; existing
       screens remain usable. Capture a visual baseline for later page comparisons.
 
-- [ ] **1. Home — `feat/frontend-home`**
+- [x] **1. Home — `feat/frontend-home`**
       Start from old `src/routes/+page.svelte`: dashboard layout, resume cards,
       YouTube link entry and discovery/search presentation. Use Rust-backed state
       and current YouTube commands; no renderer API key or duplicate local history.
@@ -166,7 +166,7 @@ adjust that page's scope.
 ## Step 0 implementation notes
 
 Implemented on `feat/frontend-shell` and accepted by the user on 2026-11-28.
-Step 0 is complete; integration into `feat/frontend-rework` is pending.
+Step 0 is complete and merged into `feat/frontend-rework`.
 
 - Reused committed sidebar code from the old checkout, leaving its uncommitted
   native-video workaround untouched. Copied only used sidebar primitives plus
@@ -182,3 +182,35 @@ Step 0 is complete; integration into `feat/frontend-rework` is pending.
 - Validation: typecheck, production build, formatting, 20 unit tests, 12 browser
   tests, and all 11 packaged Linux smoke routes passed with temporary libraries.
   Windows/macOS visual and packaged behavior has not been verified locally.
+
+## Step 1 implementation notes
+
+Implemented on `feat/frontend-home`, using the user-provided Qt screenshot and
+`/home/cheng/Documents/sori-qt/qml/pages/{HomePage,ExplorePage}.qml` as the visual
+and behavioral reference. The shell branch was merged into the integration
+branch before this slice started. Step 1 was accepted by the user on 2026-11-28;
+integration into `feat/frontend-rework` is pending.
+
+- Home uses a header search form, a most-recent local/YouTube resume card, and a
+  responsive discovery grid. Discovery follows Qt's subscription feed behavior;
+  it explains missing keys/subscriptions rather than displaying sample content.
+- Search and pagination use existing Rust services; obsolete responses are ignored,
+  pages append without duplicates, and errors can be retried. Pasted links work
+  without an API key and route to the existing Explore player.
+- Added a restricted managed-thumbnail protocol and exposed the existing Rust
+  thumbnail preparation service. Packaged Rust media helpers now receive explicit
+  bundled FFmpeg/FFprobe paths instead of depending on PATH.
+- Visual baselines use seeded test data and intercepted thumbnail images under
+  `test-results/home-baseline/`; they validate layout, not live API results.
+- Validation: typecheck/build/formatting, 63 Rust tests (3 ignored), 22 unit tests,
+  4 Electron regressions, and 16 browser tests passed. Packaged Linux Home passed
+  with a generated local video and real thumbnail while PATH excluded FFmpeg,
+  confirming bundled-tool resolution. Live YouTube API/IFrame behavior and other
+  operating systems remain unverified locally.
+
+- Follow-up fixes: dispatch blocking Rust services through `spawn_blocking` and
+  adapt Rust YouTube result shapes into thumbnail URLs and search pagination.
+  The HTTP bridge regression reproduces the original runtime panic before the
+  fix and passes afterward without live network access. Final checks include
+  25 unit tests and 5 targeted Home/Explore browser checks, with actual image
+  loading asserted against the Rust response shape.

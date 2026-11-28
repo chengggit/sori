@@ -42,6 +42,7 @@ src/
     library/        # typed library command wrappers
     video/          # playback, subtitles and command wrappers
     dashboard/      # YouTube parsing and IFrame playback helpers
+    home/           # Home search, discovery requests and resume helpers
     youtube/        # typed YouTube command wrappers
 native/             # generated sori-node.node (ignored)
 dist/               # generated renderer bundle (ignored)
@@ -75,7 +76,7 @@ The library remains at Qt's `GenericDataLocation/com.sori.app` location.
 running smoke checks; feature smoke routes create and edit sample data.
 
 With Vite running, launch Electron with `--smoke` for a mount check.
-`SORI_SMOKE_HASH` selects a feature check: `bridge`, `analysis`, `library`,
+`SORI_SMOKE_HASH` selects a feature check: `home`, `bridge`, `analysis`, `library`,
 `reader`, `vocabulary`, `pdf`, `watch`, `subtitles`, `dictionary`, `youtube`, or
 `settings`. For example, on Linux/macOS:
 

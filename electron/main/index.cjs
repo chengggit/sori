@@ -2,12 +2,16 @@ const { app, BrowserWindow, protocol } = require("electron");
 const { join } = require("node:path");
 const { pathToFileURL } = require("node:url");
 const { legacyDataDirectory, loadNative } = require("./runtime.cjs");
-const { servePdf, serveMedia } = require("./media.cjs");
+const { servePdf, serveMedia, serveThumbnail } = require("./media.cjs");
 const { applyCsp, handle } = require("./security.cjs");
 const registerIpc = require("./ipc.cjs");
 
 app.setPath("userData", legacyDataDirectory());
 protocol.registerSchemesAsPrivileged([
+  {
+    scheme: "sori-thumbnail",
+    privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true },
+  },
   {
     scheme: "sori-pdf",
     privileges: {
@@ -52,7 +56,8 @@ function createWindow() {
       nodeIntegration: false,
     },
   });
-  window.removeMenu();
+  // Keep Electron's default menu in development so View → Toggle Developer Tools works.
+  if (!isDev) window.removeMenu();
   window.webContents.on("will-navigate", (event) => event.preventDefault());
   window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
 
@@ -71,6 +76,7 @@ function createWindow() {
 }
 
 app.whenReady().then(() => {
+  protocol.handle("sori-thumbnail", serveThumbnail);
   protocol.handle("sori-pdf", servePdf);
   protocol.handle("sori-media", serveMedia);
   applyCsp(isDev);

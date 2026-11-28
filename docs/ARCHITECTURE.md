@@ -12,6 +12,8 @@ Layer responsibilities are listed in `AGENTS.md`. Additional constraints:
   `bridge.rs`. Mutations and absent lookups may return null data.
 - UI calls `src/platform.ts`; it never imports Electron or Node.
   This keeps desktop integration out of components.
+- The napi bridge dispatches synchronous core commands with `spawn_blocking` so
+  blocking HTTP clients, SQLite, filesystem and media work stay off async workers.
 - Async commands are Promises at the bridge boundary; superseded results are
   discarded by the caller where relevant.
 - Properties and player controls are lifecycle APIs, not operation results.
@@ -82,6 +84,9 @@ with Qt/mpv adapters removed. `crates/sori-node` exposes `init`,
 
 - Chromium `<video>` plays local media through the privileged `sori-media://`
   Range protocol; there is no mpv or native player addon.
+- Local resume thumbnails use `sori-thumbnail://video/<id>.jpg`, restricted to
+  managed JPEGs under the library thumbnail directory. Rust prepares missing
+  metadata/thumbnails through `video:thumbnail`; imported media stays in place.
 - FFprobe inspects tracks; FFmpeg extracts text subtitles. Both are bundled in
   packages and fall back to PATH in development.
 - Subtitle generations reject results from previously opened media.

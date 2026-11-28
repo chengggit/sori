@@ -173,6 +173,14 @@ impl LibraryService {
         }
     }
 
+    pub fn prepare_video_thumbnail(&mut self, id: i64) -> Result<video_library::VideoSummary, String> {
+        let database = self.database.as_ref()
+            .ok_or("Could not open the library database.")?;
+        crate::library_jobs::video_thumbnail(database, id)?;
+        self.refresh_videos()?;
+        video_library::summary(&self.connection()?, id)
+    }
+
     pub fn read_video(&self, id: i64) -> Result<video_library::SavedVideo, String> {
         self.connection()
             .and_then(|connection| video_library::read(&connection, id))

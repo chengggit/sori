@@ -165,6 +165,10 @@ pub fn invoke(command: &str, payload: &Value) -> Value {
             let path = text(payload, "path")?;
             library()?.import_video(path)
         })()),
+        "video:thumbnail" => bridge::reply((|| {
+            let id = number(payload, "id")?;
+            library()?.prepare_video_thumbnail(id)
+        })()),
         "video:read" => bridge::reply((|| {
             let id = number(payload, "id")?;
             library()?.read_video(id)

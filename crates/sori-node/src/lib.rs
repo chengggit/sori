@@ -21,8 +21,15 @@ pub fn init_library(directory: String) -> Result<()> {
 /// the desktop main process parses the reply into a plain object.
 #[napi]
 pub async fn invoke(command: String, payload: String) -> Result<String> {
-    let payload: serde_json::Value =
-        serde_json::from_str(&payload).map_err(|error| Error::from_reason(error.to_string()))?;
-    let reply = sori_core::invoke(&command, &payload);
-    serde_json::to_string(&reply).map_err(|error| Error::from_reason(error.to_string()))
+    // The core uses blocking HTTP, SQLite, filesystem and subprocess services.
+    // Run the entire dispatcher outside Tokio's async worker context; even
+    // constructing/dropping reqwest::blocking clients can panic inside it.
+    spawn_blocking(move || {
+        let payload: serde_json::Value =
+            serde_json::from_str(&payload).map_err(|error| Error::from_reason(error.to_string()))?;
+        let reply = sori_core::invoke(&command, &payload);
+        serde_json::to_string(&reply).map_err(|error| Error::from_reason(error.to_string()))
+    })
+    .await
+    .map_err(|error| Error::from_reason(format!("Core command worker failed: {error}")))?
 }

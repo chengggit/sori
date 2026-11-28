@@ -1,6 +1,6 @@
 <script lang="ts">
   import { ExternalLink, Search, Trash2 } from "@lucide/svelte";
-  import { onDestroy, onMount } from "svelte";
+  import { onDestroy, onMount, tick } from "svelte";
   import { Button } from "$lib/components/ui/button";
   import { Input } from "$lib/components/ui/input";
   import { parseYouTubeLink } from "$lib/dashboard/youtube";
@@ -72,7 +72,11 @@
   }
 
   onMount(() => {
-    void refreshState();
+    void (async () => {
+      await refreshState();
+      const id = new URLSearchParams(location.hash.split("?")[1] ?? "").get("v");
+      if (id && /^[\w-]{11}$/.test(id)) await play(id);
+    })();
     void refreshSettings();
     void refreshSubscriptions();
   });
@@ -97,7 +101,7 @@
       }
     }
     // Let Svelte create the iframe with the new src before attaching the API.
-    await Promise.resolve();
+    await tick();
     if (frame) {
       tracker = trackPlayback(frame, {
         onTime: () => {},

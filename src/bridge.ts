@@ -18,6 +18,7 @@ export type Command =
   | "progress:saveDocument"
   | "video:import"
   | "video:read"
+  | "video:thumbnail"
   | "video:remove"
   | "video:saveProgress"
   | "video:saveSubtitles"

@@ -1,5 +1,16 @@
 # Using Sori
 
+## Home
+
+Home shows your most recently watched local or YouTube video with saved progress
+and a Resume link. Local resume works offline. If nothing has been watched yet,
+Open Library takes you to your imported media.
+
+The search field in the header searches YouTube. With an API key configured,
+Home discovers uploads from the channels managed in Explore. Refresh reloads
+the feed; Load more appends another page. Paste YouTube link opens an embeddable
+video without an API key. YouTube videos currently open in Explore's player.
+
 ## Reading and vocabulary
 
 Import TXT files or PDFs, or paste text in My Library. Click Korean words to
@@ -15,14 +26,14 @@ item. Reader font, size and line height are adjustable in Settings.
 
 ## Watching
 
-| Control              | Action                                          |
-| -------------------- | ----------------------------------------------- |
-| Space                | Play/pause                                      |
-| Left/Right           | Seek five seconds                               |
-| F / Esc              | Enter/exit fullscreen                           |
-| C                    | Show/hide captions                              |
-| Transcript timestamp | Seek to that line                               |
-| Caption/transcript word | Look up and save vocabulary                  |
+| Control                 | Action                      |
+| ----------------------- | --------------------------- |
+| Space                   | Play/pause                  |
+| Left/Right              | Seek five seconds           |
+| F / Esc                 | Enter/exit fullscreen       |
+| C                       | Show/hide captions          |
+| Transcript timestamp    | Seek to that line           |
+| Caption/transcript word | Look up and save vocabulary |
 
 Use the **Primary** and **Secondary** selectors to choose subtitle tracks, or
 **Attach SRT/VTT** to add a sidecar. Clicking a transcript cue seeks to it;

@@ -37,6 +37,7 @@ jobs:
       - run: npm run test:core
       - run: npm run native
       - run: npm run test:native
+      - run: npm run test:http-bridge
       - run: npm run test:persistence
       - run: npm run test:migration
       - run: npm run typecheck

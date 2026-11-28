@@ -101,3 +101,37 @@ test("native resource paths resolve from the application root in dev and package
     assert.equal(toolPath("ffmpeg"), isPackaged ? "/bundle/bin/ffmpeg" : "ffmpeg");
   }
 });
+
+test("thumbnail protocol only serves managed numeric JPEG paths", async (t) => {
+  const { mkdtempSync, mkdirSync, writeFileSync, rmSync } = require("node:fs");
+  const { tmpdir } = require("node:os");
+  const directory = mkdtempSync(join(tmpdir(), "sori-thumbnails-"));
+  t.after(() => rmSync(directory, { recursive: true, force: true }));
+  mkdirSync(join(directory, "thumbnails"));
+  writeFileSync(join(directory, "thumbnails/1.jpg"), Buffer.from([255, 216, 255, 217]));
+  const { serveThumbnail } = loadMainModule(
+    "media.cjs",
+    { electron: { app: { getPath: () => directory } } },
+    { Response },
+  );
+  const good = await serveThumbnail({ url: "sori-thumbnail://video/1.jpg", method: "GET" });
+  assert.equal(good.status, 200);
+  assert.equal(good.headers.get("content-type"), "image/jpeg");
+  assert.equal((await good.arrayBuffer()).byteLength, 4);
+  assert.equal(
+    (await serveThumbnail({ url: "sori-thumbnail://video/1.jpg", method: "HEAD" })).body,
+    null,
+  );
+  for (const url of [
+    "sori-thumbnail://video/../1.jpg",
+    "sori-thumbnail://video/0.jpg",
+    "sori-thumbnail://other/1.jpg",
+    "sori-thumbnail://video/2.jpg",
+  ]) {
+    assert.equal((await serveThumbnail({ url, method: "GET" })).status, 404);
+  }
+  assert.equal(
+    (await serveThumbnail({ url: "sori-thumbnail://video/1.jpg", method: "POST" })).status,
+    405,
+  );
+});

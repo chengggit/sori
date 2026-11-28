@@ -1,5 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import HomePage from "./pages/HomePage.svelte";
+  import HomeSearch from "$lib/home/HomeSearch.svelte";
   import AnalysisPage from "./dev/AnalysisPage.svelte";
   import AppShell from "$lib/components/AppShell.svelte";
   import BridgePage from "./dev/BridgePage.svelte";
@@ -10,7 +12,9 @@
   import WatchPage from "./pages/WatchPage.svelte";
   import YouTubePage from "./pages/YouTubePage.svelte";
   import { persistUi, ui } from "$lib/ui-state.svelte";
+  import { startAutoHideScrollbars } from "$lib/scrollbars";
 
+  let homeRequest = $state({ query: "", sequence: 0 });
   let route = $state(location.hash);
   let systemDark = $state(window.matchMedia("(prefers-color-scheme: dark)").matches);
 
@@ -33,6 +37,7 @@
   }
 
   onMount(() => {
+    const stopScrollbars = startAutoHideScrollbars();
     const onHashChange = () => {
       route = location.hash;
     };
@@ -43,6 +48,7 @@
     window.addEventListener("hashchange", onHashChange);
     media.addEventListener("change", onThemeChange);
     return () => {
+      stopScrollbars();
       window.removeEventListener("hashchange", onHashChange);
       media.removeEventListener("change", onThemeChange);
     };
@@ -70,7 +76,16 @@
           ? "Settings"
           : undefined}
   >
-    {#if page === "library"}
+    {#snippet header()}
+      {#if page === "home"}<HomeSearch
+          onSearch={(query) => {
+            homeRequest = { query, sequence: homeRequest.sequence + 1 };
+          }}
+        />{/if}
+    {/snippet}
+    {#if page === "home"}
+      <HomePage request={homeRequest} />
+    {:else if page === "library"}
       <LibraryPage />
     {:else if page === "reader"}
       {#key readerId}<ReaderPage documentId={readerId} onBack={() => goTo("library")} />{/key}
