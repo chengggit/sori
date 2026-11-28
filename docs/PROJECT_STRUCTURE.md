@@ -44,7 +44,8 @@ src/
     video/          # playback, subtitles and command wrappers
     dashboard/      # YouTube parsing and IFrame playback helpers
     home/           # Home search, discovery requests and resume helpers
-    youtube/        # typed YouTube command wrappers
+    explore/        # topics, subscriptions and transient browsing state
+    youtube/        # typed commands, shared video cards/grid and link dialog
 native/             # generated sori-node.node (ignored)
 dist/               # generated renderer bundle (ignored)
 release/            # generated installers and checksums (ignored)

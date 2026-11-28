@@ -119,6 +119,16 @@ module.exports = function attachSmokeChecks(window, { app, isDev, smokeHash }) {
         };
       })()`);
         await window.webContents.executeJavaScript(`location.hash = '#/explore'`);
+        for (let attempt = 0; attempt < 20; attempt++) {
+          const ready = await window.webContents.executeJavaScript(
+            'Boolean(document.querySelector("[data-testid=explore-page]"))',
+          );
+          if (ready) break;
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+        await window.webContents.executeJavaScript(`(() => {
+          [...document.querySelectorAll('button')].find(node => node.textContent.trim() === 'Paste video link')?.click();
+        })()`);
         for (let attempt = 0; attempt < 20; attempt += 1) {
           await new Promise((resolve) => setTimeout(resolve, 300));
           const ready = await window.webContents.executeJavaScript(
@@ -133,7 +143,7 @@ module.exports = function attachSmokeChecks(window, { app, isDev, smokeHash }) {
         field.dispatchEvent(new Event('input', { bubbles: true }));
       })()`);
         await window.webContents.executeJavaScript(`(() => {
-        const play = [...document.querySelectorAll('button')].find((node) => node.textContent.trim() === 'Play');
+        const play = [...document.querySelectorAll('button')].find((node) => node.textContent.trim() === 'Open video');
         play?.click();
       })()`);
         await new Promise((resolve) => setTimeout(resolve, 800));

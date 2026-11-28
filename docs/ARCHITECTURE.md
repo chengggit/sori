@@ -84,6 +84,21 @@ HTTPS frames support user-defined lookup templates; third-party response headers
 are preserved. Sites can refuse embedding, so Open in browser remains available.
 Other resource origins, sandboxing and top-level IPC sender checks stay restricted.
 
+## Explore and discovery
+
+Home and Explore share YouTube VideoCard/VideoGrid, MediaHover and the link
+entry dialog. Explore's page only handles presentation and scroll events;
+`lib/explore/state.svelte.ts` owns selection, subscription mutations and a
+short-lived in-memory view snapshot. Canonical subscriptions/settings stay in
+Rust. A snapshot is invalidated after 15 minutes, a configured-key state change,
+or a changed channel list for a feed; it is not a persistent results store.
+
+The shared Discovery model owns search/feed request generations, configuration
+errors, and deduplicated append-only pagination. Search uses one page cursor;
+feeds use per-channel cursors and omit exhausted channels. Repeated response
+cursors stop pagination. Disposed models reject late configuration/results.
+Explore-origin Watch links carry a return destination so Back restores browsing.
+
 ## Reading and analysis
 
 - TXT import: UTF-8, at most 2 MiB; paste-as-text is stored as a TXT document.

@@ -348,3 +348,36 @@ and subtitle-menu captures plus its Watch/Transcript/SubtitleDefinition QML.
   validation runs; the subtitle route was rerun after updating its harness to
   wait for lazy word analysis and expand the compact definition before saving.
   Windows/macOS and live YouTube/helper responses remain unverified locally.
+
+## Step 6 implementation notes
+
+Implemented on `feat/frontend-explore`, stacked on Watch while PRs #49 and #50
+remain unmerged. Accepted by the user for an unmerged PR on 2026-11-28.
+Inspected the running dirty Qt AppImage's
+Explore page, its topic results and QML, plus the old Svelte Explore page.
+
+- Matched the wide Explore frame, search/submit row, eight topic chips and
+  responsive video grid. Home/Explore share VideoCard, VideoGrid, MediaHover and
+  the paste-link dialog; broken thumbnails have a fallback rather than breaking
+  playback links. Added separate Subscriptions management and Your feed controls
+  to retain existing Electron workflows without crowding the topic results.
+- Search/topics and feed call the existing Rust wrappers. Stale/disposed replies
+  are discarded; appending deduplicates videos, retains existing card nodes and
+  uses separate search/per-channel cursors. Scrolling near the end loads more;
+  the Load more button remains available and failures require an explicit retry.
+- Subscription add/remove errors preserve input and the saved list. Refresh reads
+  canonical settings/channels; key editing stays in Settings. Missing keys,
+  bridge/configuration failures, network failures, empty results and empty feeds
+  have distinct feedback. Pasted playback still works without a developer key.
+- Explore-origin Watch links return to Explore. A 15-minute in-memory snapshot
+  retains results, cursor and scroll context; it is cleared by restart and
+  invalidated for key-state/channel changes. Native storage/services are unchanged.
+- Browser visual captures use fixture thumbnails and mocked network results.
+  Live YouTube API results are not part of automated validation.
+- Validation passed: typecheck without warnings, production build, formatting,
+  26 unit tests, Electron security/IPC checks, all 46 browser tests and all 11
+  packaged Linux smoke routes with temporary libraries. Browser coverage checks
+  topics, obsolete responses, empty/error states, pagination retry/deduplication,
+  repeated cursors, subscription failures/mutations, keyless link entry and Watch
+  return context. Captures cover light/dark, narrow windows, zoom and the channel
+  management dialog. Windows/macOS remain unverified locally.
