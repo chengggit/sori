@@ -26,6 +26,7 @@
   const page = $derived(path.split("/")[0] || "home");
   const readerId = $derived(Number(new URLSearchParams(route.split("?")[1] ?? "").get("id")) || 0);
   const watchId = $derived(readerId);
+  const watchYouTubeId = $derived(new URLSearchParams(route.split("?")[1] ?? "").get("v") ?? "");
 
   $effect(() => {
     document.documentElement.classList.toggle("dark", dark);
@@ -104,7 +105,11 @@
     {:else if page === "vocabulary"}
       <VocabularyPage />
     {:else if page === "watch"}
-      {#key watchId}<WatchPage videoId={watchId} onBack={() => goTo("library")} />{/key}
+      {#key `${watchId}:${watchYouTubeId}`}<WatchPage
+          videoId={watchId}
+          youtubeId={watchYouTubeId}
+          onBack={() => goTo(watchYouTubeId ? "home" : "library")}
+        />{/key}
     {:else if page === "explore"}
       <YouTubePage />
     {:else if page === "settings"}

@@ -84,6 +84,7 @@ npm run test:core        # Rust domain tests
 npm run test:native      # Kiwi analysis through the addon
 npm run test:http-bridge # real HTTP client dispatch with offline proxy failures
 npm run test:persistence # CRUD through the bridge on a temp DB
+node scripts/smoke-watch.mjs # Watch transcripts, sidecars and vocabulary on temp DBs
 npm run test:migration   # upgrade the old Tauri schema fixture
 npm run test:unit        # Vitest helpers
 npm run test:electron    # Electron IPC/security regressions (no display)

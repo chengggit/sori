@@ -188,18 +188,66 @@ pub fn invoke(command: &str, payload: &Value) -> Value {
             let path = text(payload, "path")?;
             library()?.save_video_subtitles(id, path)
         })()),
+        "video:readTranscript"
+        | "video:saveTranscript"
+        | "video:removeTranscript"
+        | "video:saveTranscriptPosition" => bridge::reply((|| {
+            let youtube = match text(payload, "kind")?.as_str() {
+                "local" => false,
+                "youtube" => true,
+                _ => return Err("Choose a local video or YouTube transcript.".into()),
+            };
+            match (command, youtube) {
+                ("video:readTranscript", false) => {
+                    library()?.read_video_transcript(number(payload, "id")?)
+                }
+                ("video:readTranscript", true) => {
+                    library()?.read_youtube_transcript(text(payload, "id")?)
+                }
+                ("video:saveTranscript", false) => {
+                    library()?.save_video_transcript(number(payload, "id")?, text(payload, "path")?)
+                }
+                ("video:saveTranscript", true) => library()?
+                    .attach_youtube_transcript(text(payload, "id")?, text(payload, "path")?),
+                ("video:removeTranscript", false) => library()?
+                    .remove_video_transcript(number(payload, "id")?)
+                    .map(|_| Value::Null),
+                ("video:removeTranscript", true) => library()?
+                    .remove_youtube_text_transcript(text(payload, "id")?)
+                    .map(|_| Value::Null),
+                ("video:saveTranscriptPosition", false) => library()?
+                    .save_transcript_position(
+                        number(payload, "id")?,
+                        fraction(payload, "position")?,
+                    )
+                    .map(|_| Value::Null),
+                ("video:saveTranscriptPosition", true) => library()?
+                    .save_youtube_transcript_position(
+                        text(payload, "id")?,
+                        fraction(payload, "position")?,
+                    )
+                    .map(|_| Value::Null),
+                _ => unreachable!(),
+            }
+        })()),
         "vocabulary:save" => bridge::reply((|| {
             let kind = text(payload, "kind")?;
-            let id = number(payload, "id")?;
             let input = input(payload)?;
-            library()?.save_word(kind, id, input)
+            if kind == "youtube" {
+                library()?.save_youtube_word(text(payload, "id")?, text(payload, "title")?, input)
+            } else {
+                library()?.save_word(kind, number(payload, "id")?, input)
+            }
         })()),
         "vocabulary:find" => bridge::reply((|| {
             let kind = text(payload, "kind")?;
-            let id = number(payload, "id")?;
             let word = text(payload, "word")?;
             let context = text(payload, "context")?;
-            library()?.find_word(kind, id, word, context)
+            if kind == "youtube" {
+                library()?.find_youtube_word(text(payload, "id")?, word, context)
+            } else {
+                library()?.find_word(kind, number(payload, "id")?, word, context)
+            }
         })()),
         "vocabulary:edit" => bridge::reply((|| {
             let id = number(payload, "id")?;

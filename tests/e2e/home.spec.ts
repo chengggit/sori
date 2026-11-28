@@ -124,7 +124,7 @@ test("without an API key, local resume and valid pasted links remain available",
     .getByRole("textbox", { name: "YouTube link", exact: true })
     .fill("https://youtu.be/abcdefghij0");
   await page.getByRole("button", { name: "Open video", exact: true }).click();
-  await expect(page).toHaveURL(/#\/explore\?v=abcdefghij0$/);
+  await expect(page).toHaveURL(/#\/watch\?v=abcdefghij0$/);
   await expect(page.getByTestId("youtube-player")).toBeVisible();
 });
 

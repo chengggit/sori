@@ -8,6 +8,7 @@ const commands = Object.freeze([
   "dev:emit",
   "dialog:openDocument",
   "dialog:openVideo",
+  "dialog:openTranscript",
   "video:expose",
   "video:probe",
   "video:track",

@@ -99,7 +99,7 @@ git merge --no-ff feat/frontend-shell
       **Done when:** play/pause, seek, fullscreen, keyboard controls, dual subtitles,
       attachments, transcript seeking/following, word lookup/save and progress work;
       switching videos discards stale results and leaving playback flushes progress.
-      Existing sidecar persistence gaps remain tracked in the migration backlog.
+      Sidecar attachments must restore on reopening.
 
 - [ ] **6. Explore — `feat/frontend-explore`**
       Start from old `src/routes/explore/+page.svelte`: topic browsing and search
@@ -314,3 +314,37 @@ plain-text references. Awaiting user review.
   vocabulary saving, a stored 0.6 reading position, native PDF loading, 25 text
   spans and switching to Scroll. Browser captures use a synthetic three-page PDF
   for navigation/zoom/resize checks. Windows/macOS remain unverified locally.
+
+## Step 5 implementation notes
+
+Implemented on `feat/frontend-watch`, stacked on the unmerged Reader branch so
+PR #49 stays unmerged. Accepted by the user for an unmerged PR on 2026-11-28;
+further polish is deferred. Reference: the running
+`Sori-v0.1.0-dirty-x86_64.AppImage` from the Qt checkout, with windowed/fullscreen
+and subtitle-menu captures plus its Watch/Transcript/SubtitleDefinition QML.
+
+- Matched the centered player column, overlay controls, title and transcript
+  card. CC holds track selectors, subtitle visibility and attachment. Native
+  Chromium playback, volume, fullscreen and guarded keyboard shortcuts remain.
+- Timed transcripts have seeking timestamps, clickable Korean words, active-row
+  highlights and independent scrolling/follow control. Lazy passage analysis
+  avoids analyzing every subtitle before showing the selected track.
+- Caption words pause playback for a compact definition/bookmark popup and can
+  expand into the shared right sidebar. Transcript words open the sidebar.
+  Dismissal resumes only playback that lookup itself paused; fullscreen keeps
+  tools inside the fullscreen element.
+- Exposed existing Rust text-transcript read/attach/position/remove services
+  through the command bridge and added a TXT picker. Sidecar attachments now
+  persist via the existing Rust command and restore on reopening.
+- Home/Explore YouTube links use Watch with native iframe controls, cached/fetched
+  captions, text transcripts and source-specific vocabulary. Live YouTube sites
+  and the optional caption helper remain network-dependent; local browser tests
+  use a fixture adapter. Alternate local audio-track selection is not exposed.
+- Validation passed: typecheck without warnings, build, formatting, 26 unit
+  tests, Electron checks, 39 browser tests, and 63 Rust tests (3 ignored).
+  Native Watch smoke verifies local/YouTube text transcript persistence,
+  replacement/removal, position restoration, vocabulary and saved sidecars in
+  temporary libraries. All 11 packaged Linux smoke routes passed across the
+  validation runs; the subtitle route was rerun after updating its harness to
+  wait for lazy word analysis and expand the compact definition before saving.
+  Windows/macOS and live YouTube/helper responses remain unverified locally.

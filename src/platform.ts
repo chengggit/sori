@@ -35,6 +35,8 @@ const desktopPlatform: Platform = {
         return host.invoke<Response<T>>("dev:emit", payload);
       case "dialog:openDocument":
         return native(() => host.invoke<T>("dialog:openDocument"));
+      case "dialog:openTranscript":
+        return native(() => host.invoke<T>("dialog:openTranscript"));
       case "dialog:openVideo":
         return native(() => host.invoke<T>("dialog:openVideo"));
       case "video:expose":
