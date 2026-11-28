@@ -29,7 +29,10 @@ analyze them and save vocabulary with context. Meanings, notes, and tags can be
 edited later; saving words with your own meaning works offline.
 
 PDFs offer **Book** and **Scroll** views. In Book view, turn pages with the
-arrow buttons; in Scroll view, all pages are listed continuously. Scanned PDFs
+toolbar arrows, Left/Right keys, or the blank left/right halves of a page.
+Book fits the page to the window; Scroll lists wider pages continuously. The
+mode toggle preserves the current page. Use −/+ to zoom, or click the percentage
+to reset it to 100%. Scanned PDFs
 can be viewed, but word selection requires an embedded text layer.
 
 Reading and player progress are saved locally and restored when you reopen an

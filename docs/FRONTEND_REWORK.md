@@ -288,3 +288,29 @@ further visual polish is deferred.
   header, with a slide-in transition and reduced-motion support. Wide windows
   reserve content space; narrow windows overlay the content. The panel no longer
   participates in the centered page's wrapping row.
+
+## Step 4 implementation notes
+
+Implemented on `feat/frontend-reader` using the supplied Qt Book, Scroll and
+plain-text references. Awaiting user review.
+
+- Document title and Library link live in the shell header. Text reads in a
+  centered 780px column without a card or persistent word underlines, with
+  Settings typography and full-height independent scrolling.
+- Adapted the old TokenPassage component for visible-passage analysis. Selection
+  offsets include each passage's document offset; disposed readers discard late
+  replies. The shared vocabulary sidebar preserves the reading session.
+- PDF Book fits the available height; Scroll uses continuous pages up to 920px
+  wide. Toolbar navigation, keyboard arrows, blank-page-half turns, zoom/reset,
+  page retention across mode/size changes, device-pixel-ratio canvas rendering
+  and matched text layers use the existing pdf.js/native protocol.
+- PDF progress uses the current page fraction in both modes so they reopen at
+  the same page. Existing fractional records are interpreted as page fractions;
+  older Scroll records stored scroll fractions, so their first restored page may
+  differ slightly. Scanned PDFs still have no OCR/word selection.
+- Validation: typecheck with no warnings, build, formatting, 26 unit tests and
+  all 32 browser checks passed. Reader/shell checks passed again after guarding
+  incomplete title metadata. Packaged Linux Reader/PDF checks verified real
+  vocabulary saving, a stored 0.6 reading position, native PDF loading, 25 text
+  spans and switching to Scroll. Browser captures use a synthetic three-page PDF
+  for navigation/zoom/resize checks. Windows/macOS remain unverified locally.

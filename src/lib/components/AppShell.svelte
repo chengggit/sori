@@ -76,14 +76,20 @@
         class:max-w-6xl={!["home", "library", "reader", "watch"].includes(page)}
       >
         <Sidebar.Trigger class="md:hidden" />
-        <h1 data-testid="page-title" class="text-lg font-semibold" class:sr-only={page === "home"}>
+        <h1
+          data-testid="page-title"
+          class="text-lg font-semibold"
+          class:sr-only={page === "home" || page === "reader"}
+        >
           {title}
         </h1>
-        {#if page === "home"}{@render header?.()}{/if}
+        {#if page === "home" || page === "reader"}{@render header?.()}{/if}
       </div>
     </header>
     <div
-      class="mx-auto px-4 py-6 sm:px-8"
+      class="mx-auto"
+      class:reader-workspace={page === "reader"}
+      class:page-padding={page !== "reader"}
       class:home-width={["home", "library"].includes(page)}
       class:max-w-6xl={!["home", "library", "reader", "watch"].includes(page)}
     >
@@ -136,6 +142,17 @@
 </Sheet.Root>
 
 <style>
+  .page-padding {
+    padding: 24px 32px;
+  }
+  @media (max-width: 639px) {
+    .page-padding {
+      padding-inline: 16px;
+    }
+  }
+  .reader-workspace {
+    height: calc(var(--app-height) - 3.5rem);
+  }
   .home-width {
     max-width: 1592px;
   }

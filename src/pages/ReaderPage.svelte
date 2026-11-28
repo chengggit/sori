@@ -1,17 +1,21 @@
 <script lang="ts">
-  import { ArrowLeft } from "@lucide/svelte";
   import { onDestroy, onMount, tick } from "svelte";
   import AnalysisSidebar from "$lib/analysis/AnalysisSidebar.svelte";
   import PdfReader from "$lib/reader/PdfReader.svelte";
-  import { Button } from "$lib/components/ui/button";
+  import TokenPassage from "$lib/reader/TokenPassage.svelte";
   import type { Analysis } from "$lib/reader/analysis";
-  import { readingPassages, tokenBlocks } from "$lib/reader/tokens";
+  import { readingPassages } from "$lib/reader/tokens";
   import { trackReadingProgress } from "$lib/reader/progress";
   import { tokenizeText, type KoreanToken } from "$lib/nlp/tokenization";
   import { ui } from "$lib/ui-state.svelte";
-  import { readDocument, saveDocumentProgress, type DocumentView } from "$lib/library/commands";
+  import {
+    readDocument,
+    loadLibraryState,
+    saveDocumentProgress,
+    type DocumentView,
+  } from "$lib/library/commands";
 
-  let { documentId, onBack }: { documentId: number; onBack: () => void } = $props();
+  let { documentId, onTitle }: { documentId: number; onTitle: (title: string) => void } = $props();
 
   type Passage = { text: string; start: number; tokens: KoreanToken[] };
 
@@ -19,15 +23,27 @@
   let passages = $state<Passage[]>([]);
   let selected = $state<Analysis | null>(null);
   let error = $state("");
+  let selectedStart = $state<number>();
+  let selectionRequest = 0;
   let scroller = $state<HTMLElement>();
   let stopTracking: (() => void) | undefined;
 
   let active = true;
   onDestroy(() => {
     active = false;
+    selectionRequest++;
     stopTracking?.();
   });
   onMount(() => {
+    onTitle("");
+    void loadLibraryState().then((reply) => {
+      if (active)
+        onTitle(
+          reply.ok
+            ? (reply.data?.documents?.find((item) => item.id === documentId)?.title ?? "Reader")
+            : "Reader",
+        );
+    });
     void open();
   });
 
@@ -46,16 +62,8 @@
     await tick();
     if (!active) return;
 
-    for (const [index, part] of parts.entries()) {
-      try {
-        const tokens = await tokenizeText(part.text);
-        if (!active) return;
-        passages[index].tokens = tokens;
-      } catch (cause) {
-        error = cause instanceof Error ? cause.message : String(cause);
-        return;
-      }
-    }
+    await window.document.fonts.ready;
+    if (!active) return;
 
     stopTracking = trackReadingProgress(
       scroller!,
@@ -73,6 +81,7 @@
     const passage = passages.find(
       (item) => block.start >= item.start && block.end <= item.start + item.text.length,
     );
+    selectedStart = block.start;
     selected = {
       word: block.text,
       context: (passage?.text ?? block.text).trim(),
@@ -81,10 +90,14 @@
   }
 
   async function analyzePdfWord(word: string) {
+    const request = ++selectionRequest;
     try {
-      selected = { word, context: word, tokens: await tokenizeText(word) };
+      const tokens = await tokenizeText(word);
+      if (!active || request !== selectionRequest) return;
+      selected = { word, context: word, tokens };
     } catch (cause) {
-      error = cause instanceof Error ? cause.message : String(cause);
+      if (active && request === selectionRequest)
+        error = cause instanceof Error ? cause.message : String(cause);
     }
   }
 
@@ -95,45 +108,39 @@
   }
 </script>
 
-<div class="workspace flex flex-col gap-3" class:analysis-open={!!selected}>
-  <Button variant="ghost" onclick={onBack} class="self-start">
-    <ArrowLeft /> Back to library
-  </Button>
-
-  {#if error}
-    <p class="text-sm text-destructive" role="alert" data-testid="reader-error">{error}</p>
+<div class="workspace" class:analysis-open={!!selected}>
+  {#if error}<p class="reader-error text-sm text-destructive" role="alert" data-testid="reader-error">
+      {error}
+    </p>{/if}
+  {#if document?.pdfPath}
+    <div class="pdf-reader" data-testid="pdf-reader">
+      <PdfReader
+        {documentId}
+        position={document.position}
+        onProgress={savePdfProgress}
+        onWord={analyzePdfWord}
+      />
+    </div>
+  {:else}
+    <div
+      bind:this={scroller}
+      data-testid="reader-text"
+      class="text-scroller"
+      style:font-family={ui.readingFont === "noto" ? "var(--font-korean)" : "var(--font-ui)"}
+      style:font-size={`${ui.readerTextSize}px`}
+      style:line-height={`${ui.readerLineHeight}px`}
+    >
+      <article class="text-column" lang="ko">
+        {#each passages as passage (passage.start)}<TokenPassage
+            text={passage.text}
+            start={passage.start}
+            root={scroller}
+            {selectedStart}
+            onToken={analyze}
+          />{/each}
+      </article>
+    </div>
   {/if}
-
-  <div class="flex flex-wrap gap-4">
-    {#if document?.pdfPath}
-      <div class="min-w-0 flex-1" data-testid="pdf-reader">
-        <PdfReader
-          {documentId}
-          position={document.position}
-          onProgress={savePdfProgress}
-          onWord={analyzePdfWord}
-        />
-      </div>
-    {:else}
-      <div
-        bind:this={scroller}
-        data-testid="reader-text"
-        class="h-[60vh] min-w-0 flex-1 overflow-auto rounded-lg border border-border bg-card p-6 whitespace-pre-wrap"
-        style:font-family={ui.readingFont === "noto" ? "var(--font-korean)" : "var(--font-ui)"}
-        style:font-size={`${ui.readerTextSize}px`}
-        style:line-height={`${ui.readerLineHeight}px`}
-      >
-        {#each passages as passage, passageIndex (passageIndex)}{#each tokenBlocks(passage.text, passage.tokens) as block, blockIndex (blockIndex)}{#if block.morphemes.length}<button
-                type="button"
-                data-testid={`token-${block.start}`}
-                class="rounded underline decoration-dotted underline-offset-4 hover:bg-accent-soft"
-                onclick={() => analyze(block)}
-              >
-                {block.text}
-              </button>{:else}<span>{block.text}</span>{/if}{/each}{/each}
-      </div>
-    {/if}
-  </div>
 </div>
 
 {#if selected}
@@ -146,6 +153,31 @@
 {/if}
 
 <style>
+  .workspace {
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .pdf-reader,
+  .text-scroller {
+    flex: 1;
+    min-height: 0;
+  }
+  .text-scroller {
+    overflow: auto;
+  }
+  .text-column {
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 32px 16px 64px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+  .reader-error {
+    padding: 8px 20px;
+  }
+
   @media (min-width: 1100px) {
     .workspace.analysis-open {
       padding-right: 500px;

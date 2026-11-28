@@ -485,7 +485,7 @@ module.exports = function attachSmokeChecks(window, { app, isDev, smokeHash }) {
       }
       if (smokeHash === "reader") {
         const id = await window.webContents.executeJavaScript(`(async () => {
-        await window.sori.invoke('core:invoke', 'document:add', { title: '리더 스모크', content: '학교에 갔어요. '.repeat(60) });
+        await window.sori.invoke('core:invoke', 'document:add', { title: '리더 스모크', content: '학교에 갔어요.\\n\\n'.repeat(160) });
         const state = await window.sori.invoke('core:invoke', 'library:state', {});
         return state.data.documents[0].id;
       })()`);
